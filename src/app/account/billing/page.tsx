@@ -1,1 +1,21 @@
-export default function Page(){return <main className="min-h-screen p-6"><div className="mx-auto max-w-3xl rounded-xl border border-slate-700 bg-slate-900 p-6"><h1 className="text-3xl capitalize">billing</h1><p className="mt-2 text-slate-300">billing settings and information. Free vs paid status and invoice/payment placeholders are shown here for now.</p></div></main>}
+import { PageContainer } from "@/components/layout/PageContainer";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+
+export default function BillingPage() {
+  return (
+    <PageContainer>
+      <Card className="mx-auto max-w-3xl p-6">
+        <h1 className="text-2xl font-semibold">Billing</h1>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Card className="p-4">Current plan: Free</Card>
+          <Card className="p-4">Subscription status: inactive</Card>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button variant="ghost">Manage subscription</Button>
+          <Button>Upgrade plan</Button>
+        </div>
+      </Card>
+    </PageContainer>
+  );
+}

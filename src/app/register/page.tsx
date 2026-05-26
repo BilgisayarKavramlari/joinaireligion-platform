@@ -2,10 +2,45 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { Card } from "@/components/ui/Card";
+import { FormField } from "@/components/ui/FormField";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [acceptedTerms, setAcceptedTerms] = useState(false); const [emailOptIn, setEmailOptIn] = useState(false); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const submit = async (e: React.FormEvent) => { e.preventDefault(); setError(""); setLoading(true); try { const res = await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,acceptedTerms,emailOptIn})}); const data=await res.json(); if(!res.ok){setError(data.error||'Registration failed');return;} router.push(data.next || `/check-email?email=${encodeURIComponent(email)}`);} catch {setError('Network error. Please try again.');} finally{setLoading(false);} };
-  return <main className="min-h-screen p-6"><div className="mx-auto max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6"><h1 className="text-3xl">Create account</h1><form onSubmit={submit} className="mt-4 space-y-3"><input className="w-full rounded bg-slate-950 p-2" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} /><input type="password" className="w-full rounded bg-slate-950 p-2" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} /><label className="block text-sm"><input type="checkbox" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)} className="mr-2"/>I accept the <Link href="/legal/eula" className="underline">terms</Link>.</label><label className="block text-sm"><input type="checkbox" checked={emailOptIn} onChange={e=>setEmailOptIn(e.target.checked)} className="mr-2"/>Receive emails/notifications (<Link href="/legal/email-consent" className="underline">policy</Link>).</label>{error && <p className="text-red-300">{error}</p>}<button disabled={loading} className="w-full rounded bg-violet-600 p-2">{loading?'Creating account...':'Create account'}</button></form><p className="mt-3 text-sm">Have an account? <Link className="underline" href="/login">Login</Link></p></div></main>;
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const res = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, acceptedTerms }) });
+    const data = await res.json();
+    if (!res.ok) setError(data.error || "Registration failed.");
+    else router.push(data.next ?? `/check-email?email=${encodeURIComponent(email)}`);
+    setLoading(false);
+  }
+
+  return (
+    <PageContainer>
+      <Card className="mx-auto max-w-md p-6">
+        <h1 className="text-2xl font-semibold">Create account</h1>
+        <form onSubmit={onSubmit} className="mt-4 space-y-4">
+          <FormField label="Email"><Input value={email} onChange={(e) => setEmail(e.target.value)} /></FormField>
+          <FormField label="Password"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></FormField>
+          <label className="flex items-start gap-2 text-sm text-slate-300"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} /> I accept the <Link href="/legal/eula" className="underline">terms</Link>.</label>
+          {error && <Alert text={error} tone="error" />}
+          <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating..." : "Create account"}</Button>
+        </form>
+        <p className="mt-4 text-sm text-slate-300">Already registered? <Link href="/login" className="underline">Login</Link></p>
+      </Card>
+    </PageContainer>
+  );
 }
