@@ -1,97 +1,65 @@
-"use client";
-
-import Link from "next/link";
-import { useEffect } from "react";
-import { motion } from "framer-motion";
-import MouseSpotlight from "@/components/landing/MouseSpotlight";
-import PremiumHeader, { useLandingLocale } from "@/components/landing/PremiumHeader";
-import JourneyConsole from "@/components/landing/JourneyConsole";
-import FeatureGrid from "@/components/landing/FeatureGrid";
-import HowItWorks from "@/components/landing/HowItWorks";
-import SiteFooter from "@/components/landing/SiteFooter";
-import { getLandingMessages } from "@/lib/landingContent";
+import { Button } from "@/components/ui/Button";
 
 export default function HomePage() {
-  const [locale, setLocale] = useLandingLocale();
-  const t = getLandingMessages(locale);
-
-  useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
+  const features = [
+    "Personalized Symbolic Reflection",
+    "Daily or Weekly Practice Emails",
+    "Journey Levels & Milestones",
+    "AI-Assisted Journaling",
+    "Privacy-Conscious by Design",
+    "Multilingual Experience",
+  ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050816] text-slate-100">
-      <MouseSpotlight />
-      <PremiumHeader locale={locale} setLocale={setLocale} />
+    <main className="min-h-screen px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="home-hero p-5 sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            <div className="space-y-5">
+              <p className="text-xs uppercase tracking-[0.25em] text-amber-200/90">A Reflective Simulation Platform</p>
+              <h1 className="max-w-xl text-4xl font-semibold leading-tight text-slate-100 sm:text-6xl">
+                A symbolic self-discovery journey shaped by reflection, practice, and AI
+              </h1>
+              <p className="max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+                Join AI Religion is a fictional educational platform that uses AI to support journaling,
+                symbolic inquiry, and personal meaning-making through guided practice and reflection.
+              </p>
 
-      <section className="relative isolate">
-        <div className="absolute inset-0 -z-10">
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-[0.08]"
-            style={{ backgroundImage: "url('/images/landing-background-sacred.jpg')" }}
-          />
-          <div className="absolute left-1/2 top-[-200px] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-violet-700/20 blur-3xl" />
-          <div className="absolute right-[-100px] top-[180px] h-[380px] w-[380px] rounded-full bg-cyan-500/12 blur-3xl" />
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:82px_82px]" />
-        </div>
+              <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <strong>Important:</strong> This is not a religion, not a church, not medical care, not psychological treatment,
+                and not a crisis service.
+              </div>
 
-        <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-20 pt-14 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-24 lg:pt-20">
-          <motion.div
-            initial={{ opacity: 0, y: 35 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65 }}
-          >
-            <div className="text-xs uppercase tracking-[0.38em] text-amber-200">
-              {t.hero.eyebrow}
+              <div className="flex flex-wrap gap-3">
+                <Button href="/register">Begin your journey</Button>
+                <Button href="/pricing" variant="ghost">Explore pricing</Button>
+                <Button href="/donate" variant="ghost">Support the project</Button>
+              </div>
             </div>
 
-            <h1 className="mt-5 font-serif text-5xl leading-[1.02] tracking-[-0.04em] text-white sm:text-6xl lg:text-7xl">
-              {t.hero.title}
-            </h1>
-
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300">
-              {t.hero.subtitle}
-            </p>
-
-            <div className="mt-6 max-w-2xl rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-4 text-sm leading-6 text-amber-100">
-              {t.hero.warning}
+            <div className="hero-panel p-4 sm:p-5">
+              <div className="rounded-xl border border-violet-300/20 bg-slate-950/50 p-4">
+                <p className="text-sm uppercase tracking-[0.2em] text-amber-200">Journey Console</p>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-200">
+                  <div className="feature-card p-3"><p className="text-slate-400">Current Level</p><p className="text-xl font-semibold">Seeker</p></div>
+                  <div className="feature-card p-3"><p className="text-slate-400">Daily Streak</p><p className="text-xl font-semibold">7 days</p></div>
+                  <div className="feature-card p-3"><p className="text-slate-400">Reflections</p><p className="text-xl font-semibold">28</p></div>
+                  <div className="feature-card p-3"><p className="text-slate-400">Journal Entries</p><p className="text-xl font-semibold">36</p></div>
+                </div>
+              </div>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link href="/register" className="primary-btn">
-                {t.hero.ctaPrimary}
-              </Link>
-              <Link href="/pricing" className="secondary-btn">
-                {t.hero.ctaSecondary}
-              </Link>
-              <Link href="/donate" className="gold-btn">
-                {t.hero.ctaDonate}
-              </Link>
-            </div>
-          </motion.div>
-
-          <JourneyConsole locale={locale} />
-        </div>
-      </section>
-
-      <FeatureGrid locale={locale} />
-      <HowItWorks locale={locale} />
-
-      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-violet-200/20 bg-gradient-to-r from-violet-950/70 via-slate-950 to-cyan-950/60 p-8 text-center shadow-2xl shadow-black/40">
-          <h2 className="font-serif text-4xl text-white sm:text-5xl">
-            {t.cta.title}
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-slate-300">
-            {t.cta.subtitle}
-          </p>
-          <Link href="/register" className="primary-btn mt-8 inline-flex">
-            {t.cta.button}
-          </Link>
-        </div>
-      </section>
-
-      <SiteFooter locale={locale} />
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {features.map((item) => (
+            <article key={item} className="feature-card p-4">
+              <h3 className="text-lg font-medium text-slate-100">{item}</h3>
+              <p className="mt-2 text-sm text-slate-300">Designed for mindful, educational, reflective exploration.</p>
+            </article>
+          ))}
+        </section>
+      </div>
     </main>
   );
 }
