@@ -103,3 +103,13 @@ docker compose up --build
 - `DATABASE_URL` should continue to use `db:5432` inside the Docker network.
 - Real secrets are configured only in VPS `.env` and must never be committed.
 - Stripe should remain in test/sandbox until production readiness review is completed.
+
+
+## Simulation & Legal Framing
+
+- This project is a fictional, educational, religion-themed **simulation game**.
+- It is not affiliated with or representative of any religion or faith authority.
+- It is not medical care or psychological treatment.
+- Users must review legal pages before use:
+  - `/legal/eula`
+  - `/legal/email-consent`
