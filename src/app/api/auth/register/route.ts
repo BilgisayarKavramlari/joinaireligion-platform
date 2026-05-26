@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createVerification, hashPassword } from "@/lib/auth";
+import { sendVerificationEmail } from "@/lib/email";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function POST(request: Request) {
@@ -14,7 +15,8 @@ export async function POST(request: Request) {
 
     await db.user.create({ data: { email, passwordHash: hashPassword(password), acceptedTermsAt: new Date(), emailOptIn: Boolean(emailOptIn) } });
     const token = await createVerification(email);
-    return NextResponse.json({ ok: true, next: `/check-email?email=${encodeURIComponent(email)}`, tokenPreview: token.slice(0, 6) });
+    const emailResult = await sendVerificationEmail(email, token);
+    return NextResponse.json({ ok: true, next: `/check-email?email=${encodeURIComponent(email)}`, emailDelivery: emailResult });
   } catch (error) {
     console.error("register_error", { message: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json({ error: "Registration failed. Please try again." }, { status: 500 });

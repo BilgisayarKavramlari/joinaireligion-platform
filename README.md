@@ -123,3 +123,6 @@ docker compose up --build
 - Added login, forgot-password, reset-password, and verify-email pages.
 - Added account pages: `/account`, `/account/profile`, `/account/preferences`, `/account/security`, `/account/billing`, `/account/invoices`.
 - Added multilingual UI foundation (en,tr,es,de,fr) and header language switcher.
+
+- Donation page: `/donate` with custom Stripe Checkout amount (3-5000 USD).
+- Resend verification email support with clear fallback when provider config is missing.

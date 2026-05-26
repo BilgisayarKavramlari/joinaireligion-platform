@@ -8,7 +8,7 @@ export function getAdminEmails(): string[] {
 export async function requireAdminAccess() {
   const h = await headers();
   const email = h.get("x-admin-email")?.toLowerCase();
-  if (!email || !getAdminEmails().includes(email)) throw new Error("Forbidden");
+  if (!email || !getAdminEmails().includes(email)) throw new Error("FORBIDDEN_ADMIN");
   return email;
 }
 

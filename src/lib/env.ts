@@ -16,6 +16,7 @@ export const env = {
   STRIPE_PRICE_INITIATE_MONTHLY: readEnv("STRIPE_PRICE_INITIATE_MONTHLY"),
   ADMIN_EMAILS: readEnv("ADMIN_EMAILS"),
   INTERNAL_AGENT_API_KEY: readEnv("INTERNAL_AGENT_API_KEY"),
+  EMAIL_FROM: readEnv("EMAIL_FROM"),
 };
 
 export function requireEnv(key: keyof typeof env): string {

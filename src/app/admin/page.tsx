@@ -1,8 +1,10 @@
+export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import { requireAdminAccess } from "@/lib/admin";
+import { redirect } from "next/navigation";
 
 export default async function AdminHome() {
-  await requireAdminAccess();
+  try { await requireAdminAccess(); } catch { redirect("/forbidden"); }
   const [totalUsers, verifiedUsers, onboardingCompletedUsers, freeUsers, paidUsers, activeSubscriptions, canceledSubscriptions, dailyAiQueryCount, weeklyAiQueryCount, totalEmailSends, failedEmailSends, recentRegistrations, recentStripeEvents, recentAiDialogueLogs, recentChecklistWarnings] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { emailVerifiedAt: { not: null } } }),

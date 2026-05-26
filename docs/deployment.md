@@ -94,3 +94,8 @@ This project intentionally avoids automatic deployment workflows at this stage.
 
 - Configure email provider keys in VPS `.env` to enable real verification/password-reset email delivery.
 - Without provider keys, APIs return safe fallback responses and do not send real messages.
+
+## Stripe Customer Portal
+
+- Enable Customer Portal in Stripe dashboard.
+- App endpoint: `POST /api/stripe/create-portal-session` for authenticated users with Stripe customer id.
