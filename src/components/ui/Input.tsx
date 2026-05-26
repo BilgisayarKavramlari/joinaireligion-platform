@@ -1,0 +1,1 @@
+export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) { return <input {...props} className={`w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white outline-none focus:border-violet-400 ${props.className || ""}`} />; }

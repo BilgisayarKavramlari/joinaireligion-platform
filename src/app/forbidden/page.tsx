@@ -1,0 +1,1 @@
+export default function Page(){return <main className="min-h-screen p-6"><div className="mx-auto max-w-lg rounded-xl border border-red-500/30 bg-red-500/10 p-6"><h1 className="text-3xl">403 Forbidden</h1><p className="mt-2">You do not have permission to access this admin area.</p></div></main>;}
