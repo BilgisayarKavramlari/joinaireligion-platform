@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function Page(){return <main className="min-h-screen p-6"><div className="mx-auto max-w-4xl space-y-4"><h1 className="text-3xl">Account</h1><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{['profile','preferences','security','billing','invoices'].map(x=><Link key={x} href={`/account/${x}`} className="rounded-xl border border-slate-700 bg-slate-900 p-4 capitalize hover:bg-slate-800">{x}</Link>)}</div></div></main>}
