@@ -1,12 +1,11 @@
-version: "3.9"
-
 services:
   app:
+    container_name: joinaireligion_app
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3001:3000"
     env_file:
       - .env
     depends_on:
@@ -15,13 +14,12 @@ services:
     restart: unless-stopped
 
   db:
+    container_name: joinaireligion_db
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: joinaireligion
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

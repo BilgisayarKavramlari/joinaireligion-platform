@@ -94,3 +94,12 @@ docker compose up --build
 - Add Stripe subscription lifecycle.
 - Add usage quota enforcement for AI queries.
 - Add observability, tests, and moderation pipeline.
+
+
+## Production Docker Networking Notes
+
+- App is bound to localhost only (`127.0.0.1:3001:3000`) for reverse proxy usage.
+- Docker Postgres is internal-only in compose and does **not** publish port `5432` to host.
+- `DATABASE_URL` should continue to use `db:5432` inside the Docker network.
+- Real secrets are configured only in VPS `.env` and must never be committed.
+- Stripe should remain in test/sandbox until production readiness review is completed.
