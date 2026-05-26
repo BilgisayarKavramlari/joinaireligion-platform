@@ -1,0 +1,1 @@
+export default function Page(){return <main className="min-h-screen p-6"><div className="mx-auto max-w-3xl rounded-xl border border-slate-700 bg-slate-900 p-6"><h1 className="text-3xl capitalize">preferences</h1><p className="mt-2 text-slate-300">preferences settings and information. Free vs paid status and invoice/payment placeholders are shown here for now.</p></div></main>}
