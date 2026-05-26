@@ -14,3 +14,5 @@ Routes:
 Internal review endpoints (key-protected):
 - /api/internal/activity-summary
 - /api/internal/dialogue-summary
+
+Auth pages now include registration, login, forgot/reset password, and verify-email flows.

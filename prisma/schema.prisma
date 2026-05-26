@@ -42,6 +42,11 @@ model User {
   id                      String             @id @default(cuid())
   email                   String             @unique
   displayName             String?
+  passwordHash            String?
+  acceptedTermsAt         DateTime?
+  preferredLocale         String             @default("en")
+  preferredEmailLocale    String             @default("en")
+  avatarUrl               String?
   role                    UserRole           @default(USER)
   emailVerifiedAt         DateTime?
   lastLoginAt             DateTime?
@@ -62,6 +67,7 @@ model User {
   emailLogs               EmailLog[]
   activityLogs            UserActivityLog[]
   dialogues               AiDialogue[]
+  invoices                InvoiceRecord[]
 }
 
 model EarlyAccessLead {
@@ -233,4 +239,41 @@ model AiDialogue {
 
   @@index([userId, createdAt])
   @@index([conversationId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, expiresAt])
+}
+
+model InvoiceRecord {
+  id                String   @id @default(cuid())
+  userId            String
+  providerInvoiceId String?  @unique
+  status            String
+  amountCents       Int?
+  currency          String?
+  hostedInvoiceUrl  String?
+  invoicePdfUrl     String?
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

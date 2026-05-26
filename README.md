@@ -116,3 +116,10 @@ docker compose up --build
 
 - Admin features and prompt education pages are included (MVP read-only admin guard).
 - Prompt guide page: `/prompt-guide` includes checklist, character limit (2000), and safety disclaimers.
+
+## Auth and Account UX
+
+- Registration now submits to backend API with validation, clear loading/error/success states, and check-email continuation flow.
+- Added login, forgot-password, reset-password, and verify-email pages.
+- Added account pages: `/account`, `/account/profile`, `/account/preferences`, `/account/security`, `/account/billing`, `/account/invoices`.
+- Added multilingual UI foundation (en,tr,es,de,fr) and header language switcher.

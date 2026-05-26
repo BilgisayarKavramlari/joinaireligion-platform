@@ -89,3 +89,8 @@ This project intentionally avoids automatic deployment workflows at this stage.
 - `ADMIN_EMAILS` controls placeholder admin access allowlist (comma-separated emails).
 - `INTERNAL_AGENT_API_KEY` protects internal summary endpoints.
 - Set real values only in VPS `.env` and never commit secrets.
+
+## Auth/Email setup
+
+- Configure email provider keys in VPS `.env` to enable real verification/password-reset email delivery.
+- Without provider keys, APIs return safe fallback responses and do not send real messages.

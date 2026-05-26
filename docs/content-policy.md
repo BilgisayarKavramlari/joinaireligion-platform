@@ -36,3 +36,5 @@ The platform is not:
 - Reflective guidance must remain non-coercive and non-authoritarian.
 - No prophetic certainty language or manipulative pressure tactics.
 - Prompt logs and dialogue summaries are used for safety and quality improvement with privacy-conscious handling.
+
+- Authentication and onboarding UIs must clearly reiterate educational/fictional scope and non-authority disclaimer.
