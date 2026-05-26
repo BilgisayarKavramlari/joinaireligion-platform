@@ -1,0 +1,44 @@
+# docker-compose.dev.yml
+# Yerel geliştirme ortamı için Docker Compose konfigürasyonu.
+# Kullanım:
+#   Tam stack (Docker ile):  docker compose -f docker-compose.dev.yml up --build
+#   Sadece DB:               docker compose -f docker-compose.dev.yml up db -d
+#
+# Fark: db servisinin portu dışarıya açık (5432:5432), böylece
+# `npm run dev` ile yerel Next.js sunucusu DB'ye erişebilir.
+
+services:
+  app:
+    container_name: joinaireligion_app_dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    container_name: joinaireligion_db_dev
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: joinaireligion
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d joinaireligion"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:
