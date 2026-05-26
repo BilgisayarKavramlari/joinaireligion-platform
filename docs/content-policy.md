@@ -30,3 +30,9 @@ The platform is not:
 ## Future Moderation
 
 - Add policy filtering and escalation flow before public launch.
+
+## Personalization and Prompt Safety
+
+- Reflective guidance must remain non-coercive and non-authoritarian.
+- No prophetic certainty language or manipulative pressure tactics.
+- Prompt logs and dialogue summaries are used for safety and quality improvement with privacy-conscious handling.

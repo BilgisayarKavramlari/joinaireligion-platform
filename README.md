@@ -113,3 +113,6 @@ docker compose up --build
 - Users must review legal pages before use:
   - `/legal/eula`
   - `/legal/email-consent`
+
+- Admin features and prompt education pages are included (MVP read-only admin guard).
+- Prompt guide page: `/prompt-guide` includes checklist, character limit (2000), and safety disclaimers.

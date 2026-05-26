@@ -83,3 +83,9 @@ This project intentionally avoids automatic deployment workflows at this stage.
 
 - Use test keys during staging and initial validation.
 - Switch to production Stripe keys only after readiness/security review.
+
+## Admin/Internal API keys
+
+- `ADMIN_EMAILS` controls placeholder admin access allowlist (comma-separated emails).
+- `INTERNAL_AGENT_API_KEY` protects internal summary endpoints.
+- Set real values only in VPS `.env` and never commit secrets.

@@ -14,6 +14,22 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ActivityEventType {
+  USER
+  PROMPT
+  AI
+  BILLING
+  EMAIL
+  ADMIN
+  SYSTEM
+}
+
 enum PracticeType {
   JOURNAL
   MEDITATION
@@ -23,39 +39,49 @@ enum PracticeType {
 }
 
 model User {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  displayName     String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  profile         UserProfile?
-  onboarding      OnboardingAnswer[]
-  queries         AiQuery[]
-  quota           QueryQuota?
-  subscription    Subscription?
-  practiceLogs    UserPracticeLog[]
-  journeyLevels   JourneyLevel[]
-  emailLogs       EmailLog[]
+  id                      String             @id @default(cuid())
+  email                   String             @unique
+  displayName             String?
+  role                    UserRole           @default(USER)
+  emailVerifiedAt         DateTime?
+  lastLoginAt             DateTime?
+  lastActivityAt          DateTime?
+  emailOptIn              Boolean            @default(false)
+  emailFrequency          String             @default("weekly")
+  unsubscribeToken        String?            @unique
+  lastPracticeEmailSentAt DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  profile                 UserProfile?
+  onboarding              OnboardingAnswer[]
+  queries                 AiQuery[]
+  quota                   QueryQuota?
+  subscription            Subscription?
+  practiceLogs            UserPracticeLog[]
+  journeyLevels           JourneyLevel[]
+  emailLogs               EmailLog[]
+  activityLogs            UserActivityLog[]
+  dialogues               AiDialogue[]
 }
 
 model EarlyAccessLead {
-  id          String   @id @default(cuid())
-  email       String   @unique
+  id          String    @id @default(cuid())
+  email       String    @unique
   source      String?
   notes       String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   contactedAt DateTime?
 }
 
 model UserProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  bio         String?
-  intent      String?
-  timezone    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  bio       String?
+  intent    String?
+  timezone  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model OnboardingAnswer {
@@ -70,87 +96,141 @@ model OnboardingAnswer {
 }
 
 model AiQuery {
-  id           String   @id @default(cuid())
-  userId       String
-  prompt       String
-  response     String?
-  tokensUsed   Int?
-  latencyMs    Int?
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  prompt     String
+  response   String?
+  tokensUsed Int?
+  latencyMs  Int?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
 
 model QueryQuota {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  periodStart      DateTime
-  periodEnd        DateTime
-  usedQueries      Int      @default(0)
-  maxQueries       Int      @default(50)
-  lastResetAt      DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  periodStart DateTime
+  periodEnd   DateTime
+  usedQueries Int      @default(0)
+  maxQueries  Int      @default(50)
+  lastResetAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StripeWebhookEvent {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  eventType String
+  status    String?
+  payload   Json?
+  createdAt DateTime @default(now())
 }
 
 model Subscription {
-  id                 String             @id @default(cuid())
-  userId             String             @unique
-  providerCustomerId String?
-  providerPlanId     String?
-  status             SubscriptionStatus @default(TRIAL)
-  currentPeriodEnd   DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                     String             @id @default(cuid())
+  userId                 String             @unique
+  providerCustomerId     String?
+  providerPlanId         String?
+  providerSubscriptionId String?
+  providerPriceId        String?
+  providerProductId      String?
+  lastPaymentStatus      String?
+  canceledAt             DateTime?
+  trialEndsAt            DateTime?
+  status                 SubscriptionStatus @default(TRIAL)
+  currentPeriodEnd       DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Practice {
-  id          String           @id @default(cuid())
-  slug        String           @unique
+  id          String            @id @default(cuid())
+  slug        String            @unique
   title       String
   description String
   type        PracticeType
-  isPublished Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  isPublished Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   logs        UserPracticeLog[]
 }
 
 model UserPracticeLog {
-  id            String    @id @default(cuid())
-  userId        String
-  practiceId    String
-  notes         String?
-  durationMins  Int?
-  completedAt   DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  practice      Practice  @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  userId       String
+  practiceId   String
+  notes        String?
+  durationMins Int?
+  completedAt  DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practice     Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   @@index([userId, completedAt])
   @@index([practiceId])
 }
 
 model JourneyLevel {
-  id            String   @id @default(cuid())
-  userId        String
-  level         Int      @default(1)
-  label         String
-  unlockedAt    DateTime @default(now())
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  level      Int      @default(1)
+  label      String
+  unlockedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, level])
 }
 
 model EmailLog {
-  id             String   @id @default(cuid())
-  userId         String
-  template       String
-  status         String
-  providerMsgId  String?
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String
+  template      String
+  status        String
+  providerMsgId String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+model UserActivityLog {
+  id                 String            @id @default(cuid())
+  userId             String?
+  anonymousSessionId String?
+  eventType          ActivityEventType
+  eventName          String
+  path               String?
+  method             String?
+  metadata           Json?
+  ipHash             String?
+  userAgent          String?
+  createdAt          DateTime          @default(now())
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AiDialogue {
+  id                String   @id @default(cuid())
+  userId            String
+  conversationId    String
+  userPrompt        String
+  assistantResponse String?
+  promptCharCount   Int
+  model             String?
+  tokensInput       Int?
+  tokensOutput      Int?
+  totalTokens       Int?
+  latencyMs         Int?
+  safetyFlags       Json?
+  checklistSnapshot Json?
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([conversationId])
 }
