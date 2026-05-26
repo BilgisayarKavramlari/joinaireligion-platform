@@ -1,8 +1,18 @@
 # Admin Dashboard (MVP)
 
-Admin routes are read-only and protected by a server-side placeholder guard using `ADMIN_EMAILS`.
+Güvenlik nedeniyle repoya **default admin şifresi** yazılmaz.
 
-Routes:
+## Güvenli ilk admin kurulumu
+1. VPS `.env` içine `ADMIN_EMAILS="admin@shedai.net"` ekleyin.
+2. Bu email ile normal register akışından kullanıcı oluşturun.
+3. İsterseniz DB üzerinden rolü `ADMIN` / `SUPER_ADMIN` yapın.
+
+Örnek SQL:
+```sql
+UPDATE "User" SET role='ADMIN' WHERE email='admin@shedai.net';
+```
+
+## Rotalar
 - /admin
 - /admin/users
 - /admin/users/[id]
@@ -11,14 +21,4 @@ Routes:
 - /admin/dialogues
 - /admin/stats
 
-Internal review endpoints (key-protected):
-- /api/internal/activity-summary
-- /api/internal/dialogue-summary
-
-Auth pages now include registration, login, forgot/reset password, and verify-email flows.
-
-## Safe admin bootstrap
-
-- No default admin password exists.
-- Add initial allowlist with `ADMIN_EMAILS` in VPS `.env`.
-- Register with allowlisted email, then optionally set `User.role = ADMIN` or `SUPER_ADMIN` in DB.
+Yetkisiz kullanıcılar `/forbidden` (403) sayfasına yönlendirilir.
