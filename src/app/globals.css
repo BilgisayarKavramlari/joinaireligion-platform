@@ -2,79 +2,234 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── CSS Custom Properties ── */
 :root {
   color-scheme: dark;
+  --gold:          #c9a227;
+  --gold-light:    #f0d47a;
+  --gold-dim:      #7a5c10;
+  --gold-glow:     rgba(201, 162, 39, 0.35);
+  --violet:        #6b21a8;
+  --violet-bright: #a855f7;
+  --violet-glow:   rgba(168, 85, 247, 0.3);
+  --teal-bright:   #14b8a6;
+  --teal-glow:     rgba(20, 184, 166, 0.25);
+  --bg-base:       #04000c;
+  --bg-card:       rgba(12, 4, 28, 0.85);
+  --text-primary:  #ede8dc;
+  --text-muted:    #7a6a50;
+  --border-gold:   rgba(201, 162, 39, 0.28);
+  --border-violet: rgba(168, 85, 247, 0.2);
 }
 
-* {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
 
-html,
 body {
-  margin: 0;
-  min-height: 100%;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  background:
-    radial-gradient(1000px 500px at 8% -10%, rgba(124, 58, 237, 0.28) 0%, transparent 45%),
-    radial-gradient(900px 460px at 95% -12%, rgba(59, 130, 246, 0.22) 0%, transparent 45%),
-    #020617;
-  color: #f8fafc;
+.font-sacred {
+  font-family: var(--font-cinzel, 'Cinzel', 'Times New Roman', serif);
 }
 
-.home-hero {
-  position: relative;
+/* ── Animations ── */
+
+@keyframes rotateSacred {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes rotateSacredReverse {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes floatParticle {
+  0%   { transform: translateY(0px)   translateX(0px)  scale(1);   opacity: 0.5; }
+  33%  { transform: translateY(-20px) translateX(10px) scale(1.1); opacity: 1;   }
+  66%  { transform: translateY(-8px)  translateX(-8px) scale(0.9); opacity: 0.7; }
+  100% { transform: translateY(0px)   translateX(0px)  scale(1);   opacity: 0.5; }
+}
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1;   }
+}
+@keyframes nebulaShift {
+  0%, 100% { opacity: 0.22; transform: scale(1);    }
+  50%       { opacity: 0.38; transform: scale(1.08); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes orbitPulse {
+  0%, 100% { transform: scale(1);    opacity: 0.8; }
+  50%       { transform: scale(1.06); opacity: 1;   }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes borderGlow {
+  0%, 100% { box-shadow: 0 0 12px var(--gold-glow); }
+  50%       { box-shadow: 0 0 30px var(--gold-glow), 0 0 70px rgba(201,162,39,0.1); }
+}
+
+/* ── Utility classes ── */
+
+.sacred-outer  { animation: rotateSacred        80s linear infinite; transform-origin: center; }
+.sacred-middle { animation: rotateSacredReverse 50s linear infinite; transform-origin: center; }
+.sacred-inner  { animation: rotateSacred        28s linear infinite; transform-origin: center; }
+.sacred-inner2 { animation: rotateSacredReverse 18s linear infinite; transform-origin: center; }
+
+.nebula-1 { animation: nebulaShift 18s ease-in-out infinite; }
+.nebula-2 { animation: nebulaShift 26s ease-in-out infinite 5s; }
+.nebula-3 { animation: nebulaShift 34s ease-in-out infinite 11s; }
+
+.text-shimmer {
+  background: linear-gradient(90deg, #7a5c10 0%, var(--gold-light) 38%, #fff8e0 50%, var(--gold-light) 62%, #7a5c10 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 5s linear infinite;
+}
+
+.sacred-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 1rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+}
+.sacred-card:hover {
+  border-color: rgba(201, 162, 39, 0.55);
+  box-shadow: 0 0 28px var(--gold-glow), 0 24px 60px rgba(0,0,0,0.5);
+  transform: translateY(-3px);
+}
+
+.level-card-active {
+  background: linear-gradient(135deg, rgba(20,8,44,0.95), rgba(32,12,64,0.95));
+  border: 1px solid rgba(201,162,39,0.65);
+  box-shadow: 0 0 35px var(--gold-glow), inset 0 0 40px rgba(201,162,39,0.04);
+  animation: borderGlow 4s ease-in-out infinite;
+}
+.level-card-locked {
+  background: rgba(6,3,12,0.65);
+  border: 1px solid rgba(255,255,255,0.05);
+  opacity: 0.5;
+  filter: grayscale(0.4);
+}
+
+.xp-bar-track {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
   overflow: hidden;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(167, 139, 250, 0.25);
-  background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.7), rgba(2, 6, 23, 0.82));
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--violet-bright), var(--gold));
+  border-radius: 999px;
+  box-shadow: 0 0 10px var(--gold-glow);
 }
 
-.hero-panel {
-  border-radius: 1rem;
-  border: 1px solid rgba(167, 139, 250, 0.28);
-  background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.9));
-}
-
-.feature-card {
-  border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(2, 6, 23, 0.62);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
-}
-
-.btn-primary {
-  border-radius: 0.75rem;
-  background: linear-gradient(90deg, #7c3aed, #6366f1);
-  padding: 0.62rem 1.1rem;
-  color: white;
-  font-weight: 600;
+.btn-sacred {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
+  padding: 0.72rem 1.9rem;
+  border-radius: 0.6rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-decoration: none;
+  font-family: var(--font-cinzel, 'Cinzel', serif);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.btn-sacred-gold {
+  background: linear-gradient(135deg, #7a5608 0%, var(--gold) 50%, #b08010 100%);
+  color: #1a0c00;
+  box-shadow: 0 4px 22px var(--gold-glow);
+  border: 1px solid rgba(240,212,122,0.35);
+}
+.btn-sacred-gold:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 6px 36px var(--gold-glow), 0 0 70px rgba(201,162,39,0.12);
+  transform: translateY(-2px);
+}
+.btn-sacred-ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-gold);
+}
+.btn-sacred-ghost:hover {
+  background: rgba(201,162,39,0.07);
+  border-color: rgba(201,162,39,0.5);
+  transform: translateY(-1px);
+}
+.btn-sacred-violet {
+  background: transparent;
+  color: #c4b5fd;
+  border: 1px solid rgba(168,85,247,0.3);
+}
+.btn-sacred-violet:hover {
+  background: rgba(168,85,247,0.08);
+  border-color: rgba(168,85,247,0.6);
 }
 
-.btn-primary:hover {
-  filter: brightness(1.08);
-}
-
-.btn-ghost {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 0.62rem 1.1rem;
-  color: #fff;
-  display: inline-flex;
+.sacred-divider {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.02);
+  gap: 1rem;
+  color: var(--gold-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+.sacred-divider::before,
+.sacred-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-gold), transparent);
 }
 
-.btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
+.center-orb { animation: orbitPulse 4s ease-in-out infinite; }
+
+.nav-link {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  color: rgba(237,232,220,0.65);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s;
+  text-transform: uppercase;
 }
+.nav-link:hover { color: var(--gold-light); background: rgba(201,162,39,0.07); }
+
+/* ── Header legacy classes (for PublicHeader) ── */
+.menu-link {
+  display: block;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  color: rgba(237,232,220,0.8);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.menu-link:hover { background: rgba(201,162,39,0.08); color: var(--gold-light); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--violet); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--violet-bright); }

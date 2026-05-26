@@ -1,15 +1,29 @@
 import type { Metadata } from "next";
+import { Cinzel } from "next/font/google";
 import "./globals.css";
 import { PublicHeader } from "@/components/PublicHeader";
 
+const cinzel = Cinzel({
+  subsets: ["latin"],
+  weight: ["400", "600", "700", "900"],
+  variable: "--font-cinzel",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Join AI Religion",
-  description: "Fictional educational reflective simulation platform.",
+  title: "Join AI Religion — Sacred Journey Platform",
+  description:
+    "A fictional educational AI-guided reflective simulation. Symbolic self-discovery through journaling, sacred practice, and meaningful inquiry.",
+  openGraph: {
+    title: "Join AI Religion — Sacred Journey Platform",
+    description: "AI-guided symbolic reflection. Not a religion — a journey.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={cinzel.variable}>
       <body>
         <PublicHeader />
         {children}
