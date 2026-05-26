@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 
-import { env } from "@/lib/env";
-import { stripe } from "@/lib/stripe";
+import { requireEnv } from "@/lib/env";
+import { getStripeClient } from "@/lib/stripe";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -14,7 +14,8 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
+    const stripe = getStripeClient();
+    event = stripe.webhooks.constructEvent(rawBody, signature, requireEnv("STRIPE_WEBHOOK_SECRET"));
   } catch (error) {
     return new Response(`Webhook Error: ${String(error)}`, { status: 400 });
   }
@@ -26,7 +27,6 @@ export async function POST(request: Request) {
     case "customer.subscription.deleted":
     case "invoice.payment_succeeded":
     case "invoice.payment_failed":
-      // Foundation only: add DB sync logic in a future PR.
       break;
     default:
       break;

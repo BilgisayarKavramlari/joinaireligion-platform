@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
-import { getPriceIdForPlan, stripe } from "@/lib/stripe";
-
-type Plan = "seeker" | "initiate";
+import { getPriceIdForPlan, getStripeClient, type StripePlan } from "@/lib/stripe";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { plan?: Plan; email?: string };
+    const body = (await request.json()) as { plan?: StripePlan; email?: string };
     const plan = body.plan;
 
     if (plan !== "seeker" && plan !== "initiate") {
       return NextResponse.json({ error: "Invalid plan. Use seeker or initiate." }, { status: 400 });
     }
 
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: getPriceIdForPlan(plan), quantity: 1 }],
