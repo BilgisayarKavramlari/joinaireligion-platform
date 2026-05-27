@@ -1,10 +1,20 @@
 export const dynamic = "force-dynamic";
 
 import { db } from "@/lib/db";
-import { requireAdminAccess } from "@/lib/admin";
+import { requireAdminSession } from "@/lib/admin";
+
+type DialogueRow = {
+  conversationId:    string;
+  promptCharCount:   number;
+  checklistSnapshot: unknown;
+  safetyFlags:       unknown;
+  assistantResponse: string | null;
+  createdAt:         Date;
+  user:              { email: string };
+};
 
 export default async function Page() {
-  await requireAdminAccess();
+  await requireAdminSession();
 
   const rows = await db.aiDialogue.findMany({
     take: 150,
@@ -12,7 +22,7 @@ export default async function Page() {
     include: { user: { select: { email: true } } },
   });
 
-  const data = rows.map((r) => ({
+  const data = rows.map((r: DialogueRow) => ({
     conversationId:    r.conversationId,
     userEmail:         r.user.email,
     promptLength:      r.promptCharCount,

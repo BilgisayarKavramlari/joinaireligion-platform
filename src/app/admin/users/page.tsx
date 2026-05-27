@@ -2,10 +2,20 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireAdminAccess } from "@/lib/admin";
+import { requireAdminSession } from "@/lib/admin";
+type UserRow = {
+  id:              string;
+  email:           string;
+  displayName:     string | null;
+  role:            string;
+  emailVerifiedAt: Date | null;
+  subscription:    { status: string } | null;
+  profile:         unknown;
+  quota:           unknown;
+};
 
 export default async function Page() {
-  await requireAdminAccess();
+  await requireAdminSession();
 
   const users = await db.user.findMany({
     take: 100,
@@ -17,7 +27,7 @@ export default async function Page() {
     <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
       <h1 className="mb-4 text-2xl font-semibold">Users</h1>
       <div className="space-y-1">
-        {users.map((u) => (
+        {users.map((u: UserRow) => (
           <div key={u.id} className="border-b border-slate-700 py-2 text-sm">
             <Link href={`/admin/users/${u.id}`} className="text-violet-400 hover:underline">
               {u.email}

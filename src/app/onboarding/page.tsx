@@ -1,0 +1,318 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+
+const QUESTIONS = [
+  {
+    key: "tradition",
+    text: "What is your spiritual background or primary tradition?",
+    hint: "Select the path closest to your upbringing or current orientation.",
+    type: "select",
+    options: ["Christianity","Islam","Judaism","Buddhism","Hinduism","Taoism","Sufism","Hermeticism / Esotericism","Shamanism / Indigenous","Rationalism / Secular","Agnostic / Uncertain","Atheism","Other / Eclectic"],
+  },
+  {
+    key: "relationship",
+    text: "How would you describe your relationship with spirituality right now?",
+    hint: "Be honest — there is no wrong answer here.",
+    type: "select",
+    options: ["Deeply committed and practicing","Curious but not yet committed","Questioning my inherited tradition","Exploring new perspectives","Skeptical but open","Disconnected — looking for meaning","Returning after a period away","Just starting for the first time"],
+  },
+  {
+    key: "draw",
+    text: "What draws you to explore this path at this moment in your life?",
+    hint: "Write freely — this is for your eyes and your guide.",
+    type: "textarea",
+  },
+  {
+    key: "conflict",
+    text: "When you face inner conflict or difficulty, what is your first instinct?",
+    hint: "Think of a real recent example if it helps.",
+    type: "select",
+    options: ["Seek solitude and reflect","Talk it through with someone I trust","Distract myself with activity","Pray, meditate, or engage in practice","Analyze the situation logically","Push through and keep moving","Seek guidance from a text or teaching","Surrender to what is"],
+  },
+  {
+    key: "higher_power",
+    text: "How do you relate to the concept of a higher power, source, or ultimate reality?",
+    hint: "Express this in your own terms — there is no required answer.",
+    type: "textarea",
+  },
+  {
+    key: "practice",
+    text: "What practice or discipline, if any, do you already maintain?",
+    hint: "Meditation, prayer, journaling, ritual, exercise, study — anything counts.",
+    type: "select",
+    options: ["Daily meditation or contemplation","Regular prayer or devotion","Journaling or self-reflection writing","Study of sacred or philosophical texts","Yoga or body-based practice","Community ritual or worship","None yet — I am beginning","Multiple practices"],
+  },
+  {
+    key: "obstacle",
+    text: "What is the greatest obstacle in your inner life that you wish to overcome?",
+    hint: "Doubt, fear, restlessness, pride, grief, confusion — name it honestly.",
+    type: "textarea",
+  },
+  {
+    key: "awakening",
+    text: "What does 'awakening' or 'inner growth' mean to you in your own words?",
+    hint: "Your definition matters — not any tradition's definition.",
+    type: "textarea",
+  },
+  {
+    key: "silence",
+    text: "How comfortable are you with silence and solitude?",
+    hint: "Consider how you feel when left alone without distraction.",
+    type: "select",
+    options: ["Very comfortable — I seek it","Somewhat comfortable","Neutral","Slightly uncomfortable — my mind races","Quite uncomfortable","I actively avoid it"],
+  },
+  {
+    key: "community",
+    text: "What role does community and shared ritual play in your life?",
+    hint: "Community does not need to be religious — it can be any gathering of meaning.",
+    type: "select",
+    options: ["Central — I cannot grow without others","Important but not essential","Nice to have occasionally","Not important for my path","I prefer to walk alone","I have not yet found my community"],
+  },
+  {
+    key: "meaning_channel",
+    text: "How do you most naturally experience meaning or truth?",
+    hint: "Which channel feels most alive for you?",
+    type: "select",
+    options: ["Through reason, logic and inquiry","Through emotion and felt experience","Through the body — sensation, movement","Through imagination, symbols and dreams","Through direct silence or awareness","Through relationships and love","Through nature and the cosmos","Through creative expression"],
+  },
+  {
+    key: "question",
+    text: "What is the one question about existence, purpose, or the sacred that you most want to explore on this journey?",
+    hint: "Write your deepest, most honest question. This will guide your entire path.",
+    type: "textarea",
+  },
+];
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const [step,     setStep]     = useState(0);
+  const [answers,  setAnswers]  = useState<Record<string, string>>({});
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState("");
+  const [authed,   setAuthed]   = useState<boolean | null>(null);
+
+  // Guard — must be logged in
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d?.user) { router.push("/login"); return; }
+        if (d.user.onboardingDone) { router.push("/account"); return; }
+        setAuthed(true);
+      })
+      .catch(() => router.push("/login"));
+  }, [router]);
+
+  const q = QUESTIONS[step];
+  const isLast = step === QUESTIONS.length - 1;
+  const progress = ((step + 1) / QUESTIONS.length) * 100;
+
+  function handleAnswer(value: string) {
+    setAnswers((prev) => ({ ...prev, [q.key]: value }));
+  }
+
+  function handleNext() {
+    if (!answers[q.key]?.trim()) { setError("Please answer this question to continue."); return; }
+    setError("");
+    if (isLast) { handleSubmit(); return; }
+    setStep((s) => s + 1);
+  }
+
+  async function handleSubmit() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/onboarding/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed to save. Please try again."); setSaving(false); return; }
+      router.push("/lessons");
+    } catch {
+      setError("Connection error. Please try again.");
+      setSaving(false);
+    }
+  }
+
+  if (authed === null) {
+    return (
+      <SacredPage maxWidth={560}>
+        <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>Loading…</div>
+      </SacredPage>
+    );
+  }
+
+  return (
+    <SacredPage maxWidth={600}>
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+        <div style={{ position: "relative", width: 80, height: 80, margin: "0 auto 1rem" }}>
+          <svg width="80" height="80" viewBox="0 0 80 80" style={{ position: "absolute", inset: 0, animation: "rotateSacred 25s linear infinite" }}>
+            <circle cx="40" cy="40" r="37" fill="none" stroke="rgba(201,162,39,0.2)" strokeWidth="1" strokeDasharray="3 5" />
+          </svg>
+          <svg width="80" height="80" viewBox="0 0 80 80" style={{ position: "absolute", inset: 0, animation: "rotateSacredReverse 15s linear infinite" }}>
+            <polygon points="40,10 64,55 16,55" fill="none" stroke="rgba(168,85,247,0.4)" strokeWidth="1" />
+            <polygon points="40,70 16,25 64,25" fill="none" stroke="rgba(20,184,166,0.35)" strokeWidth="1" />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "radial-gradient(circle, #f0d47a, #c9a227)", boxShadow: "0 0 20px rgba(201,162,39,0.8)" }} />
+          </div>
+        </div>
+        <p style={{ fontSize: "0.62rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase" }}>
+          ✦ Sacred Awakening Assessment ✦
+        </p>
+        <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", marginTop: "0.4rem" }}>
+          Your answers guide your personalized path
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ marginBottom: "1.8rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+          <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", letterSpacing: "0.1em" }}>
+            Question {step + 1} of {QUESTIONS.length}
+          </span>
+          <span style={{ fontSize: "0.68rem", color: "var(--gold)" }}>
+            {Math.round(progress)}%
+          </span>
+        </div>
+        <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
+          <div style={{
+            height: "100%",
+            width: `${progress}%`,
+            background: "linear-gradient(90deg, var(--gold-dim), var(--gold-light))",
+            borderRadius: 4,
+            transition: "width 0.5s ease",
+            boxShadow: "0 0 8px var(--gold-glow)",
+          }} />
+        </div>
+      </div>
+
+      <SacredCard glow>
+        {/* Step dots */}
+        <div style={{ display: "flex", gap: 5, marginBottom: "1.8rem", flexWrap: "wrap" }}>
+          {QUESTIONS.map((_, i) => (
+            <div key={i} style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: i < step ? "var(--gold)" : i === step ? "var(--gold-light)" : "rgba(255,255,255,0.1)",
+              boxShadow: i === step ? "0 0 8px var(--gold-glow)" : "none",
+              transition: "all 0.3s",
+            }} />
+          ))}
+        </div>
+
+        <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.7rem" }}>
+          {q.key.replace(/_/g, " ")}
+        </p>
+
+        <h2 className="font-sacred" style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "0.6rem", lineHeight: 1.5 }}>
+          {q.text}
+        </h2>
+
+        {q.hint && (
+          <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.42)", marginBottom: "1.4rem", fontStyle: "italic" }}>
+            {q.hint}
+          </p>
+        )}
+
+        {/* Input */}
+        {q.type === "select" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            {q.options?.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => handleAnswer(opt)}
+                style={{
+                  padding: "0.7rem 1rem",
+                  borderRadius: "0.6rem",
+                  border: `1px solid ${answers[q.key] === opt ? "var(--gold)" : "rgba(201,162,39,0.2)"}`,
+                  background: answers[q.key] === opt ? "rgba(201,162,39,0.12)" : "rgba(255,255,255,0.02)",
+                  color: answers[q.key] === opt ? "var(--gold-light)" : "var(--text-primary)",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                  textAlign: "left",
+                  transition: "all 0.15s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                }}
+              >
+                <span style={{
+                  width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                  border: `1.5px solid ${answers[q.key] === opt ? "var(--gold)" : "rgba(201,162,39,0.3)"}`,
+                  background: answers[q.key] === opt ? "var(--gold)" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "0.55rem", color: "#000",
+                }}>
+                  {answers[q.key] === opt ? "✓" : ""}
+                </span>
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {q.type === "textarea" && (
+          <textarea
+            value={answers[q.key] || ""}
+            onChange={(e) => handleAnswer(e.target.value)}
+            placeholder="Write freely and honestly…"
+            rows={5}
+            style={{
+              width: "100%",
+              padding: "0.85rem",
+              borderRadius: "0.6rem",
+              border: "1px solid rgba(201,162,39,0.2)",
+              background: "rgba(255,255,255,0.03)",
+              color: "var(--text-primary)",
+              fontSize: "0.88rem",
+              lineHeight: 1.7,
+              resize: "vertical",
+              outline: "none",
+              fontFamily: "inherit",
+              boxSizing: "border-box",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--border-gold)")}
+            onBlur={(e) => (e.target.style.borderColor = "rgba(201,162,39,0.2)")}
+          />
+        )}
+
+        {error && (
+          <SacredAlert text={error} tone="error" />
+        )}
+
+        {/* Navigation */}
+        <div style={{ display: "flex", gap: "0.8rem", marginTop: "1.5rem", justifyContent: "space-between", alignItems: "center" }}>
+          {step > 0 ? (
+            <button
+              onClick={() => { setError(""); setStep((s) => s - 1); }}
+              className="btn-sacred btn-sacred-ghost"
+              style={{ padding: "0.6rem 1.2rem", fontSize: "0.8rem" }}
+            >
+              ← Back
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <button
+            onClick={handleNext}
+            disabled={saving}
+            className="btn-sacred btn-sacred-gold"
+            style={{ padding: "0.7rem 1.8rem", fontSize: "0.85rem", letterSpacing: "0.1em" }}
+          >
+            {saving ? "Saving…" : isLast ? "✦ Complete Assessment ✦" : "Continue →"}
+          </button>
+        </div>
+      </SacredCard>
+
+      <p style={{ textAlign: "center", marginTop: "1.5rem", fontSize: "0.68rem", color: "rgba(237,232,220,0.22)", letterSpacing: "0.1em" }}>
+        YOUR ANSWERS ARE PRIVATE AND USED ONLY TO PERSONALIZE YOUR SACRED PATH
+      </p>
+    </SacredPage>
+  );
+}

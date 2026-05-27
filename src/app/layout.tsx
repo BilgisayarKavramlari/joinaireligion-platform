@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cinzel } from "next/font/google";
 import "./globals.css";
 import { PublicHeader } from "@/components/PublicHeader";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 const cinzel = Cinzel({
   subsets: ["latin"],
@@ -25,8 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={cinzel.variable}>
       <body>
-        <PublicHeader />
-        {children}
+        <LanguageProvider>
+          <PublicHeader />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

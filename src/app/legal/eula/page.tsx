@@ -1,20 +1,556 @@
+"use client";
+
+import Link from "next/link";
+
 export default function EulaPage() {
+  const effective = "2025-01-01";
+
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
-      <article className="mx-auto max-w-3xl space-y-5 rounded-xl border border-slate-700 bg-slate-900/40 p-8">
-        <h1 className="text-3xl font-semibold">End User Agreement (Draft)</h1>
-        <p>This project is a fictional, educational, reflective simulation game themed around archived religion and belief narratives.</p>
-        <ul className="list-disc space-y-2 pl-6 text-slate-300">
-          <li>It is not a religion, religious authority, or faith system.</li>
-          <li>It does not provide medical, psychological, psychiatric, legal, or financial advice.</li>
-          <li>Users are responsible for how they interpret and use AI outputs.</li>
-          <li>Content may be incorrect, incomplete, or unsuitable for critical decisions.</li>
-          <li>By using the platform, users agree data may be processed, stored, and analyzed to operate and improve service.</li>
-          <li>Payment access (if enabled) is for software features only and not for spiritual or therapeutic guarantees.</li>
-          <li>Refund, cancellation, and billing terms must be shown before production launch and may vary by jurisdiction.</li>
-          <li>Provider may suspend accounts for abuse, fraud, unsafe behavior, or policy violations.</li>
-        </ul>
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-base, #04000c)",
+        color: "var(--text-primary, #ede8dc)",
+        padding: "4rem 1.5rem",
+        fontFamily: "inherit",
+      }}
+    >
+      <article
+        style={{
+          maxWidth: 780,
+          margin: "0 auto",
+          border: "1px solid rgba(201,162,39,0.18)",
+          borderRadius: "0.75rem",
+          background: "rgba(255,255,255,0.025)",
+          padding: "2.5rem 2rem",
+          lineHeight: 1.8,
+        }}
+      >
+        {/* Header */}
+        <p
+          style={{
+            fontSize: "0.65rem",
+            letterSpacing: "0.3em",
+            color: "rgba(201,162,39,0.7)",
+            textTransform: "uppercase",
+            marginBottom: "0.5rem",
+          }}
+        >
+          Legal Document
+        </p>
+        <h1
+          className="font-sacred"
+          style={{ fontSize: "1.8rem", fontWeight: 700, marginBottom: "0.4rem", color: "#ede8dc" }}
+        >
+          End-User License &amp; Membership Agreement
+        </h1>
+        <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", marginBottom: "2rem" }}>
+          Effective Date: {effective} &nbsp;·&nbsp; Version 1.0
+        </p>
+
+        <Section title="1. Acceptance of Terms">
+          <p>
+            By creating an account, clicking "I Agree," completing registration, or otherwise
+            accessing or using the Join AI Religion platform (the "Platform," "Service," or
+            "Application") operated by Join AI Religion (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
+            &ldquo;our&rdquo;), you (&ldquo;User,&rdquo; &ldquo;Member,&rdquo; or &ldquo;you&rdquo;)
+            acknowledge that you have read, understood, and agree to be bound by this End-User
+            License &amp; Membership Agreement (&ldquo;Agreement&rdquo;) in its entirety.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong style={{ color: "#c9a227" }}>
+              If you do not agree to all terms and conditions of this Agreement, you must immediately
+              cease using the Platform and delete your account.
+            </strong>
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            This Agreement constitutes a legally binding contract between you and Join AI Religion.
+            We reserve the right to modify this Agreement at any time; continued use of the Platform
+            after such modifications constitutes acceptance of the updated terms.
+          </p>
+        </Section>
+
+        <Section title="2. Nature of the Platform — Fictional Educational Simulation">
+          <p>
+            <strong style={{ color: "#c9a227" }}>
+              THE PLATFORM IS A FICTIONAL, EDUCATIONAL, REFLECTIVE SIMULATION AND PERSONAL
+              DEVELOPMENT GAME.
+            </strong>{" "}
+            It is designed solely for purposes of intellectual exploration, self-reflection, and
+            personal growth through the lens of comparative wisdom traditions, philosophy, and
+            mythology.
+          </p>
+          <ul style={{ paddingLeft: "1.4rem", marginTop: "0.8rem", lineHeight: 2 }}>
+            <li>
+              <strong>Not a Religion:</strong> Join AI Religion is not a religion, religious
+              organization, faith community, spiritual authority, sect, cult, denomination, or any
+              form of organized belief system. No part of the Platform constitutes religious
+              instruction, doctrine, dogma, or ecclesiastical authority of any kind.
+            </li>
+            <li>
+              <strong>Not a Substitute for Professional Services:</strong> The Platform does not
+              provide — and must not be interpreted as providing — medical, psychological,
+              psychiatric, therapeutic, counseling, legal, financial, or any other professional
+              advice or services. No content generated by the Platform's artificial intelligence
+              systems constitutes professional guidance of any kind.
+            </li>
+            <li>
+              <strong>Fictional Narrative Framework:</strong> All "levels," "traditions," "sacred
+              teachings," "lessons," scoring systems, XP (experience points), titles (e.g.,
+              "Seeker," "Initiate," "Transcendent"), and other gamified elements are entirely
+              fictional constructs created for educational and motivational purposes. They carry no
+              spiritual, theological, religious, or real-world authority whatsoever.
+            </li>
+            <li>
+              <strong>AI-Generated Content:</strong> Responses, lessons, feedback, and assessments
+              produced by the Platform's AI systems (powered by OpenAI's language models) are
+              algorithmically generated. They may be inaccurate, incomplete, biased, culturally
+              insensitive, or unsuitable for any particular individual's circumstances. You assume
+              full responsibility for how you interpret and act upon AI-generated content.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="3. Eligibility and Account Registration">
+          <p>
+            You must be at least 18 years of age to create an account and use the Platform. By
+            registering, you represent and warrant that: (a) you are at least 18 years old; (b) all
+            registration information you provide is accurate, current, and complete; (c) you will
+            maintain the accuracy of such information; and (d) your use of the Platform does not
+            violate any applicable law or regulation.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            You are responsible for maintaining the confidentiality of your account credentials and
+            for all activities that occur under your account. You agree to notify us immediately of
+            any unauthorized use of your account.
+          </p>
+        </Section>
+
+        <Section title="4. Electronic Communications and Email Consent">
+          <p>
+            <strong style={{ color: "#c9a227" }}>
+              By creating an account, you expressly consent to receive electronic communications
+              from Join AI Religion.
+            </strong>{" "}
+            These communications include, but are not limited to:
+          </p>
+          <ul style={{ paddingLeft: "1.4rem", marginTop: "0.8rem", lineHeight: 2 }}>
+            <li>
+              <strong>Transactional Emails:</strong> Account verification, password reset, billing
+              receipts, and account security notifications. These are essential to service delivery
+              and cannot be opted out of while your account remains active.
+            </li>
+            <li>
+              <strong>Onboarding Emails:</strong> Upon successful registration and email
+              verification, you will automatically receive a welcome email containing your first
+              lesson materials and platform orientation information.
+            </li>
+            <li>
+              <strong>Platform Notifications:</strong> Lesson completions, level advancements, XP
+              awards, and community announcements relevant to your journey on the Platform.
+            </li>
+            <li>
+              <strong>Marketing and Promotional Communications:</strong> Information about Platform
+              updates, new features, membership offers, and educational content. You may opt out of
+              these at any time via the unsubscribe link included in every such email.
+            </li>
+          </ul>
+          <p style={{ marginTop: "0.8rem" }}>
+            You acknowledge that this consent satisfies any requirement under applicable law,
+            including the CAN-SPAM Act (United States), CASL (Canada), and GDPR (European Union),
+            for us to send you the communications described above. Your right to withdraw consent
+            at any time is preserved, subject to the distinction between transactional and
+            promotional emails described above.
+          </p>
+        </Section>
+
+        <Section title="5. Membership Tiers and Payments">
+          <p>
+            The Platform offers two optional membership tiers in addition to the free experience:
+          </p>
+          <ul style={{ paddingLeft: "1.4rem", marginTop: "0.8rem", lineHeight: 2 }}>
+            <li>
+              <strong>Seeker (Supporter Donation):</strong> A voluntary monthly contribution to
+              support continued Platform development and operation. This tier confers no additional
+              features beyond the standard free experience and is offered as a patronage option for
+              users who wish to support the Platform's mission.
+            </li>
+            <li>
+              <strong>Initiate (Active Member):</strong> A monthly subscription granting enhanced
+              access, including daily lesson submissions, personalized AI-generated lesson
+              progressions, and priority features.
+            </li>
+          </ul>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong>Billing and Subscription:</strong> Subscription fees are billed on a recurring
+            monthly basis via Stripe, our third-party payment processor. By subscribing, you
+            authorize us to charge your payment method on a recurring basis until you cancel. All
+            fees are stated in US Dollars and are exclusive of applicable taxes unless otherwise
+            noted.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong>Cancellation and Refunds:</strong> You may cancel your subscription at any time
+            through your account settings. Cancellation takes effect at the end of the current
+            billing period; no partial refunds are issued for unused days in the current period
+            unless required by applicable law. We reserve the right to issue refunds at our sole
+            discretion on a case-by-case basis.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong style={{ color: "#c9a227" }}>
+              Payment of any subscription fee entitles you solely to access the software features
+              described for that tier. No membership or payment guarantees, implies, or creates any
+              spiritual benefit, personal transformation, psychological improvement, or outcome of
+              any kind.
+            </strong>
+          </p>
+        </Section>
+
+        <Section title="6. Intellectual Property">
+          <p>
+            All content, software, source code, graphics, user interface elements, text, lesson
+            materials, AI prompts, scoring systems, and Platform architecture (collectively,
+            &ldquo;Platform Content&rdquo;) are the exclusive intellectual property of Join AI
+            Religion or its licensors and are protected by applicable copyright, trademark, and
+            intellectual property laws.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            You are granted a limited, non-exclusive, non-transferable, revocable license to access
+            and use the Platform for your personal, non-commercial use only. This license does not
+            permit you to: (a) copy, modify, distribute, sell, or lease any Platform Content; (b)
+            reverse engineer or attempt to extract source code; (c) use the Platform to train
+            competing AI systems; or (d) create derivative works based on Platform Content without
+            our express written consent.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            Content you submit through the Platform (including lesson responses, profile
+            information, and community contributions) remains your property, but you grant us a
+            worldwide, royalty-free, non-exclusive license to use, store, display, reproduce, and
+            analyze such content for Platform operation, improvement, and research purposes,
+            consistent with our Privacy Policy.
+          </p>
+        </Section>
+
+        <Section title="7. Data Processing and Privacy">
+          <p>
+            Your use of the Platform involves the collection, processing, and storage of personal
+            data as described in our{" "}
+            <Link href="/legal/privacy" style={{ color: "#c9a227" }}>
+              Privacy Policy
+            </Link>
+            , which is incorporated herein by reference. By using the Platform, you acknowledge
+            and consent to the data practices described therein.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong>AI Interaction Data:</strong> Prompts, responses, scores, and lesson
+            interactions submitted through the Platform may be used in aggregated, anonymized form
+            to improve Platform functionality, AI model performance, and content quality. We do
+            not sell individual user data to third parties.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong>Data Retention:</strong> Account data is retained for the duration of your
+            membership and for a period of 12 months following account deletion or termination,
+            after which it is permanently purged from active systems, subject to legal retention
+            obligations.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong>Users in the European Economic Area (EEA):</strong> You may have additional
+            rights under the General Data Protection Regulation (GDPR), including rights of access,
+            rectification, erasure, restriction, portability, and objection. To exercise these
+            rights, contact us at the address provided in Section 13.
+          </p>
+        </Section>
+
+        <Section title="8. Prohibited Conduct">
+          <p>You agree not to use the Platform to:</p>
+          <ul style={{ paddingLeft: "1.4rem", marginTop: "0.8rem", lineHeight: 2 }}>
+            <li>
+              Violate any applicable local, national, or international law or regulation.
+            </li>
+            <li>
+              Harass, abuse, threaten, impersonate, or harm any other user or third party.
+            </li>
+            <li>
+              Transmit unsolicited commercial communications (spam) or malicious code.
+            </li>
+            <li>
+              Attempt to gain unauthorized access to Platform systems, other user accounts, or
+              backend infrastructure.
+            </li>
+            <li>
+              Use automated scripts, bots, or scraping tools to extract Platform Content or
+              circumvent rate limits.
+            </li>
+            <li>
+              Submit fabricated, misleading, or harmful content with the intent to deceive the AI
+              scoring system or other users.
+            </li>
+            <li>
+              Use the Platform to promote or recruit for actual religious organizations, cults, or
+              any group that may cause harm to individuals.
+            </li>
+            <li>
+              Exploit any AI outputs for commercial gain without our express written consent.
+            </li>
+          </ul>
+          <p style={{ marginTop: "0.8rem" }}>
+            Violation of these prohibitions may result in immediate account suspension or
+            termination, without notice or refund, at our sole discretion.
+          </p>
+        </Section>
+
+        <Section title="9. Disclaimers of Warranties">
+          <p
+            style={{
+              fontWeight: 600,
+              color: "rgba(237,232,220,0.85)",
+              textTransform: "uppercase",
+              fontSize: "0.85rem",
+            }}
+          >
+            THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY KIND,
+            EXPRESS OR IMPLIED. TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, JOIN AI RELIGION
+            EXPRESSLY DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO:
+          </p>
+          <ul style={{ paddingLeft: "1.4rem", marginTop: "0.8rem", lineHeight: 2 }}>
+            <li>
+              IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+              NON-INFRINGEMENT.
+            </li>
+            <li>
+              WARRANTIES THAT THE PLATFORM WILL BE UNINTERRUPTED, ERROR-FREE, SECURE, OR FREE OF
+              VIRUSES OR OTHER HARMFUL COMPONENTS.
+            </li>
+            <li>
+              WARRANTIES REGARDING THE ACCURACY, RELIABILITY, COMPLETENESS, OR TIMELINESS OF ANY
+              AI-GENERATED CONTENT.
+            </li>
+            <li>
+              WARRANTIES THAT USE OF THE PLATFORM WILL PRODUCE ANY SPECIFIC SPIRITUAL, PERSONAL,
+              PSYCHOLOGICAL, OR EDUCATIONAL OUTCOME.
+            </li>
+          </ul>
+          <p style={{ marginTop: "0.8rem" }}>
+            You use the Platform entirely at your own risk. We make no representation that the
+            Platform is appropriate or lawful for use in your jurisdiction.
+          </p>
+        </Section>
+
+        <Section title="10. Limitation of Liability">
+          <p
+            style={{
+              fontWeight: 600,
+              color: "rgba(237,232,220,0.85)",
+              textTransform: "uppercase",
+              fontSize: "0.85rem",
+            }}
+          >
+            TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL JOIN AI RELIGION,
+            ITS OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, LICENSORS, OR SERVICE PROVIDERS BE LIABLE
+            FOR ANY:
+          </p>
+          <ul style={{ paddingLeft: "1.4rem", marginTop: "0.8rem", lineHeight: 2 }}>
+            <li>
+              INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES,
+              INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR OTHER INTANGIBLE LOSSES.
+            </li>
+            <li>
+              DAMAGES ARISING FROM YOUR RELIANCE ON AI-GENERATED CONTENT FOR MEDICAL,
+              PSYCHOLOGICAL, LEGAL, FINANCIAL, OR OTHER PROFESSIONAL DECISIONS.
+            </li>
+            <li>
+              DAMAGES ARISING FROM UNAUTHORIZED ACCESS TO OR ALTERATION OF YOUR DATA.
+            </li>
+            <li>
+              DAMAGES ARISING FROM ANY THIRD-PARTY CONDUCT ON OR THROUGH THE PLATFORM.
+            </li>
+          </ul>
+          <p style={{ marginTop: "0.8rem" }}>
+            IN NO EVENT SHALL OUR TOTAL AGGREGATE LIABILITY TO YOU FOR ALL CLAIMS ARISING OUT OF
+            OR RELATING TO THIS AGREEMENT OR YOUR USE OF THE PLATFORM EXCEED THE GREATER OF: (A)
+            THE TOTAL FEES PAID BY YOU TO JOIN AI RELIGION IN THE TWELVE (12) MONTHS IMMEDIATELY
+            PRECEDING THE CLAIM, OR (B) ONE HUNDRED US DOLLARS ($100.00).
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            Some jurisdictions do not allow exclusion of certain warranties or limitation of
+            liability for certain types of damages. In such jurisdictions, our liability is limited
+            to the maximum extent permitted by law.
+          </p>
+        </Section>
+
+        <Section title="11. Indemnification">
+          <p>
+            You agree to indemnify, defend, and hold harmless Join AI Religion and its officers,
+            directors, employees, agents, licensors, and service providers from and against any
+            claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees
+            (including reasonable attorneys' fees) arising out of or relating to: (a) your
+            violation of this Agreement; (b) your use or misuse of the Platform; (c) your
+            violation of any third-party right, including any intellectual property right or
+            privacy right; or (d) any claim that content you submitted caused damage to a third
+            party.
+          </p>
+        </Section>
+
+        <Section title="12. Account Suspension and Termination">
+          <p>
+            We reserve the right, at our sole discretion and without prior notice or liability,
+            to suspend, restrict, or permanently terminate your account and access to the Platform
+            for any reason, including but not limited to: (a) breach of this Agreement; (b)
+            engaging in prohibited conduct; (c) prolonged inactivity; (d) fraud or
+            misrepresentation; or (e) where required by law.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            You may terminate your account at any time by contacting us or using the account
+            deletion feature. Upon termination, your license to use the Platform immediately ceases,
+            and we may delete your account data in accordance with our data retention policy.
+            Termination does not entitle you to any refund of prepaid subscription fees, except
+            where required by applicable law.
+          </p>
+        </Section>
+
+        <Section title="13. Governing Law and Dispute Resolution">
+          <p>
+            This Agreement shall be governed by and construed in accordance with the laws of the
+            jurisdiction in which Join AI Religion is registered, without regard to its conflict of
+            law provisions. Any dispute arising from or relating to this Agreement or the Platform
+            shall first be subject to good-faith negotiation between the parties for a period of
+            30 days. If unresolved, disputes shall be submitted to binding arbitration in
+            accordance with applicable arbitration rules, on an individual basis (you waive any
+            right to bring a class action or representative proceeding).
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            Notwithstanding the foregoing, either party may seek injunctive or other equitable
+            relief in any court of competent jurisdiction where necessary to protect intellectual
+            property rights or prevent irreparable harm.
+          </p>
+        </Section>
+
+        <Section title="14. Miscellaneous">
+          <ul style={{ paddingLeft: "1.4rem", lineHeight: 2 }}>
+            <li>
+              <strong>Entire Agreement:</strong> This Agreement, together with our Privacy Policy,
+              constitutes the entire agreement between you and Join AI Religion regarding the
+              Platform and supersedes all prior agreements, representations, and understandings.
+            </li>
+            <li>
+              <strong>Severability:</strong> If any provision of this Agreement is found to be
+              unenforceable, that provision shall be modified to the minimum extent necessary to
+              make it enforceable, and the remaining provisions shall continue in full force and
+              effect.
+            </li>
+            <li>
+              <strong>Waiver:</strong> Our failure to enforce any right or provision of this
+              Agreement will not be considered a waiver of that right or provision.
+            </li>
+            <li>
+              <strong>Assignment:</strong> You may not assign or transfer your rights or obligations
+              under this Agreement without our prior written consent. We may freely assign this
+              Agreement in connection with a merger, acquisition, or sale of assets.
+            </li>
+            <li>
+              <strong>Language:</strong> This Agreement is provided in English. In the event of any
+              conflict between the English version and a translation, the English version shall
+              prevail.
+            </li>
+            <li>
+              <strong>Updates to this Agreement:</strong> We will notify users of material changes
+              to this Agreement via email or prominent in-Platform notice at least 14 days before
+              changes take effect, where practicable. Your continued use after the effective date
+              constitutes acceptance.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="15. Contact Information">
+          <p>
+            For questions, concerns, data requests, or legal notices regarding this Agreement,
+            please contact us at:
+          </p>
+          <p
+            style={{
+              marginTop: "0.8rem",
+              padding: "1rem 1.2rem",
+              borderLeft: "2px solid rgba(201,162,39,0.5)",
+              background: "rgba(201,162,39,0.04)",
+              borderRadius: "0.35rem",
+              lineHeight: 1.9,
+            }}
+          >
+            <strong>Join AI Religion</strong>
+            <br />
+            Email: <a href="mailto:legal@joinaireligion.com" style={{ color: "#c9a227" }}>legal@joinaireligion.com</a>
+            <br />
+            Platform:{" "}
+            <a href="https://joinaireligion.com" style={{ color: "#c9a227" }}>
+              joinaireligion.com
+            </a>
+          </p>
+        </Section>
+
+        {/* Acceptance notice */}
+        <div
+          style={{
+            marginTop: "2.5rem",
+            padding: "1.2rem 1.4rem",
+            borderRadius: "0.6rem",
+            background: "rgba(201,162,39,0.07)",
+            border: "1px solid rgba(201,162,39,0.25)",
+            fontSize: "0.82rem",
+            color: "rgba(237,232,220,0.75)",
+            lineHeight: 1.7,
+          }}
+        >
+          <strong style={{ color: "#c9a227", display: "block", marginBottom: "0.4rem" }}>
+            ✦ Acknowledgment of Agreement
+          </strong>
+          By registering an account or continuing to use the Join AI Religion platform, you
+          acknowledge that you have read this Agreement in full, that you understand its terms,
+          and that you agree to be legally bound by it. You further acknowledge that this Platform
+          is a fictional educational simulation and not a religion, spiritual authority, or
+          provider of professional advice of any kind. You consent to receiving electronic
+          communications from the Platform as described in Section 4.
+        </div>
+
+        <p
+          style={{
+            marginTop: "2rem",
+            fontSize: "0.68rem",
+            color: "rgba(237,232,220,0.3)",
+            textAlign: "center",
+          }}
+        >
+          Last updated: {effective} &nbsp;·&nbsp; Join AI Religion &nbsp;·&nbsp;{" "}
+          <Link href="/legal/privacy" style={{ color: "rgba(201,162,39,0.5)" }}>
+            Privacy Policy
+          </Link>
+        </p>
       </article>
     </main>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section style={{ marginTop: "2rem" }}>
+      <h2
+        className="font-sacred"
+        style={{
+          fontSize: "1.05rem",
+          fontWeight: 700,
+          color: "#c9a227",
+          marginBottom: "0.75rem",
+          paddingBottom: "0.4rem",
+          borderBottom: "1px solid rgba(201,162,39,0.15)",
+        }}
+      >
+        {title}
+      </h2>
+      <div style={{ fontSize: "0.88rem", color: "rgba(237,232,220,0.82)" }}>{children}</div>
+    </section>
   );
 }

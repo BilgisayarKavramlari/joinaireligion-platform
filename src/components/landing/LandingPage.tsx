@@ -227,15 +227,213 @@ const FEATURES = [
 ];
 
 const TRADITIONS = [
-  { symbol: "✝", name: "Christianity",  color: "#c0c0ff" },
-  { symbol: "☪", name: "Islam",         color: "#80ffb0" },
-  { symbol: "✡", name: "Judaism",       color: "#ffffa0" },
-  { symbol: "卍", name: "Buddhism",      color: "#ffb060" },
-  { symbol: "ॐ", name: "Hinduism",      color: "#ff8080" },
-  { symbol: "☯", name: "Taoism",        color: "#80e0ff" },
-  { symbol: "⚛", name: "Rationalism",   color: "#c0ffe0" },
-  { symbol: "🜏", name: "Hermeticism",   color: "#d4a0ff" },
+  { symbol: "✝",  name: "Christianity",  color: "#c0c0ff" },
+  { symbol: "☪",  name: "Islam",         color: "#80ffb0" },
+  { symbol: "✡",  name: "Judaism",       color: "#ffffa0" },
+  { symbol: "卍",  name: "Buddhism",      color: "#ffb060" },
+  { symbol: "ॐ",  name: "Hinduism",      color: "#ff8080" },
+  { symbol: "☯",  name: "Taoism",        color: "#80e0ff" },
+  { symbol: "⚛",  name: "Rationalism",   color: "#c0ffe0" },
+  { symbol: "🜏",  name: "Hermeticism",   color: "#d4a0ff" },
+  { symbol: "✧",  name: "Esotericism",   color: "#f9c8ff" },
+  { symbol: "∅",  name: "Atheism",       color: "#a0b4c8" },
+  { symbol: "◈",  name: "Shamanism",     color: "#b8e8a0" },
+  { symbol: "❤",  name: "Sufism",        color: "#ffb8d0" },
 ];
+
+/* ═══════════════════════════════════════════════════════
+   TRADITION STAR — 12 paths in a circular arrangement
+═══════════════════════════════════════════════════════ */
+function TraditionStar() {
+  const SIZE = 560;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2;
+  const R_OUTER = 218;  // tradition nodes radius
+  const R_INNER = 56;   // inner ring radius
+  const R_MID = 130;    // middle ring
+
+  return (
+    <div style={{ position: "relative", width: SIZE, height: SIZE, margin: "0 auto" }}>
+      <svg
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        width={SIZE}
+        height={SIZE}
+        aria-hidden
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <defs>
+          <radialGradient id="tradCenter" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#f0d47a" stopOpacity="0.9" />
+            <stop offset="60%" stopColor="#c9a227" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#6b21a8" stopOpacity="0" />
+          </radialGradient>
+          <filter id="tradGlow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="nodeGlow">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <style>{`
+            .trad-outer-ring { animation: tradRotate 90s linear infinite; transform-origin: ${CX}px ${CY}px; }
+            .trad-mid-ring   { animation: tradRotate 60s linear infinite reverse; transform-origin: ${CX}px ${CY}px; }
+            .trad-inner-ring { animation: tradRotate 30s linear infinite; transform-origin: ${CX}px ${CY}px; }
+            @keyframes tradRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          `}</style>
+        </defs>
+
+        {/* Spoke lines from center to each node */}
+        {TRADITIONS.map((t, i) => {
+          const angle = ((i * 30) - 90) * Math.PI / 180;
+          const x2 = CX + R_OUTER * Math.cos(angle);
+          const y2 = CY + R_OUTER * Math.sin(angle);
+          return (
+            <line
+              key={i}
+              x1={CX} y1={CY} x2={x2} y2={y2}
+              stroke={t.color}
+              strokeWidth="0.5"
+              opacity="0.18"
+            />
+          );
+        })}
+
+        {/* Outer ring (static, 12 tick marks) */}
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = ((i * 30) - 90) * Math.PI / 180;
+          return (
+            <line key={i}
+              x1={CX + (R_OUTER + 16) * Math.cos(a)}
+              y1={CY + (R_OUTER + 16) * Math.sin(a)}
+              x2={CX + (R_OUTER + 28) * Math.cos(a)}
+              y2={CY + (R_OUTER + 28) * Math.sin(a)}
+              stroke="#c9a227" strokeWidth="1.2" opacity="0.35"
+            />
+          );
+        })}
+
+        {/* Outer rotating ring */}
+        <g className="trad-outer-ring">
+          <circle cx={CX} cy={CY} r={R_OUTER + 6} fill="none" stroke="#c9a227" strokeWidth="0.4" opacity="0.2" strokeDasharray="4 8" />
+        </g>
+
+        {/* Outer static circle */}
+        <circle cx={CX} cy={CY} r={R_OUTER + 10} fill="none" stroke="#c9a227" strokeWidth="0.6" opacity="0.15" />
+
+        {/* Mid rotating ring (dodecagon) */}
+        <g className="trad-mid-ring">
+          <polygon
+            points={Array.from({ length: 12 }, (_, i) => {
+              const a = (i * 30) * Math.PI / 180;
+              return `${CX + R_MID * Math.cos(a)},${CY + R_MID * Math.sin(a)}`;
+            }).join(" ")}
+            fill="none" stroke="#a855f7" strokeWidth="0.5" opacity="0.25"
+          />
+        </g>
+
+        {/* Inner rotating ring */}
+        <g className="trad-inner-ring">
+          <circle cx={CX} cy={CY} r={R_INNER + 8} fill="none" stroke="#14b8a6" strokeWidth="0.5" opacity="0.3" strokeDasharray="3 5" />
+          {/* Inner 6-pointed star */}
+          <polygon
+            points={Array.from({ length: 6 }, (_, i) => {
+              const a = (i * 60) * Math.PI / 180;
+              return `${CX + R_INNER * Math.cos(a)},${CY + R_INNER * Math.sin(a)}`;
+            }).join(" ")}
+            fill="none" stroke="#14b8a6" strokeWidth="0.6" opacity="0.4"
+          />
+          <polygon
+            points={Array.from({ length: 6 }, (_, i) => {
+              const a = ((i * 60) + 30) * Math.PI / 180;
+              return `${CX + R_INNER * Math.cos(a)},${CY + R_INNER * Math.sin(a)}`;
+            }).join(" ")}
+            fill="none" stroke="#f0d47a" strokeWidth="0.6" opacity="0.4"
+          />
+        </g>
+
+        {/* Central orb */}
+        <circle cx={CX} cy={CY} r={28} fill="url(#tradCenter)" filter="url(#tradGlow)" />
+        <circle cx={CX} cy={CY} r={14} fill="#1a0533" stroke="#c9a227" strokeWidth="0.8" opacity="0.9" />
+        <circle cx={CX} cy={CY} r={6} fill="#f0d47a" filter="url(#tradGlow)" opacity="0.9" />
+        <circle cx={CX} cy={CY} r={2.5} fill="#fff" />
+      </svg>
+
+      {/* Tradition nodes (HTML overlaid for text rendering) */}
+      {TRADITIONS.map((trad, i) => {
+        const angle = ((i * 30) - 90) * Math.PI / 180;
+        const x = CX + R_OUTER * Math.cos(angle);
+        const y = CY + R_OUTER * Math.sin(angle);
+        const nodeSize = 62;
+
+        return (
+          <motion.div
+            key={trad.name}
+            initial={{ opacity: 0, scale: 0.5 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ scale: 1.18, transition: { duration: 0.18 } }}
+            style={{
+              position: "absolute",
+              left: x - nodeSize / 2,
+              top: y - nodeSize / 2,
+              width: nodeSize,
+              height: nodeSize,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              cursor: "default",
+            }}
+          >
+            {/* Glow background */}
+            <div style={{
+              position: "absolute",
+              width: nodeSize,
+              height: nodeSize,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${trad.color}22 0%, transparent 70%)`,
+            }} />
+            {/* Node circle */}
+            <div style={{
+              width: 46,
+              height: 46,
+              borderRadius: "50%",
+              background: "rgba(4,0,12,0.85)",
+              border: `1.5px solid ${trad.color}88`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.25rem",
+              boxShadow: `0 0 12px ${trad.color}44, inset 0 0 8px ${trad.color}11`,
+              position: "relative",
+              zIndex: 1,
+            }}>
+              {trad.symbol}
+            </div>
+            {/* Name label */}
+            <span style={{
+              fontSize: "0.52rem",
+              color: trad.color,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              textAlign: "center",
+              lineHeight: 1.2,
+              position: "relative",
+              zIndex: 1,
+              maxWidth: 60,
+              textShadow: `0 0 8px ${trad.color}88`,
+            }}>
+              {trad.name}
+            </span>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -656,39 +854,14 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
-            gap: "1rem",
-            justifyContent: "center",
-          }}>
-            {TRADITIONS.map((t, i) => (
-              <motion.div
-                key={t.name}
-                initial={{ opacity: 0, scale: 0.7 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.07 }}
-                whileHover={{ scale: 1.1, transition: { duration: 0.2 } }}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: "0.6rem",
-                  padding: "1.2rem 0.8rem",
-                  borderRadius: "1rem",
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  cursor: "default",
-                  transition: "all 0.25s",
-                }}
-              >
-                <span style={{ fontSize: "2rem", color: t.color, filter: `drop-shadow(0 0 6px ${t.color}66)` }}>
-                  {t.symbol}
-                </span>
-                <span style={{ fontSize: "0.65rem", color: "rgba(237,232,220,0.45)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                  {t.name}
-                </span>
-              </motion.div>
-            ))}
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <TraditionStar />
+          </motion.div>
 
           <motion.p
             {...fadeUp(0.3)}

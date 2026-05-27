@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
 enum SubscriptionStatus {
   TRIAL
   ACTIVE
@@ -38,6 +42,17 @@ enum PracticeType {
   REFLECTION
 }
 
+enum LessonStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+// ─────────────────────────────────────────────
+// Core User
+// ─────────────────────────────────────────────
+
 model User {
   id                      String             @id @default(cuid())
   email                   String             @unique
@@ -54,13 +69,26 @@ model User {
   emailOptIn              Boolean            @default(false)
   emailFrequency          String             @default("weekly")
   unsubscribeToken        String?            @unique
+  unsubscribedAt          DateTime?
   lastPracticeEmailSentAt DateTime?
+
+  // Journey progression (denormalized for performance)
+  currentLevel            Int                @default(1)
+  xpTotal                 Int                @default(0)
+  daysActive              Int                @default(0)
+  lastActiveDate          DateTime?
+  onboardingDone          Boolean            @default(false)
+  onboardingDoneAt        DateTime?
+
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+
+  // Relations
   profile                 UserProfile?
   onboarding              OnboardingAnswer[]
   queries                 AiQuery[]
   quota                   QueryQuota?
+  lessonQuota             LessonQuota?
   subscription            Subscription?
   practiceLogs            UserPracticeLog[]
   journeyLevels           JourneyLevel[]
@@ -68,38 +96,126 @@ model User {
   activityLogs            UserActivityLog[]
   dialogues               AiDialogue[]
   invoices                InvoiceRecord[]
+  userLessons             UserLesson[]
+  lessonAttempts          LessonAttempt[]
+  siteVisits              SiteVisit[]
 }
 
-model EarlyAccessLead {
-  id          String    @id @default(cuid())
-  email       String    @unique
-  source      String?
-  notes       String?
-  createdAt   DateTime  @default(now())
-  contactedAt DateTime?
-}
+// ─────────────────────────────────────────────
+// Profile (extended)
+// ─────────────────────────────────────────────
 
 model UserProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  bio       String?
-  intent    String?
-  timezone  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  bio            String?
+  intent         String?
+  timezone       String?
+  tradition      String?    // spiritual tradition
+
+  // Extended personal info (all optional)
+  country        String?
+  city           String?
+  phone          String?
+  secondaryEmail String?
+  socialMedia    Json?      // {twitter, instagram, facebook, linkedin, website}
+  avatarPath     String?    // /uploads/avatars/{userId}/original.jpg
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ─────────────────────────────────────────────
+// Onboarding / Personality Test
+// ─────────────────────────────────────────────
 
 model OnboardingAnswer {
   id          String   @id @default(cuid())
   userId      String
   questionKey String
-  answer      String
+  answer      String   @db.Text
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, questionKey])
 }
+
+// ─────────────────────────────────────────────
+// Lesson System
+// ─────────────────────────────────────────────
+
+model Lesson {
+  id                  String       @id @default(cuid())
+  stepNumber          Int          // Sequential step: 1, 2, 3...
+  levelRequired       Int          @default(1)
+  title               String
+  tradition           String?      // Which tradition this lesson focuses on (null = universal)
+  readingText         String       @db.Text
+  practiceDescription String       @db.Text
+  questions           Json         // Array of {id, text, type: "reflection"|"experience"|"insight"}
+  isTemplate          Boolean      @default(true)   // false = AI-generated personalized
+  forUserId           String?      // null = template for all, set = personalized
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  userLessons         UserLesson[]
+
+  @@index([levelRequired, stepNumber])
+  @@index([forUserId])
+}
+
+model UserLesson {
+  id          String       @id @default(cuid())
+  userId      String
+  lessonId    String
+  status      LessonStatus @default(PENDING)
+  startedAt   DateTime?
+  completedAt DateTime?
+  xpEarned    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson      Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attempts    LessonAttempt[]
+
+  @@unique([userId, lessonId])
+  @@index([userId, status])
+}
+
+model LessonAttempt {
+  id               String     @id @default(cuid())
+  userLessonId     String
+  userId           String
+  promptText       String     @db.Text
+  fullContextSent  String     @db.Text  // Complete prompt sent to ChatGPT (for admin review)
+  aiRawResponse    String     @db.Text  // Full ChatGPT JSON response
+  score            Int        @default(0)   // 0–100
+  passed           Boolean    @default(false)
+  feedback         String?    @db.Text  // Human-readable explanation from AI
+  tokensUsed       Int?
+  latencyMs        Int?
+  createdAt        DateTime   @default(now())
+  userLesson       UserLesson @relation(fields: [userLessonId], references: [id], onDelete: Cascade)
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userLessonId])
+}
+
+model LessonQuota {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  periodStart  DateTime
+  periodEnd    DateTime
+  usedAttempts Int      @default(0)
+  maxAttempts  Int      @default(1)
+  lastResetAt  DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// AI Queries (free-form)
+// ─────────────────────────────────────────────
 
 model AiQuery {
   id         String   @id @default(cuid())
@@ -124,6 +240,10 @@ model QueryQuota {
   lastResetAt DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ─────────────────────────────────────────────
+// Stripe / Billing
+// ─────────────────────────────────────────────
 
 model StripeWebhookEvent {
   id        String   @id @default(cuid())
@@ -152,6 +272,25 @@ model Subscription {
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model InvoiceRecord {
+  id                String   @id @default(cuid())
+  userId            String
+  providerInvoiceId String?  @unique
+  status            String
+  amountCents       Int?
+  currency          String?
+  hostedInvoiceUrl  String?
+  invoicePdfUrl     String?
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// Practice Logs
+// ─────────────────────────────────────────────
+
 model Practice {
   id          String            @id @default(cuid())
   slug        String            @unique
@@ -178,6 +317,10 @@ model UserPracticeLog {
   @@index([practiceId])
 }
 
+// ─────────────────────────────────────────────
+// Journey Levels
+// ─────────────────────────────────────────────
+
 model JourneyLevel {
   id         String   @id @default(cuid())
   userId     String
@@ -188,6 +331,10 @@ model JourneyLevel {
 
   @@index([userId, level])
 }
+
+// ─────────────────────────────────────────────
+// Email
+// ─────────────────────────────────────────────
 
 model EmailLog {
   id            String   @id @default(cuid())
@@ -201,6 +348,10 @@ model EmailLog {
 
   @@index([userId, createdAt])
 }
+
+// ─────────────────────────────────────────────
+// Activity & Analytics
+// ─────────────────────────────────────────────
 
 model UserActivityLog {
   id                 String            @id @default(cuid())
@@ -219,6 +370,26 @@ model UserActivityLog {
   @@index([eventType, createdAt])
   @@index([userId, createdAt])
 }
+
+model SiteVisit {
+  id        String   @id @default(cuid())
+  path      String
+  sessionId String?
+  userId    String?
+  ipHash    String?
+  userAgent String?
+  referrer  String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// AI Dialogues (full context logging)
+// ─────────────────────────────────────────────
 
 model AiDialogue {
   id                String   @id @default(cuid())
@@ -240,6 +411,10 @@ model AiDialogue {
   @@index([userId, createdAt])
   @@index([conversationId])
 }
+
+// ─────────────────────────────────────────────
+// Auth Tokens
+// ─────────────────────────────────────────────
 
 model PasswordResetToken {
   id        String    @id @default(cuid())
@@ -263,17 +438,15 @@ model EmailVerificationToken {
   @@index([email, expiresAt])
 }
 
-model InvoiceRecord {
-  id                String   @id @default(cuid())
-  userId            String
-  providerInvoiceId String?  @unique
-  status            String
-  amountCents       Int?
-  currency          String?
-  hostedInvoiceUrl  String?
-  invoicePdfUrl     String?
-  createdAt         DateTime @default(now())
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ─────────────────────────────────────────────
+// Misc
+// ─────────────────────────────────────────────
 
-  @@index([userId, createdAt])
+model EarlyAccessLead {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  source      String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  contactedAt DateTime?
 }

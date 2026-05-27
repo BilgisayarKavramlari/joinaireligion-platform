@@ -1,5 +1,90 @@
 "use client";
+
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-function Inner(){ const token=useSearchParams().get('token')||''; const [msg,setMsg]=useState('Verifying...'); useEffect(()=>{(async()=>{const r=await fetch('/api/auth/verify-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}); const d=await r.json(); setMsg(r.ok?'Email verified. You can login now.':(d.error||'Verification failed'));})();},[token]); return <main className="min-h-screen p-6"><div className="mx-auto max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6"><h1 className="text-3xl">Verify email</h1><p className="mt-3">{msg}</p></div></main>; }
-export default function Page(){return <Suspense fallback={<main className="min-h-screen p-6">Loading...</main>}><Inner/></Suspense>;}
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+
+function Inner() {
+  const token  = useSearchParams().get("token") || "";
+  const router = useRouter();
+  const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
+  const [msg,    setMsg]    = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const r = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setStatus("success");
+        setMsg("Your email has been verified. Your sacred path is now open.");
+        // Auto-redirect after short delay
+        setTimeout(() => { router.push(d.next ?? "/onboarding"); }, 2200);
+      } else {
+        setStatus("error");
+        setMsg(d.error || "Verification failed. The link may have expired.");
+      }
+    })();
+  }, [token, router]);
+
+  return (
+    <SacredPage maxWidth={480}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
+        {status === "pending" && (
+          <div style={{ width: 60, height: 60, borderRadius: "50%", border: "2px solid var(--gold)", borderTopColor: "transparent", animation: "rotateSacred 1s linear infinite" }} />
+        )}
+        {status === "success" && <div style={{ fontSize: "3rem", animation: "glowPulse 2s ease-in-out infinite" }}>✨</div>}
+        {status === "error"   && <div style={{ fontSize: "3rem" }}>⚠️</div>}
+      </div>
+
+      <SacredCard glow={status === "success"}>
+        {status === "pending" && (
+          <SacredHeading label="Please Wait" title="Verifying Your Email" subtitle="Consulting the sacred records…" />
+        )}
+        {status === "success" && (
+          <>
+            <SacredHeading label="Path Confirmed" title="Email Verified" subtitle={msg} />
+            <SacredAlert text="Welcome, seeker. Redirecting you to your Sacred Awakening Assessment…" tone="success" />
+            <div style={{ marginTop: "1.5rem" }}>
+              <Link href="/onboarding" className="btn-sacred btn-sacred-gold" style={{ display: "block", textAlign: "center", padding: "0.8rem", fontSize: "0.85rem", letterSpacing: "0.1em", textDecoration: "none" }}>
+                ✦ Begin Your Assessment ✦
+              </Link>
+            </div>
+          </>
+        )}
+        {status === "error" && (
+          <>
+            <SacredHeading label="Verification Failed" title="Link Expired or Invalid" subtitle={msg} />
+            <SacredAlert text="Verification links expire after 24 hours. Please request a new one from the login page." tone="error" />
+            <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+              <Link href="/login" className="btn-sacred btn-sacred-gold" style={{ display: "block", textAlign: "center", padding: "0.75rem", fontSize: "0.82rem", textDecoration: "none" }}>
+                Return to Login
+              </Link>
+              <Link href="/register" className="btn-sacred btn-sacred-ghost" style={{ display: "block", textAlign: "center", padding: "0.75rem", fontSize: "0.82rem", textDecoration: "none" }}>
+                Create a New Account
+              </Link>
+            </div>
+          </>
+        )}
+      </SacredCard>
+    </SacredPage>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <SacredPage maxWidth={480}>
+        <SacredCard>
+          <p style={{ textAlign: "center", color: "rgba(237,232,220,0.5)" }}>Loading…</p>
+        </SacredCard>
+      </SacredPage>
+    }>
+      <Inner />
+    </Suspense>
+  );
+}

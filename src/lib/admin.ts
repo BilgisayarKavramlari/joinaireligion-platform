@@ -1,15 +1,18 @@
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { env } from "@/lib/env";
+import { getSessionFromCookie } from "@/lib/auth";
 
 export function getAdminEmails(): string[] {
-  return (env.ADMIN_EMAILS ?? "admin@example.com").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return (env.ADMIN_EMAILS ?? "admin@example.com")
+    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 }
 
-export async function requireAdminAccess() {
-  const h = await headers();
-  const email = h.get("x-admin-email")?.toLowerCase();
-  if (!email || !getAdminEmails().includes(email)) throw new Error("FORBIDDEN_ADMIN");
-  return email;
+export async function requireAdminSession(): Promise<string> {
+  const cookieStore = await cookies();
+  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
+  if (!session) throw new Error("UNAUTHORIZED");
+  if (!getAdminEmails().includes(session.email.toLowerCase())) throw new Error("FORBIDDEN_ADMIN");
+  return session.email;
 }
 
 export function assertInternalApiKey(request: Request): boolean {

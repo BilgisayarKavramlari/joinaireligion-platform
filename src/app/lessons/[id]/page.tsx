@@ -1,0 +1,308 @@
+"use client";
+
+import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+
+interface LessonData {
+  id: string;
+  stepNumber: number;
+  title: string;
+  tradition: string | null;
+  readingText: string;
+  practiceDescription: string;
+  questions: { id: string; text: string; type: string }[];
+  userLesson: {
+    id: string;
+    status: string;
+    xpEarned: number;
+  } | null;
+  lastAttempt: {
+    score: number;
+    passed: boolean;
+    feedback: string;
+  } | null;
+  quota: {
+    canSubmit: boolean;
+    reason?: string;
+    nextAvailableAt?: string;
+  };
+}
+
+function renderText(text: string) {
+  return text.split("\n").map((line, i) => {
+    if (line.startsWith("**") && line.endsWith("**")) {
+      return <p key={i} style={{ fontWeight: 700, color: "var(--gold-light)", marginBottom: "0.6rem" }}>{line.slice(2, -2)}</p>;
+    }
+    if (line.trim() === "") return <div key={i} style={{ height: "0.6rem" }} />;
+    return <p key={i} style={{ color: "rgba(237,232,220,0.78)", lineHeight: 1.85, marginBottom: "0.5rem", fontSize: "0.92rem" }}>{line}</p>;
+  });
+}
+
+export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const router = useRouter();
+  const [lesson,   setLesson]   = useState<LessonData | null>(null);
+  const [prompt,   setPrompt]   = useState("");
+  const [tab,      setTab]      = useState<"reading" | "practice" | "submit">("reading");
+  const [loading,  setLoading]  = useState(true);
+  const [sending,  setSending]  = useState(false);
+  const [result,   setResult]   = useState<{ score: number; passed: boolean; feedback: string } | null>(null);
+  const [error,    setError]    = useState("");
+
+  useEffect(() => {
+    fetch(`/api/lessons/${id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) { router.push("/lessons"); return; }
+        setLesson(d);
+        if (d.lastAttempt) setResult(d.lastAttempt);
+        setLoading(false);
+      });
+  }, [id, router]);
+
+  async function submitPrompt() {
+    if (!prompt.trim() || prompt.trim().length < 80) {
+      setError("Please write at least 80 characters reflecting on your experience.");
+      return;
+    }
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch("/api/lessons/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId: id, promptText: prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Submission failed."); setSending(false); return; }
+      setResult({ score: data.score, passed: data.passed, feedback: data.feedback });
+      // Refresh lesson data for quota/status
+      const updated = await fetch(`/api/lessons/${id}`).then((r) => r.json());
+      setLesson(updated);
+    } catch {
+      setError("Connection error. Please try again.");
+    }
+    setSending(false);
+  }
+
+  if (loading) return (
+    <SacredPage maxWidth={760}>
+      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>Loading…</div>
+    </SacredPage>
+  );
+  if (!lesson) return null;
+
+  const TABS = [
+    { key: "reading",  label: "◎ Reading" },
+    { key: "practice", label: "△ Practice" },
+    { key: "submit",   label: "✦ Prompt" },
+  ] as const;
+
+  return (
+    <SacredPage maxWidth={780}>
+      {/* Breadcrumb */}
+      <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <Link href="/lessons" style={{ fontSize: "0.78rem", color: "var(--gold)", textDecoration: "none", opacity: 0.7 }}>
+          ← Lessons
+        </Link>
+        <span style={{ color: "rgba(237,232,220,0.2)", fontSize: "0.7rem" }}>/</span>
+        <span style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)" }}>Step {lesson.stepNumber}</span>
+      </div>
+
+      {/* Header */}
+      <div style={{ marginBottom: "2rem" }}>
+        <p style={{ fontSize: "0.62rem", letterSpacing: "0.35em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.5rem" }}>
+          Step {lesson.stepNumber} {lesson.tradition ? `· ${lesson.tradition}` : "· Universal"}
+        </p>
+        <h1 className="font-sacred" style={{ fontSize: "clamp(1.4rem, 3vw, 2rem)", color: "var(--text-primary)", marginBottom: "0.4rem" }}>
+          {lesson.title}
+        </h1>
+        {lesson.userLesson?.status === "COMPLETED" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "#14b8a6" }}>✓ Completed</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>· +{lesson.userLesson.xpEarned} XP</span>
+          </div>
+        )}
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: "0.4rem", marginBottom: "1.8rem", borderBottom: "1px solid rgba(201,162,39,0.15)", paddingBottom: "0" }}>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              padding: "0.6rem 1.2rem",
+              borderRadius: "0.5rem 0.5rem 0 0",
+              border: "none",
+              background: tab === t.key ? "rgba(201,162,39,0.1)" : "transparent",
+              color: tab === t.key ? "var(--gold-light)" : "rgba(237,232,220,0.45)",
+              cursor: "pointer",
+              fontSize: "0.82rem",
+              borderBottom: tab === t.key ? "2px solid var(--gold)" : "2px solid transparent",
+              transition: "all 0.15s",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Reading tab */}
+      {tab === "reading" && (
+        <SacredCard>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,162,39,0.1)", border: "1px solid var(--border-gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "var(--gold)" }}>◎</div>
+            <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase" }}>Sacred Reading</span>
+          </div>
+          <div>{renderText(lesson.readingText)}</div>
+          <div style={{ marginTop: "1.8rem", display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={() => setTab("practice")} className="btn-sacred btn-sacred-gold" style={{ padding: "0.6rem 1.4rem", fontSize: "0.8rem" }}>
+              Continue to Practice →
+            </button>
+          </div>
+        </SacredCard>
+      )}
+
+      {/* Practice tab */}
+      {tab === "practice" && (
+        <SacredCard>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "#a855f7" }}>△</div>
+            <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#a855f7", textTransform: "uppercase" }}>Sacred Practice</span>
+          </div>
+          <div>{renderText(lesson.practiceDescription)}</div>
+
+          {/* Guiding questions */}
+          <div style={{ marginTop: "2rem", padding: "1.2rem", borderRadius: "0.75rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(201,162,39,0.12)" }}>
+            <p style={{ fontSize: "0.7rem", color: "var(--gold)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "1rem" }}>Reflection Questions</p>
+            {lesson.questions.map((q, i) => (
+              <div key={q.id} style={{ display: "flex", gap: "0.7rem", marginBottom: i < lesson.questions.length - 1 ? "0.9rem" : 0 }}>
+                <span style={{ color: "var(--gold)", fontSize: "0.75rem", fontWeight: 700, flexShrink: 0, paddingTop: "0.1rem" }}>{i + 1}.</span>
+                <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.65)", lineHeight: 1.7 }}>{q.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: "1.8rem", display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={() => setTab("submit")} className="btn-sacred btn-sacred-gold" style={{ padding: "0.6rem 1.4rem", fontSize: "0.8rem" }}>
+              Write Your Prompt →
+            </button>
+          </div>
+        </SacredCard>
+      )}
+
+      {/* Submit tab */}
+      {tab === "submit" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+          {/* Quota info */}
+          {!lesson.quota.canSubmit && (
+            <SacredAlert
+              text={lesson.quota.reason || "You have used your prompt attempts for this period."}
+              tone="error"
+            />
+          )}
+
+          {/* Previous result */}
+          {result && (
+            <SacredCard>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1rem" }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: "50%",
+                  background: result.passed ? "rgba(20,184,166,0.1)" : "rgba(168,85,247,0.1)",
+                  border: `2px solid ${result.passed ? "#14b8a6" : "#a855f7"}`,
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: "1rem", fontWeight: 700, color: result.passed ? "#14b8a6" : "#a855f7", lineHeight: 1 }}>{result.score}</span>
+                  <span style={{ fontSize: "0.55rem", color: "var(--text-muted)" }}>/100</span>
+                </div>
+                <div>
+                  <p className="font-sacred" style={{ fontSize: "1rem", color: result.passed ? "#14b8a6" : "#a855f7" }}>
+                    {result.passed ? "✦ Passed" : "△ Not yet"}
+                  </p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Your last submission score</p>
+                </div>
+              </div>
+              {result.feedback && (
+                <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.62)", lineHeight: 1.75, borderLeft: "2px solid var(--gold-dim)", paddingLeft: "0.9rem", fontStyle: "italic" }}>
+                  {result.feedback}
+                </p>
+              )}
+              {result.passed && (
+                <div style={{ marginTop: "1rem" }}>
+                  <Link href="/lessons" className="btn-sacred btn-sacred-gold" style={{ display: "inline-block", padding: "0.6rem 1.4rem", fontSize: "0.8rem", textDecoration: "none" }}>
+                    → See Next Lesson
+                  </Link>
+                </div>
+              )}
+            </SacredCard>
+          )}
+
+          {/* Prompt input */}
+          {lesson.quota.canSubmit && lesson.userLesson?.status !== "COMPLETED" && (
+            <SacredCard>
+              <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.5rem" }}>Your Sacred Prompt</p>
+              <p style={{ fontSize: "0.82rem", color: "rgba(237,232,220,0.5)", marginBottom: "1.2rem", lineHeight: 1.6 }}>
+                Describe your experience with the practice. Address the reflection questions in your own voice. The sacred guide will evaluate the depth, honesty, and awareness of your reflection.
+              </p>
+
+              {/* Reminder questions */}
+              <div style={{ padding: "0.9rem", borderRadius: "0.6rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(201,162,39,0.1)", marginBottom: "1.2rem" }}>
+                {lesson.questions.map((q, i) => (
+                  <p key={q.id} style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", marginBottom: i < lesson.questions.length - 1 ? "0.5rem" : 0 }}>
+                    {i + 1}. {q.text}
+                  </p>
+                ))}
+              </div>
+
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Write your reflection here… Be honest, specific, and personal. Minimum 80 characters."
+                rows={10}
+                style={{
+                  width: "100%",
+                  padding: "0.9rem",
+                  borderRadius: "0.6rem",
+                  border: "1px solid rgba(201,162,39,0.2)",
+                  background: "rgba(255,255,255,0.03)",
+                  color: "var(--text-primary)",
+                  fontSize: "0.9rem",
+                  lineHeight: 1.75,
+                  resize: "vertical",
+                  outline: "none",
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--border-gold)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(201,162,39,0.2)")}
+              />
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.6rem" }}>
+                <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                  {prompt.trim().length} characters {prompt.trim().length < 80 ? `(need ${80 - prompt.trim().length} more)` : "✓"}
+                </span>
+              </div>
+
+              {error && <SacredAlert text={error} tone="error" />}
+
+              <div style={{ marginTop: "1.2rem", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={submitPrompt}
+                  disabled={sending || prompt.trim().length < 80}
+                  className="btn-sacred btn-sacred-gold"
+                  style={{ padding: "0.75rem 2rem", fontSize: "0.85rem", opacity: prompt.trim().length < 80 ? 0.55 : 1 }}
+                >
+                  {sending ? "Evaluating…" : "✦ Submit for Evaluation ✦"}
+                </button>
+              </div>
+            </SacredCard>
+          )}
+        </div>
+      )}
+    </SacredPage>
+  );
+}

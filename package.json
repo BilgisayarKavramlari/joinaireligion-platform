@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "prisma:migrate": "prisma migrate dev --name init",
+    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
+    "db:push": "prisma db push"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -17,6 +19,9 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "stripe": "^17.7.0"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.8",
@@ -27,6 +32,7 @@
     "eslint-config-next": "16.0.0",
     "prisma": "^6.9.0",
     "tailwindcss": "^4.1.8",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "ts-node": "^10.9.2"
   }
 }
