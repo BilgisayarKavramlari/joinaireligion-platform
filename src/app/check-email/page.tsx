@@ -4,8 +4,10 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function CheckEmailInner() {
+  const { t } = useLanguage();
   const email = useSearchParams().get("email") || "";
   const [msg, setMsg]       = useState("");
   const [sending, setSending] = useState(false);
@@ -31,8 +33,8 @@ function CheckEmailInner() {
       <SacredCard glow>
         <SacredHeading
           label="Verification Required"
-          title="Check Your Inbox"
-          subtitle={`We sent a sacred verification message to ${email || "your email address"}. Please open it to confirm your account and begin your journey.`}
+          title={t.auth.checkEmailTitle}
+          subtitle={`${t.auth.checkEmailSubtitle} ${email || ""}`}
         />
 
         <div style={{
@@ -56,10 +58,10 @@ function CheckEmailInner() {
             className="btn-sacred btn-sacred-ghost"
             style={{ width: "100%", padding: "0.75rem", fontSize: "0.82rem" }}
           >
-            {sending ? "Sending…" : "Resend Verification Email"}
+            {sending ? t.common.sending : t.auth.resend}
           </button>
           <Link href="/login" className="btn-sacred btn-sacred-gold" style={{ textAlign: "center", padding: "0.75rem", fontSize: "0.82rem", display: "block", textDecoration: "none" }}>
-            I've verified — Enter the Sanctum →
+            {t.auth.verified}
           </Link>
         </div>
       </SacredCard>

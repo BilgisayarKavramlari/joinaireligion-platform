@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Plan = "seeker" | "initiate";
 
@@ -46,6 +47,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function BillingPage() {
   const router  = useRouter();
+  const { t } = useLanguage();
   const [user,    setUser]    = useState<UserData | null>(null);
   const [loading, setLoading] = useState<Plan | null>(null);
   const [error,   setError]   = useState("");
@@ -81,14 +83,14 @@ export default function BillingPage() {
     <SacredPage maxWidth={860}>
       <div style={{ marginBottom: "1rem" }}>
         <Link href="/account" style={{ fontSize: "0.75rem", color: "rgba(237,232,220,0.4)", textDecoration: "none" }}>
-          ← Account Dashboard
+          ← {t.account.dashboard}
         </Link>
       </div>
 
       <SacredHeading
         label="Sacred Membership"
-        title="Your Membership"
-        subtitle="Support the path or unlock active membership for daily practice."
+        title={t.billing.title}
+        subtitle={t.billing.subtitle}
       />
 
       {/* Current plan status */}
@@ -96,7 +98,7 @@ export default function BillingPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
           <div style={{ fontSize: "2rem" }}>{isActive ? "☀️" : "🌿"}</div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: "0.68rem", letterSpacing: "0.3em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.2rem" }}>Current Plan</p>
+            <p style={{ fontSize: "0.68rem", letterSpacing: "0.3em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.2rem" }}>{t.billing.currentPlan}</p>
             <p className="font-sacred" style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>
               {STATUS_LABEL[subStatus] || "Free"}
             </p>
@@ -154,7 +156,7 @@ export default function BillingPage() {
                 disabled={loading !== null}
                 style={{ width: "100%", padding: "0.75rem", fontSize: "0.82rem" }}
               >
-                {loading === plan.id ? "Redirecting to Stripe…" : plan.id === "seeker" ? "Support the Path" : "Become an Initiate"}
+                {loading === plan.id ? t.billing.processing : plan.id === "seeker" ? t.billing.upgradeToSeeker : t.billing.upgradeToInitiate}
               </button>
             </div>
           ))}
@@ -163,7 +165,7 @@ export default function BillingPage() {
 
       <div style={{ marginTop: "2rem" }}>
         <SacredAlert
-          text="All payments are processed securely through Stripe. Cancel anytime — no questions asked."
+          text={`${t.billing.stripeNote} ${t.billing.cancelNote}`}
           tone="info"
         />
       </div>

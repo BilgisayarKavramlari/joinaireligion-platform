@@ -4,8 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function Inner() {
+  const { t } = useLanguage();
   const token  = useSearchParams().get("token") || "";
   const router = useRouter();
   const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
@@ -43,29 +45,29 @@ function Inner() {
 
       <SacredCard glow={status === "success"}>
         {status === "pending" && (
-          <SacredHeading label="Please Wait" title="Verifying Your Email" subtitle="Consulting the sacred records…" />
+          <SacredHeading label="Please Wait" title={t.auth.verifyTitle} subtitle={t.common.loading} />
         )}
         {status === "success" && (
           <>
-            <SacredHeading label="Path Confirmed" title="Email Verified" subtitle={msg} />
-            <SacredAlert text="Welcome, seeker. Redirecting you to your Sacred Awakening Assessment…" tone="success" />
+            <SacredHeading label="Path Confirmed" title={t.auth.verifySuccess} subtitle={t.auth.verifySuccessSubtitle} />
+            <SacredAlert text={t.auth.verifySuccessSubtitle} tone="success" />
             <div style={{ marginTop: "1.5rem" }}>
               <Link href="/onboarding" className="btn-sacred btn-sacred-gold" style={{ display: "block", textAlign: "center", padding: "0.8rem", fontSize: "0.85rem", letterSpacing: "0.1em", textDecoration: "none" }}>
-                ✦ Begin Your Assessment ✦
+                ✦ {t.onboarding.completeBtn} ✦
               </Link>
             </div>
           </>
         )}
         {status === "error" && (
           <>
-            <SacredHeading label="Verification Failed" title="Link Expired or Invalid" subtitle={msg} />
-            <SacredAlert text="Verification links expire after 24 hours. Please request a new one from the login page." tone="error" />
+            <SacredHeading label={t.auth.verifyError} title={t.auth.verifyError} subtitle={msg} />
+            <SacredAlert text={msg} tone="error" />
             <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
               <Link href="/login" className="btn-sacred btn-sacred-gold" style={{ display: "block", textAlign: "center", padding: "0.75rem", fontSize: "0.82rem", textDecoration: "none" }}>
-                Return to Login
+                {t.auth.loginBtn}
               </Link>
               <Link href="/register" className="btn-sacred btn-sacred-ghost" style={{ display: "block", textAlign: "center", padding: "0.75rem", fontSize: "0.82rem", textDecoration: "none" }}>
-                Create a New Account
+                {t.auth.register}
               </Link>
             </div>
           </>

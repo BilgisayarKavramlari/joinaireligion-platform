@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SacredPage, SacredCard, SacredHeading, SacredInput, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
   const [email, setEmail]               = useState("");
   const [password, setPassword]         = useState("");
   const [displayName, setDisplayName]   = useState("");
@@ -20,14 +22,13 @@ export default function RegisterPage() {
     setError("");
     const res  = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, displayName, acceptedTerms }) });
     const data = await res.json();
-    if (!res.ok) setError(data.error || "Registration failed.");
+    if (!res.ok) setError(data.error || t.common.error);
     else router.push(data.next ?? `/check-email?email=${encodeURIComponent(email)}`);
     setLoading(false);
   }
 
   return (
     <SacredPage maxWidth={520}>
-      {/* Animated sacred geometry header */}
       <div style={{ textAlign: "center", marginBottom: "2rem" }}>
         <div style={{ position: "relative", width: 90, height: 90, margin: "0 auto" }}>
           <svg width="90" height="90" viewBox="0 0 90 90" style={{ position: "absolute", inset: 0, animation: "rotateSacred 30s linear infinite" }}>
@@ -50,21 +51,21 @@ export default function RegisterPage() {
       <SacredCard glow>
         <SacredHeading
           label="Begin the Journey"
-          title="Create Your Sacred Account"
-          subtitle="Every great journey begins with a single step. Join seekers from every tradition on this reflective path."
+          title={t.auth.registerTitle}
+          subtitle={t.auth.registerSubtitle}
         />
 
         <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
           <SacredInput
-            label="Display Name"
+            label={t.auth.displayName}
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="How shall we call you?"
+            placeholder={t.auth.displayNamePlaceholder}
             autoComplete="name"
           />
           <SacredInput
-            label="Email Address"
+            label={t.auth.email}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -73,7 +74,7 @@ export default function RegisterPage() {
             autoComplete="email"
           />
           <SacredInput
-            label="Password"
+            label={t.auth.password}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -82,7 +83,6 @@ export default function RegisterPage() {
             autoComplete="new-password"
           />
 
-          {/* Terms checkbox */}
           <label style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", cursor: "pointer" }}>
             <div style={{ position: "relative", marginTop: "2px" }}>
               <input
@@ -96,8 +96,8 @@ export default function RegisterPage() {
               )}
             </div>
             <span style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.6)", lineHeight: 1.5 }}>
-              I understand this is a fictional, educational, reflective platform and accept the{" "}
-              <Link href="/legal/eula" style={{ color: "var(--gold)", textDecoration: "none" }}>terms of use</Link>.
+              {t.auth.acceptTerms}{" — "}
+              <Link href="/legal/eula" style={{ color: "var(--gold)", textDecoration: "none" }}>{t.footer.eula}</Link>
             </span>
           </label>
 
@@ -109,20 +109,20 @@ export default function RegisterPage() {
             disabled={loading || !acceptedTerms}
             style={{ width: "100%", padding: "0.8rem", fontSize: "0.85rem", letterSpacing: "0.12em", marginTop: "0.4rem", opacity: !acceptedTerms ? 0.5 : 1 }}
           >
-            {loading ? "Initiating your path…" : "✦ Begin the Sacred Journey ✦"}
+            {loading ? t.auth.registering : `✦ ${t.auth.registerBtn} ✦`}
           </button>
         </form>
 
         <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border-gold), transparent)", margin: "1.5rem 0" }} />
 
         <p style={{ textAlign: "center", fontSize: "0.8rem", color: "rgba(237,232,220,0.5)" }}>
-          Already walking the path?{" "}
-          <Link href="/login" style={{ color: "var(--gold)", textDecoration: "none" }}>Return to sanctum →</Link>
+          {t.auth.alreadyAccount}{" "}
+          <Link href="/login" style={{ color: "var(--gold)", textDecoration: "none" }}>{t.auth.returnLogin}</Link>
         </p>
       </SacredCard>
 
       <p style={{ textAlign: "center", marginTop: "1.5rem", fontSize: "0.68rem", color: "rgba(237,232,220,0.25)", letterSpacing: "0.1em" }}>
-        FICTIONAL EDUCATIONAL REFLECTIVE PLATFORM · NOT A RELIGIOUS AUTHORITY
+        {t.footer.notReligious}
       </p>
     </SacredPage>
   );

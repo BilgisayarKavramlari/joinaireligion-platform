@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
+// ─── Question definitions ──────────────────────────────────────────────────────
+// type: "select" | "textarea" | "language" | "acknowledge"
 const QUESTIONS = [
   {
     key: "tradition",
@@ -18,6 +21,20 @@ const QUESTIONS = [
     hint: "Be honest — there is no wrong answer here.",
     type: "select",
     options: ["Deeply committed and practicing","Curious but not yet committed","Questioning my inherited tradition","Exploring new perspectives","Skeptical but open","Disconnected — looking for meaning","Returning after a period away","Just starting for the first time"],
+  },
+  {
+    key: "preferred_language",
+    text: "Which language would you prefer for lessons and communications?",
+    hint: "You can change this at any time in your account preferences.",
+    type: "language",
+    options: [
+      { code: "en", label: "🇬🇧 English" },
+      { code: "tr", label: "🇹🇷 Türkçe" },
+      { code: "es", label: "🇪🇸 Español" },
+      { code: "de", label: "🇩🇪 Deutsch" },
+      { code: "fr", label: "🇫🇷 Français" },
+      { code: "ar", label: "🇸🇦 العربية" },
+    ],
   },
   {
     key: "draw",
@@ -84,17 +101,35 @@ const QUESTIONS = [
     hint: "Write your deepest, most honest question. This will guide your entire path.",
     type: "textarea",
   },
-];
+  // ─── Final: Safety acknowledgement (must be accepted to proceed) ──────────────
+  {
+    key: "safety_acknowledgement",
+    text: "Before you begin, please read and confirm the following.",
+    hint: "",
+    type: "acknowledge",
+    options: [],
+  },
+] as const;
+
+type QuestionKey = typeof QUESTIONS[number]["key"];
+type LanguageOption = { code: string; label: string };
+
+const LANGUAGE_COLORS: Record<string, string> = {
+  en: "#c0c0ff", tr: "#80ffb0", es: "#ff8080",
+  de: "#ffe080", fr: "#c0ffe0", ar: "#f9c8ff",
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step,     setStep]     = useState(0);
-  const [answers,  setAnswers]  = useState<Record<string, string>>({});
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState("");
-  const [authed,   setAuthed]   = useState<boolean | null>(null);
+  const { t, setLang } = useLanguage();
+  const [step,           setStep]           = useState(0);
+  const [answers,        setAnswers]        = useState<Record<string, string>>({});
+  const [acknowledged,   setAcknowledged]   = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [error,          setError]          = useState("");
+  const [authed,         setAuthed]         = useState<boolean | null>(null);
 
-  // Guard — must be logged in
+  // Guard — must be logged in and onboarding not yet complete
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.ok ? r.json() : null)
@@ -106,15 +141,27 @@ export default function OnboardingPage() {
       .catch(() => router.push("/login"));
   }, [router]);
 
-  const q = QUESTIONS[step];
-  const isLast = step === QUESTIONS.length - 1;
-  const progress = ((step + 1) / QUESTIONS.length) * 100;
+  const q         = QUESTIONS[step];
+  const isLast    = step === QUESTIONS.length - 1;
+  const total     = QUESTIONS.length;
+  const progress  = ((step + 1) / total) * 100;
 
   function handleAnswer(value: string) {
     setAnswers((prev) => ({ ...prev, [q.key]: value }));
+    // Apply language immediately if this is the language question
+    if (q.key === "preferred_language") {
+      setLang(value as Parameters<typeof setLang>[0]);
+    }
   }
 
   function handleNext() {
+    // Special validation for acknowledge step
+    if (q.type === "acknowledge") {
+      if (!acknowledged) { setError("You must read and confirm the disclaimer to continue."); return; }
+      setError("");
+      handleSubmit();
+      return;
+    }
     if (!answers[q.key]?.trim()) { setError("Please answer this question to continue."); return; }
     setError("");
     if (isLast) { handleSubmit(); return; }
@@ -124,10 +171,13 @@ export default function OnboardingPage() {
   async function handleSubmit() {
     setSaving(true);
     try {
-      const res = await fetch("/api/onboarding/save", {
-        method: "POST",
+      const payload = {
+        answers: { ...answers, safety_acknowledgement: acknowledged ? "accepted" : "declined" },
+      };
+      const res  = await fetch("/api/onboarding/save", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body:    JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Failed to save. Please try again."); setSaving(false); return; }
@@ -141,7 +191,7 @@ export default function OnboardingPage() {
   if (authed === null) {
     return (
       <SacredPage maxWidth={560}>
-        <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>Loading…</div>
+        <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>{t.common.loading}</div>
       </SacredPage>
     );
   }
@@ -163,10 +213,10 @@ export default function OnboardingPage() {
           </div>
         </div>
         <p style={{ fontSize: "0.62rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase" }}>
-          ✦ Sacred Awakening Assessment ✦
+          ✦ {t.onboarding.title} ✦
         </p>
         <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", marginTop: "0.4rem" }}>
-          Your answers guide your personalized path
+          {t.onboarding.subtitle}
         </p>
       </div>
 
@@ -174,7 +224,7 @@ export default function OnboardingPage() {
       <div style={{ marginBottom: "1.8rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
           <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", letterSpacing: "0.1em" }}>
-            Question {step + 1} of {QUESTIONS.length}
+            {t.onboarding.step.replace("{n}", String(step + 1)).replace("{total}", String(total))}
           </span>
           <span style={{ fontSize: "0.68rem", color: "var(--gold)" }}>
             {Math.round(progress)}%
@@ -219,10 +269,10 @@ export default function OnboardingPage() {
           </p>
         )}
 
-        {/* Input */}
+        {/* ── Select input ── */}
         {q.type === "select" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {q.options?.map((opt) => (
+            {(q.options as string[]).map((opt) => (
               <button
                 key={opt}
                 onClick={() => handleAnswer(opt)}
@@ -256,6 +306,42 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* ── Language selector ── */}
+        {q.type === "language" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.7rem" }}>
+            {(q.options as LanguageOption[]).map((lang) => {
+              const selected = answers[q.key] === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  onClick={() => handleAnswer(lang.code)}
+                  style={{
+                    padding: "0.9rem 1rem",
+                    borderRadius: "0.75rem",
+                    border: `1.5px solid ${selected ? LANGUAGE_COLORS[lang.code] || "var(--gold)" : "rgba(201,162,39,0.2)"}`,
+                    background: selected ? `${LANGUAGE_COLORS[lang.code] || "rgba(201,162,39,0.1)"}22` : "rgba(255,255,255,0.02)",
+                    color: selected ? (LANGUAGE_COLORS[lang.code] || "var(--gold-light)") : "var(--text-primary)",
+                    cursor: "pointer",
+                    fontSize: "0.92rem",
+                    textAlign: "center",
+                    transition: "all 0.15s",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    boxShadow: selected ? `0 0 14px ${LANGUAGE_COLORS[lang.code] || "#c9a227"}44` : "none",
+                    fontWeight: selected ? 700 : 400,
+                  }}
+                >
+                  {selected && <span style={{ fontSize: "0.7rem" }}>✓</span>}
+                  {lang.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Textarea ── */}
         {q.type === "textarea" && (
           <textarea
             value={answers[q.key] || ""}
@@ -281,9 +367,68 @@ export default function OnboardingPage() {
           />
         )}
 
-        {error && (
-          <SacredAlert text={error} tone="error" />
+        {/* ── Safety acknowledgement ── */}
+        {q.type === "acknowledge" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+            {/* Disclaimer box */}
+            <div style={{
+              padding: "1.2rem",
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(201,162,39,0.3)",
+              background: "rgba(201,162,39,0.04)",
+              lineHeight: 1.8,
+            }}>
+              <p style={{ fontSize: "0.75rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.8rem" }}>
+                ⚠ Platform Disclaimer — Please Read
+              </p>
+              {[
+                "Join AI Religion is a fictional, educational, and reflective simulation platform. It is not affiliated with any real religion, denomination, or spiritual authority.",
+                "The AI-generated lessons, evaluations, and guidance are for personal reflection and intellectual exploration only. They do not constitute spiritual direction, psychological counseling, or medical advice.",
+                "No real religious community, clergy, or institution is represented or endorsed. Use of sacred symbols, traditions, and terminology is illustrative and educational.",
+                "All content is generated by artificial intelligence. The platform does not claim spiritual authority or make claims about ultimate truth.",
+                "You participate freely and understand this is a simulation for self-inquiry, not a real religious institution.",
+              ].map((line, i) => (
+                <p key={i} style={{ fontSize: "0.82rem", color: "rgba(237,232,220,0.65)", marginBottom: i < 4 ? "0.7rem" : 0 }}>
+                  {i + 1}. {line}
+                </p>
+              ))}
+            </div>
+
+            {/* Checkbox */}
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.9rem",
+                cursor: "pointer",
+                padding: "1rem",
+                borderRadius: "0.75rem",
+                border: `1.5px solid ${acknowledged ? "var(--gold)" : "rgba(201,162,39,0.25)"}`,
+                background: acknowledged ? "rgba(201,162,39,0.07)" : "rgba(255,255,255,0.02)",
+                transition: "all 0.2s",
+              }}
+            >
+              <div
+                onClick={() => setAcknowledged((v) => !v)}
+                style={{
+                  width: 20, height: 20, borderRadius: "0.3rem", flexShrink: 0, marginTop: "0.05rem",
+                  border: `2px solid ${acknowledged ? "var(--gold)" : "rgba(201,162,39,0.4)"}`,
+                  background: acknowledged ? "var(--gold)" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#000", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {acknowledged ? "✓" : ""}
+              </div>
+              <p style={{ fontSize: "0.84rem", color: acknowledged ? "var(--gold-light)" : "rgba(237,232,220,0.65)", lineHeight: 1.65 }}>
+                I have read and understand the above disclaimer. I acknowledge that this platform is a fictional educational simulation and not a real religious institution. I am 18 years or older, or have parental consent to participate.
+              </p>
+            </label>
+          </div>
         )}
+
+        {error && <div style={{ marginTop: "1rem" }}><SacredAlert text={error} tone="error" /></div>}
 
         {/* Navigation */}
         <div style={{ display: "flex", gap: "0.8rem", marginTop: "1.5rem", justifyContent: "space-between", alignItems: "center" }}>
@@ -293,7 +438,7 @@ export default function OnboardingPage() {
               className="btn-sacred btn-sacred-ghost"
               style={{ padding: "0.6rem 1.2rem", fontSize: "0.8rem" }}
             >
-              ← Back
+              ← {t.common.back}
             </button>
           ) : (
             <div />
@@ -301,11 +446,14 @@ export default function OnboardingPage() {
 
           <button
             onClick={handleNext}
-            disabled={saving}
+            disabled={saving || (q.type === "acknowledge" && !acknowledged)}
             className="btn-sacred btn-sacred-gold"
-            style={{ padding: "0.7rem 1.8rem", fontSize: "0.85rem", letterSpacing: "0.1em" }}
+            style={{
+              padding: "0.7rem 1.8rem", fontSize: "0.85rem", letterSpacing: "0.1em",
+              opacity: (q.type === "acknowledge" && !acknowledged) ? 0.45 : 1,
+            }}
           >
-            {saving ? "Saving…" : isLast ? "✦ Complete Assessment ✦" : "Continue →"}
+            {saving ? t.onboarding.saving : isLast ? `✦ ${t.onboarding.completeBtn} ✦` : `${t.common.next} →`}
           </button>
         </div>
       </SacredCard>

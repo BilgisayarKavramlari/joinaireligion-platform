@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LessonData {
   id: string;
@@ -43,6 +44,7 @@ function renderText(text: string) {
 export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
   const [lesson,   setLesson]   = useState<LessonData | null>(null);
   const [prompt,   setPrompt]   = useState("");
   const [tab,      setTab]      = useState<"reading" | "practice" | "submit">("reading");
@@ -50,6 +52,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   const [sending,  setSending]  = useState(false);
   const [result,   setResult]   = useState<{ score: number; passed: boolean; feedback: string } | null>(null);
   const [error,    setError]    = useState("");
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     fetch(`/api/lessons/${id}`)
@@ -61,6 +64,18 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         setLoading(false);
       });
   }, [id, router]);
+
+  async function goToNextLesson() {
+    setGenerating(true);
+    try {
+      await fetch("/api/lessons/generate-next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ afterStepNumber: lesson!.stepNumber }),
+      });
+    } catch { /* non-critical — lessons page will show whatever is available */ }
+    router.push("/lessons");
+  }
 
   async function submitPrompt() {
     if (!prompt.trim() || prompt.trim().length < 80) {
@@ -89,15 +104,15 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
 
   if (loading) return (
     <SacredPage maxWidth={760}>
-      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>Loading…</div>
+      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>{t.common.loading}</div>
     </SacredPage>
   );
   if (!lesson) return null;
 
   const TABS = [
-    { key: "reading",  label: "◎ Reading" },
-    { key: "practice", label: "△ Practice" },
-    { key: "submit",   label: "✦ Prompt" },
+    { key: "reading",  label: `◎ ${t.lesson.reading}` },
+    { key: "practice", label: `△ ${t.lesson.practice}` },
+    { key: "submit",   label: `✦ ${t.lesson.submitPrompt}` },
   ] as const;
 
   return (
@@ -105,23 +120,23 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       {/* Breadcrumb */}
       <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <Link href="/lessons" style={{ fontSize: "0.78rem", color: "var(--gold)", textDecoration: "none", opacity: 0.7 }}>
-          ← Lessons
+          ← {t.promptGuide.yourLessons}
         </Link>
         <span style={{ color: "rgba(237,232,220,0.2)", fontSize: "0.7rem" }}>/</span>
-        <span style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)" }}>Step {lesson.stepNumber}</span>
+        <span style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)" }}>{t.lesson.step.replace("{n}", String(lesson.stepNumber))}</span>
       </div>
 
       {/* Header */}
       <div style={{ marginBottom: "2rem" }}>
         <p style={{ fontSize: "0.62rem", letterSpacing: "0.35em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.5rem" }}>
-          Step {lesson.stepNumber} {lesson.tradition ? `· ${lesson.tradition}` : "· Universal"}
+          {t.lesson.step.replace("{n}", String(lesson.stepNumber))} {lesson.tradition ? `· ${lesson.tradition}` : ""}
         </p>
         <h1 className="font-sacred" style={{ fontSize: "clamp(1.4rem, 3vw, 2rem)", color: "var(--text-primary)", marginBottom: "0.4rem" }}>
           {lesson.title}
         </h1>
         {lesson.userLesson?.status === "COMPLETED" && (
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontSize: "0.75rem", color: "#14b8a6" }}>✓ Completed</span>
+            <span style={{ fontSize: "0.75rem", color: "#14b8a6" }}>✓ {t.promptGuide.status.COMPLETED}</span>
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>· +{lesson.userLesson.xpEarned} XP</span>
           </div>
         )}
@@ -155,12 +170,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         <SacredCard>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,162,39,0.1)", border: "1px solid var(--border-gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "var(--gold)" }}>◎</div>
-            <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase" }}>Sacred Reading</span>
+            <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase" }}>{t.lesson.reading}</span>
           </div>
           <div>{renderText(lesson.readingText)}</div>
           <div style={{ marginTop: "1.8rem", display: "flex", justifyContent: "flex-end" }}>
             <button onClick={() => setTab("practice")} className="btn-sacred btn-sacred-gold" style={{ padding: "0.6rem 1.4rem", fontSize: "0.8rem" }}>
-              Continue to Practice →
+              {t.lesson.practice} →
             </button>
           </div>
         </SacredCard>
@@ -171,13 +186,13 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         <SacredCard>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "#a855f7" }}>△</div>
-            <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#a855f7", textTransform: "uppercase" }}>Sacred Practice</span>
+            <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#a855f7", textTransform: "uppercase" }}>{t.lesson.practice}</span>
           </div>
           <div>{renderText(lesson.practiceDescription)}</div>
 
           {/* Guiding questions */}
           <div style={{ marginTop: "2rem", padding: "1.2rem", borderRadius: "0.75rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(201,162,39,0.12)" }}>
-            <p style={{ fontSize: "0.7rem", color: "var(--gold)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "1rem" }}>Reflection Questions</p>
+            <p style={{ fontSize: "0.7rem", color: "var(--gold)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "1rem" }}>{t.lesson.questions}</p>
             {lesson.questions.map((q, i) => (
               <div key={q.id} style={{ display: "flex", gap: "0.7rem", marginBottom: i < lesson.questions.length - 1 ? "0.9rem" : 0 }}>
                 <span style={{ color: "var(--gold)", fontSize: "0.75rem", fontWeight: 700, flexShrink: 0, paddingTop: "0.1rem" }}>{i + 1}.</span>
@@ -188,7 +203,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
 
           <div style={{ marginTop: "1.8rem", display: "flex", justifyContent: "flex-end" }}>
             <button onClick={() => setTab("submit")} className="btn-sacred btn-sacred-gold" style={{ padding: "0.6rem 1.4rem", fontSize: "0.8rem" }}>
-              Write Your Prompt →
+              {t.lesson.submitPrompt} →
             </button>
           </div>
         </SacredCard>
@@ -221,9 +236,9 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
                 </div>
                 <div>
                   <p className="font-sacred" style={{ fontSize: "1rem", color: result.passed ? "#14b8a6" : "#a855f7" }}>
-                    {result.passed ? "✦ Passed" : "△ Not yet"}
+                    {result.passed ? `✦ ${t.lesson.passed}` : `△ ${t.lesson.failed}`}
                   </p>
-                  <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Your last submission score</p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{t.lesson.score}</p>
                 </div>
               </div>
               {result.feedback && (
@@ -232,9 +247,17 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
                 </p>
               )}
               {result.passed && (
-                <div style={{ marginTop: "1rem" }}>
-                  <Link href="/lessons" className="btn-sacred btn-sacred-gold" style={{ display: "inline-block", padding: "0.6rem 1.4rem", fontSize: "0.8rem", textDecoration: "none" }}>
-                    → See Next Lesson
+                <div style={{ marginTop: "1rem", display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
+                  <button
+                    onClick={goToNextLesson}
+                    disabled={generating}
+                    className="btn-sacred btn-sacred-gold"
+                    style={{ padding: "0.6rem 1.4rem", fontSize: "0.8rem" }}
+                  >
+                    {generating ? "✦ Preparing your next lesson…" : `→ ${t.lesson.nextLesson}`}
+                  </button>
+                  <Link href="/lessons" className="btn-sacred btn-sacred-ghost" style={{ display: "inline-block", padding: "0.6rem 1.2rem", fontSize: "0.8rem", textDecoration: "none" }}>
+                    {t.promptGuide.yourLessons}
                   </Link>
                 </div>
               )}
@@ -244,9 +267,9 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
           {/* Prompt input */}
           {lesson.quota.canSubmit && lesson.userLesson?.status !== "COMPLETED" && (
             <SacredCard>
-              <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.5rem" }}>Your Sacred Prompt</p>
+              <p style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.5rem" }}>{t.lesson.submitPrompt}</p>
               <p style={{ fontSize: "0.82rem", color: "rgba(237,232,220,0.5)", marginBottom: "1.2rem", lineHeight: 1.6 }}>
-                Describe your experience with the practice. Address the reflection questions in your own voice. The sacred guide will evaluate the depth, honesty, and awareness of your reflection.
+                {t.lesson.promptHint}
               </p>
 
               {/* Reminder questions */}
@@ -261,7 +284,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Write your reflection here… Be honest, specific, and personal. Minimum 80 characters."
+                placeholder={t.lesson.promptPlaceholder}
                 rows={10}
                 style={{
                   width: "100%",
@@ -296,7 +319,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
                   className="btn-sacred btn-sacred-gold"
                   style={{ padding: "0.75rem 2rem", fontSize: "0.85rem", opacity: prompt.trim().length < 80 ? 0.55 : 1 }}
                 >
-                  {sending ? "Evaluating…" : "✦ Submit for Evaluation ✦"}
+                  {sending ? t.lesson.submitting : `✦ ${t.lesson.submitPrompt} ✦`}
                 </button>
               </div>
             </SacredCard>

@@ -9,6 +9,6 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ ok: true });
   if (user.emailVerifiedAt) return NextResponse.json({ ok: true, alreadyVerified: true });
   const token = await createVerification(email);
-  const emailResult = await sendVerificationEmail(email, token);
+  const emailResult = await sendVerificationEmail(email, token, user.id);
   return NextResponse.json({ ok: true, emailDelivery: emailResult });
 }

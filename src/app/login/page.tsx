@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { SacredPage, SacredCard, SacredHeading, SacredInput, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [error, setError]       = useState("");
@@ -16,14 +18,13 @@ export default function LoginPage() {
     setError("");
     const res  = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
     const data = await res.json();
-    if (!res.ok) setError(data.error || "Login failed.");
+    if (!res.ok) setError(data.error || t.auth.invalidCredentials);
     else window.location.href = "/account";
     setLoading(false);
   }
 
   return (
     <SacredPage maxWidth={480}>
-      {/* Sacred sigil */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
         <div style={{ position: "relative", width: 80, height: 80 }}>
           <svg width="80" height="80" viewBox="0 0 80 80" style={{ position: "absolute", inset: 0, animation: "rotateSacred 20s linear infinite" }}>
@@ -40,13 +41,13 @@ export default function LoginPage() {
       <SacredCard glow>
         <SacredHeading
           label="Sacred Gateway"
-          title="Return to the Path"
-          subtitle="The journey continues where you left it. Enter your credentials to proceed."
+          title={t.auth.loginTitle}
+          subtitle={t.auth.loginSubtitle}
         />
 
         <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
           <SacredInput
-            label="Email Address"
+            label={t.auth.email}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -55,7 +56,7 @@ export default function LoginPage() {
             autoComplete="email"
           />
           <SacredInput
-            label="Password"
+            label={t.auth.password}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -72,7 +73,7 @@ export default function LoginPage() {
             disabled={loading}
             style={{ width: "100%", padding: "0.8rem", fontSize: "0.85rem", letterSpacing: "0.12em", marginTop: "0.4rem" }}
           >
-            {loading ? "Entering the Sanctum…" : "✦ Enter the Sanctum ✦"}
+            {loading ? t.auth.loggingIn : `✦ ${t.auth.loginBtn} ✦`}
           </button>
         </form>
 
@@ -80,16 +81,16 @@ export default function LoginPage() {
 
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
           <Link href="/forgot-password" style={{ color: "rgba(237,232,220,0.5)", textDecoration: "none" }}>
-            Forgot password?
+            {t.auth.forgotPassword}
           </Link>
           <Link href="/register" style={{ color: "var(--gold)", textDecoration: "none" }}>
-            Begin your journey →
+            {t.auth.newAccount}
           </Link>
         </div>
       </SacredCard>
 
       <p style={{ textAlign: "center", marginTop: "1.5rem", fontSize: "0.68rem", color: "rgba(237,232,220,0.25)", letterSpacing: "0.1em" }}>
-        FICTIONAL EDUCATIONAL REFLECTIVE PLATFORM
+        {t.footer.fictional}
       </p>
     </SacredPage>
   );

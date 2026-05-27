@@ -90,29 +90,99 @@ export async function sendVerificationEmail(email: string, token: string, userId
   return result;
 }
 
-// ─── First lesson / welcome email ────────────────────────────────────────────
-export async function sendFirstLessonEmail(email: string, userId: string, displayName?: string | null) {
+// ─── First lesson / welcome email (Phase 3: includes full Step 1 content) ────
+interface LessonStub {
+  id: string;
+  title: string;
+  readingText: string;
+  practiceDescription: string;
+  questions: unknown;
+}
+
+export async function sendFirstLessonEmail(
+  email: string,
+  userId: string,
+  displayName?: string | null,
+  lesson?: LessonStub,
+) {
   const lessonsUrl     = `${APP_URL}/lessons`;
+  const lessonUrl      = lesson ? `${APP_URL}/lessons/${lesson.id}` : lessonsUrl;
   const unsubscribeUrl = `${APP_URL}/api/unsubscribe?userId=${userId}`;
   const name           = displayName || "Seeker";
 
+  // ── Extract reading excerpt (first 500 chars, end on sentence boundary) ──────
+  const fullReading  = lesson?.readingText ?? "";
+  const rawExcerpt   = fullReading.slice(0, 520);
+  const excerptBreak = rawExcerpt.lastIndexOf(". ");
+  const readingExcerpt = excerptBreak > 100
+    ? rawExcerpt.slice(0, excerptBreak + 1)
+    : rawExcerpt.slice(0, 520).replace(/\*\*/g, "");
+
+  // ── Extract practice summary (first 300 chars) ────────────────────────────
+  const practiceRaw     = lesson?.practiceDescription ?? "";
+  const practiceExcerpt = practiceRaw
+    .replace(/\*\*/g, "")          // strip bold markers
+    .slice(0, 320)
+    .replace(/\n+/g, " ")
+    .trim();
+
+  // ── Reflection questions ──────────────────────────────────────────────────
+  type Q = { id: string; text: string; type: string };
+  const qs: Q[] = Array.isArray(lesson?.questions)
+    ? (lesson.questions as Q[]).slice(0, 4)
+    : [
+        { id: "q1", text: "What did you experience during the practice? Describe in your own words.", type: "experience" },
+        { id: "q2", text: "Did you encounter resistance, restlessness, or strong emotions? What were they?", type: "reflection" },
+        { id: "q3", text: "From your own background, is there a concept similar to 'the witness within'? How does it compare?", type: "reflection" },
+        { id: "q4", text: "What question emerged from this practice that you want to explore further?", type: "insight" },
+      ];
+
+  const lessonTitle = lesson?.title ?? "The Witness Within — Awakening Awareness";
+
+  const questionsHtml = qs.map((q, i) =>
+    `<p style="font-size:13px;line-height:1.8;color:rgba(237,232,220,0.7);margin:0 0 8px;">
+      <strong style="color:#c9a227;">${i + 1}.</strong> ${q.text}
+    </p>`
+  ).join("");
+
   const html = htmlWrapper(`
     <span class="symbol">◎</span>
-    <h1 style="text-align:center;font-size:22px;margin:0 0 8px;" class="gold-light">Your First Step Awaits</h1>
-    <p style="text-align:center;margin:0 0 24px;" class="muted">Step 1 of the Sacred Path</p>
+    <h1 style="text-align:center;font-size:22px;margin:0 0 6px;" class="gold-light">Your First Sacred Lesson</h1>
+    <p style="text-align:center;margin:0 0 4px;font-size:13px;letter-spacing:0.2em;color:#c9a227;text-transform:uppercase;">Step 1 of the Sacred Path</p>
+    <p style="text-align:center;margin:0 0 24px;" class="muted">✦ ${lessonTitle} ✦</p>
     <div class="divider"></div>
+
     <p style="font-size:15px;line-height:1.8;">Dear ${name},</p>
-    <p style="font-size:15px;line-height:1.8;">Your profile is complete. Your first sacred lesson — <strong style="color:#f0d47a;">The Witness Within: Awakening Awareness</strong> — is now unlocked.</p>
-    <p style="font-size:15px;line-height:1.8;">This lesson draws from Buddhism's witnessing mind, Sufism's observing heart, the Stoics' view from above, and the Upanishads' concept of Sakshi — the pure witness consciousness.</p>
-    <div class="blockquote">Every wisdom tradition begins with the same invitation: to stop, look inward, and ask — "Who is watching?"</div>
-    <p style="font-size:15px;line-height:1.8;">After reading the lesson and completing the practice, write a personal prompt reflecting your experience. The sacred guide will evaluate your reflection and, if ready, unlock your next lesson.</p>
-    <div style="text-align:center;margin:32px 0;">
-      <a href="${lessonsUrl}" class="btn">✦ Open Your First Lesson ✦</a>
+    <p style="font-size:15px;line-height:1.8;">Your profile is complete. Your first sacred lesson is now unlocked and waiting for you. Below is the opening of the lesson — read it slowly, then complete the practice.</p>
+
+    <!-- Reading excerpt -->
+    <div style="margin:20px 0;padding:20px;background:rgba(201,162,39,0.04);border:1px solid rgba(201,162,39,0.2);border-radius:12px;">
+      <p style="font-size:11px;letter-spacing:0.3em;color:#c9a227;text-transform:uppercase;margin:0 0 12px;">Reading</p>
+      <p style="font-size:14px;line-height:1.9;color:rgba(237,232,220,0.8);margin:0;">${readingExcerpt}…</p>
     </div>
-    <p class="muted" style="text-align:center;">Free members: 1 prompt attempt per week<br/>Initiate members: 1 per day</p>
+
+    <!-- Practice summary -->
+    ${practiceExcerpt ? `
+    <div style="margin:16px 0;padding:16px 20px;background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.15);border-radius:12px;">
+      <p style="font-size:11px;letter-spacing:0.3em;color:#a855f7;text-transform:uppercase;margin:0 0 10px;">Practice (15–30 min)</p>
+      <p style="font-size:13px;line-height:1.8;color:rgba(237,232,220,0.65);margin:0;">${practiceExcerpt}…</p>
+    </div>` : ""}
+
+    <!-- Reflection questions -->
+    <div style="margin:16px 0;padding:16px 20px;background:rgba(20,184,166,0.04);border:1px solid rgba(20,184,166,0.15);border-radius:12px;">
+      <p style="font-size:11px;letter-spacing:0.3em;color:#14b8a6;text-transform:uppercase;margin:0 0 12px;">Your Reflection Questions</p>
+      ${questionsHtml}
+    </div>
+
+    <p style="font-size:14px;line-height:1.8;color:rgba(237,232,220,0.65);">After completing the practice, write your reflection in the platform. The sacred guide will evaluate your response and, if you are ready, unlock your next personalized lesson.</p>
+
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${lessonUrl}" class="btn">✦ Open Full Lesson ✦</a>
+    </div>
+    <p class="muted" style="text-align:center;font-size:12px;">Free members: 1 prompt attempt per week · Initiate members: 1 per day</p>
   `, unsubscribeUrl);
 
-  const result = await sendEmail(email, "Your first sacred lesson is ready — Step 1", html);
+  const result = await sendEmail(email, `Your first sacred lesson is ready — ${lessonTitle}`, html);
   await logEmail(userId, "first_lesson", result.ok ? "sent" : "failed", { email });
   return result;
 }

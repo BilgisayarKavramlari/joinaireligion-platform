@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode } from "react";
+import { CSSProperties, ReactNode, InputHTMLAttributes, SelectHTMLAttributes } from "react";
 
 /** Sayfa geneli sacred-game teması wrapper'ı */
 export function SacredPage({ children, maxWidth = 900 }: { children: ReactNode; maxWidth?: number }) {
@@ -55,7 +55,7 @@ export function SacredHeading({ label, title, subtitle }: { label?: string; titl
 }
 
 /** Input bileşeni */
-export function SacredInput(props: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+export function SacredInput(props: InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
   const { label, ...rest } = props;
   return (
     <div>
@@ -93,7 +93,7 @@ export function SacredInput(props: React.InputHTMLAttributes<HTMLInputElement> &
 }
 
 /** Select bileşeni */
-export function SacredSelect(props: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
+export function SacredSelect(props: SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
   const { label, children, ...rest } = props;
   return (
     <div>

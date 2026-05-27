@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const PRESETS = [5, 10, 25, 50, 100, 250];
 
@@ -15,6 +16,7 @@ const IMPACT = [
 ];
 
 export default function DonatePage() {
+  const { t } = useLanguage();
   const [amount, setAmount]   = useState(10);
   const [custom, setCustom]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,15 +58,15 @@ export default function DonatePage() {
           ✦ Sacred Offering ✦
         </p>
         <h1 className="font-sacred" style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", fontWeight: 900, color: "var(--text-primary)", marginBottom: "0.8rem" }}>
-          Support the Journey
+          {t.donate.title}
         </h1>
         <p style={{ fontSize: "0.88rem", color: "rgba(237,232,220,0.5)", maxWidth: 480, margin: "0 auto", lineHeight: 1.7 }}>
-          Your generosity keeps the sacred space alive and accessible for seekers everywhere. Every contribution, however small, illuminates a path.
+          {t.donate.subtitle}
         </p>
       </div>
 
       <SacredCard glow>
-        <SacredHeading label="Choose Your Offering" title="Make a Donation" />
+        <SacredHeading label={t.donate.chooseAmount} title={t.donate.title} />
 
         {/* Preset amounts */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem", marginBottom: "1.5rem" }}>
@@ -83,7 +85,7 @@ export default function DonatePage() {
         {/* Custom amount */}
         <div style={{ marginBottom: "1.2rem" }}>
           <label style={{ display: "block", fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.4rem" }}>
-            Custom Amount (USD)
+            {t.donate.customAmount}
           </label>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: "0.9rem", top: "50%", transform: "translateY(-50%)", color: "var(--gold)", fontSize: "0.9rem" }}>$</span>
@@ -139,17 +141,17 @@ export default function DonatePage() {
           disabled={loading || !effectiveAmount || effectiveAmount < 3}
           style={{ width: "100%", padding: "0.9rem", fontSize: "0.88rem", letterSpacing: "0.1em" }}
         >
-          {loading ? "Opening Stripe…" : "✦ Proceed to Secure Checkout ✦"}
+          {loading ? t.billing.processing : `✦ ${t.donate.proceed} ✦`}
         </button>
 
         <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-          <span style={{ fontSize: "0.7rem", color: "rgba(237,232,220,0.3)" }}>🔒 Secured by Stripe · No card details stored</span>
+          <span style={{ fontSize: "0.7rem", color: "rgba(237,232,220,0.3)" }}>🔒 {t.donate.secured}</span>
         </div>
       </SacredCard>
 
       <div style={{ marginTop: "1.5rem" }}>
         <SacredAlert
-          text="All donations support this fictional, educational, reflective simulation platform. This is not a registered charitable organization. Donations are not tax-deductible."
+          text={t.donate.disclaimer}
           tone="info"
         />
       </div>

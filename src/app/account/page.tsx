@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SacredPage, SacredCard, XPBar, StatBox } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type UserData = {
   email?: string;
@@ -10,15 +11,8 @@ type UserData = {
   subscription?: { status?: string; plan?: string } | null;
 };
 
-const NAV_ITEMS = [
-  { href: "/account/profile",     icon: "⚗️",  label: "Sacred Profile",    desc: "Edit your identity and spiritual details"  },
-  { href: "/account/billing",     icon: "💎",  label: "Membership",         desc: "View and manage your subscription tier"    },
-  { href: "/account/invoices",    icon: "📜",  label: "Scrolls & Invoices", desc: "Your payment history and receipts"         },
-  { href: "/account/preferences", icon: "🌐",  label: "Preferences",        desc: "Language and interface settings"           },
-  { href: "/account/security",    icon: "🔐",  label: "Security",           desc: "Password and account protection"           },
-];
-
 export default function AccountPage() {
+  const { t } = useLanguage();
   const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
@@ -30,6 +24,14 @@ export default function AccountPage() {
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Seeker";
   const tier        = user?.subscription?.status === "active" ? (user.subscription.plan || "Seeker") : "Free";
   const tierLabel   = tier === "Free" ? "Wanderer" : tier.charAt(0).toUpperCase() + tier.slice(1);
+
+  const NAV_ITEMS = [
+    { href: "/account/profile",     icon: "⚗️",  label: t.account.profile,      desc: t.account.profileDesc      },
+    { href: "/account/billing",     icon: "💎",  label: t.account.membership,   desc: t.account.membershipDesc   },
+    { href: "/account/invoices",    icon: "📜",  label: t.account.invoices,     desc: t.account.invoicesDesc     },
+    { href: "/account/preferences", icon: "🌐",  label: t.account.preferences,  desc: t.account.preferencesDesc  },
+    { href: "/account/security",    icon: "🔐",  label: t.account.security,     desc: t.account.securityDesc     },
+  ];
 
   return (
     <SacredPage maxWidth={900}>
@@ -54,10 +56,10 @@ export default function AccountPage() {
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <p style={{ fontSize: "0.62rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.3rem" }}>
-            ✦ Sacred Dashboard ✦
+            ✦ {t.account.dashboard} ✦
           </p>
           <h1 className="font-sacred" style={{ fontSize: "clamp(1.4rem, 3vw, 2rem)", fontWeight: 900, color: "var(--text-primary)", marginBottom: "0.2rem" }}>
-            Welcome back, {displayName}
+            {t.account.welcomeBack.replace("{name}", displayName)}
           </h1>
           <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)" }}>
             {user?.email || "Your sacred account"} · Tier:{" "}
@@ -73,9 +75,9 @@ export default function AccountPage() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.75rem" }}>
           <StatBox value="Lv 3" label="Inquirer" icon="🌀" />
-          <StatBox value="240" label="XP Earned" icon="⭐" />
-          <StatBox value="12" label="Days Active" icon="🕯️" />
-          <StatBox value={tierLabel} label="Membership" icon="💎" />
+          <StatBox value="240" label={t.account.xpEarned} icon="⭐" />
+          <StatBox value="12" label={t.account.daysActive} icon="🕯️" />
+          <StatBox value={tierLabel} label={t.account.membership_label} icon="💎" />
         </div>
       </SacredCard>
 

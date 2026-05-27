@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { SacredPage, SacredCard, SacredAlert } from "@/components/ui/SacredPage";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Plan = "seeker" | "initiate";
 
@@ -62,6 +63,7 @@ const FREE_FEATURES = [
 
 export default function PricingPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError]             = useState("");
   const [user, setUser]               = useState<{ id: string } | null | "loading">("loading");
@@ -99,10 +101,10 @@ export default function PricingPage() {
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: "3rem" }}>
         <p style={{ fontSize: "0.62rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.8rem" }}>
-          ✦ Choose Your Path ✦
+          ✦ {t.pricing.choosePath} ✦
         </p>
         <h1 className="font-sacred" style={{ fontSize: "clamp(2rem, 5vw, 3.2rem)", fontWeight: 900, color: "var(--text-primary)", marginBottom: "1rem" }}>
-          Join the Sacred Journey
+          {t.pricing.title}
         </h1>
         <p style={{ fontSize: "1rem", color: "rgba(237,232,220,0.55)", maxWidth: 580, margin: "0 auto", lineHeight: 1.75 }}>
           The path is free to walk. Your support keeps this reflective space alive for all seekers.
@@ -171,7 +173,7 @@ export default function PricingPage() {
               disabled={loadingPlan !== null}
               style={{ width: "100%", padding: "0.85rem", fontSize: "0.85rem", letterSpacing: "0.1em" }}
             >
-              {loadingPlan === plan.id ? "Opening checkout…" : plan.id === "seeker" ? "Support the Path" : "Become an Initiate"}
+              {loadingPlan === plan.id ? t.billing.processing : plan.id === "seeker" ? t.billing.upgradeToSeeker : t.billing.upgradeToInitiate}
             </button>
           </article>
         ))}
@@ -182,7 +184,7 @@ export default function PricingPage() {
         <div style={{ display: "flex", alignItems: "flex-start", gap: "1.2rem", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <p style={{ fontSize: "0.62rem", letterSpacing: "0.3em", color: "rgba(237,232,220,0.4)", textTransform: "uppercase", marginBottom: "0.3rem" }}>Always Free</p>
-            <h3 className="font-sacred" style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.3rem" }}>🌿 Wanderer — Free</h3>
+            <h3 className="font-sacred" style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.3rem" }}>🌿 {t.pricing.freeTier}</h3>
             <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", lineHeight: 1.6 }}>
               Begin your journey with no cost. Register, complete the personality assessment, and start walking the sacred path at your own pace.
             </p>
@@ -199,7 +201,7 @@ export default function PricingPage() {
             className="btn-sacred btn-sacred-ghost"
             style={{ padding: "0.6rem 1.4rem", fontSize: "0.78rem", alignSelf: "center", whiteSpace: "nowrap", border: "none", cursor: "pointer" }}
           >
-            {user && user !== "loading" ? "Go to My Account →" : "Start Free →"}
+            {user && user !== "loading" ? `${t.account.dashboard} →` : `${t.pricing.startFree} →`}
           </button>
         </div>
       </SacredCard>

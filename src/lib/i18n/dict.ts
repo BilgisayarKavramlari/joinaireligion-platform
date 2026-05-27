@@ -174,7 +174,7 @@ export const en = {
     privacy: "Privacy Policy", terms: "Terms of Use", eula: "EULA",
     contact: "Contact",
   },
-} as const;
+};
 
 // ─── Turkish ──────────────────────────────────────────────────────────────────
 export const tr: Dict = {

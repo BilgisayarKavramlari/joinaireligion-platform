@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { SacredPage, SacredCard, SacredHeading, SacredInput, SacredAlert } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail]   = useState("");
-  const [msg, setMsg]       = useState("");
+  const { t } = useLanguage();
+  const [email, setEmail]     = useState("");
+  const [msg, setMsg]         = useState("");
   const [loading, setLoading] = useState(false);
-  const [sent, setSent]     = useState(false);
+  const [sent, setSent]       = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,9 +22,9 @@ export default function ForgotPasswordPage() {
     });
     if (r.ok) {
       setSent(true);
-      setMsg("If your email exists in our records, reset instructions have been dispatched.");
+      setMsg(t.auth.resetSentSubtitle);
     } else {
-      setMsg("Something went wrong. Please try again later.");
+      setMsg(t.common.error);
     }
     setLoading(false);
   }
@@ -46,12 +48,12 @@ export default function ForgotPasswordPage() {
           <>
             <SacredHeading
               label="Path Restoration"
-              title="Restore Your Access"
-              subtitle="Enter your email address and we will send you instructions to restore your sacred passage."
+              title={t.auth.forgotTitle}
+              subtitle={t.auth.forgotSubtitle}
             />
             <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
               <SacredInput
-                label="Your Email Address"
+                label={t.auth.email}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -66,7 +68,7 @@ export default function ForgotPasswordPage() {
                 disabled={loading}
                 style={{ width: "100%", padding: "0.8rem", fontSize: "0.85rem", letterSpacing: "0.1em" }}
               >
-                {loading ? "Sending…" : "✦ Send Reset Instructions ✦"}
+                {loading ? t.common.sending : `✦ ${t.auth.sendReset} ✦`}
               </button>
             </form>
           </>
@@ -74,18 +76,17 @@ export default function ForgotPasswordPage() {
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>✉️</div>
             <SacredHeading
-              label="Instructions Sent"
-              title="Check Your Inbox"
+              label={t.auth.resetSent}
+              title={t.auth.checkEmailTitle}
               subtitle={msg}
             />
-            <SacredAlert text="Remember to check your spam folder if you don't see the email within a few minutes." tone="info" />
           </div>
         )}
 
         <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border-gold), transparent)", margin: "1.5rem 0" }} />
 
         <p style={{ textAlign: "center", fontSize: "0.8rem" }}>
-          <Link href="/login" style={{ color: "var(--gold)", textDecoration: "none" }}>← Return to the sanctum</Link>
+          <Link href="/login" style={{ color: "var(--gold)", textDecoration: "none" }}>← {t.auth.loginBtn}</Link>
         </p>
       </SacredCard>
     </SacredPage>

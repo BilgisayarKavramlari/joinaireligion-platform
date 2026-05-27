@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 export default function EulaPage() {
@@ -533,7 +534,7 @@ function Section({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section style={{ marginTop: "2rem" }}>

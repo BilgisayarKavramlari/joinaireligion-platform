@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Cinzel } from "next/font/google";
 import "./globals.css";
 import { PublicHeader } from "@/components/PublicHeader";
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={cinzel.variable}>
       <body>

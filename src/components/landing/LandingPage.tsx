@@ -227,30 +227,61 @@ const FEATURES = [
 ];
 
 const TRADITIONS = [
-  { symbol: "✝",  name: "Christianity",  color: "#c0c0ff" },
-  { symbol: "☪",  name: "Islam",         color: "#80ffb0" },
-  { symbol: "✡",  name: "Judaism",       color: "#ffffa0" },
-  { symbol: "卍",  name: "Buddhism",      color: "#ffb060" },
-  { symbol: "ॐ",  name: "Hinduism",      color: "#ff8080" },
-  { symbol: "☯",  name: "Taoism",        color: "#80e0ff" },
-  { symbol: "⚛",  name: "Rationalism",   color: "#c0ffe0" },
-  { symbol: "🜏",  name: "Hermeticism",   color: "#d4a0ff" },
-  { symbol: "✧",  name: "Esotericism",   color: "#f9c8ff" },
-  { symbol: "∅",  name: "Atheism",       color: "#a0b4c8" },
-  { symbol: "◈",  name: "Shamanism",     color: "#b8e8a0" },
-  { symbol: "❤",  name: "Sufism",        color: "#ffb8d0" },
+  { symbol: "✝",  name: "Christianity", color: "#c0c0ff" },
+  { symbol: "☪",  name: "Islam",        color: "#80ffb0" },
+  { symbol: "卍",  name: "Buddhism",     color: "#ffb060" },
+  { symbol: "ॐ",  name: "Hinduism",     color: "#ff8080" },
+  { symbol: "☯",  name: "Taoism",       color: "#80e0ff" },
+  { symbol: "☬",  name: "Sikhism",      color: "#ffe080" },
+  { symbol: "⵿",  name: "Indigenous",   color: "#b8e8a0" },
+  { symbol: "⚘",  name: "Humanism",     color: "#c0ffe0" },
+  { symbol: "✡",  name: "Judaism",      color: "#ffffa0" },
+  { symbol: "✧",  name: "Esotericism",  color: "#f9c8ff" },
+  { symbol: "∅",  name: "Atheism",      color: "#a0b4c8" },
+  { symbol: "◈",  name: "Shamanism",    color: "#d4a0ff" },
 ];
 
 /* ═══════════════════════════════════════════════════════
-   TRADITION STAR — 12 paths in a circular arrangement
+   TRADITION STAR — orbital desktop / grid mobile
 ═══════════════════════════════════════════════════════ */
 function TraditionStar() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", padding: "0 0.5rem" }}>
+        {TRADITIONS.map((trad) => (
+          <div key={trad.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem" }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: "50%",
+              background: "rgba(4,0,12,0.85)",
+              border: `1.5px solid ${trad.color}88`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.3rem",
+              boxShadow: `0 0 12px ${trad.color}44`,
+            }}>{trad.symbol}</div>
+            <span style={{ fontSize: "0.62rem", color: trad.color, letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.2 }}>
+              {trad.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const SIZE = 560;
   const CX = SIZE / 2;
   const CY = SIZE / 2;
-  const R_OUTER = 218;  // tradition nodes radius
-  const R_INNER = 56;   // inner ring radius
-  const R_MID = 130;    // middle ring
+  const R_OUTER = 218;
+  const R_INNER = 56;
+  const R_MID = 130;
 
   return (
     <div style={{ position: "relative", width: SIZE, height: SIZE, margin: "0 auto" }}>

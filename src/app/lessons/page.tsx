@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LessonEntry {
   userLessonId: string;
@@ -37,6 +38,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function LessonsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [lessons, setLessons] = useState<LessonEntry[]>([]);
   const [user,    setUser]    = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ export default function LessonsPage() {
 
   if (loading) return (
     <SacredPage maxWidth={700}>
-      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>Loading your path…</div>
+      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>{t.common.loading}</div>
     </SacredPage>
   );
 
@@ -66,7 +68,7 @@ export default function LessonsPage() {
           ✦ Sacred Path ✦
         </p>
         <h1 className="font-sacred" style={{ fontSize: "clamp(1.6rem, 4vw, 2.4rem)", color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-          Your Lessons
+          {t.promptGuide.yourLessons}
         </h1>
         {user && (
           <p style={{ fontSize: "0.82rem", color: "rgba(237,232,220,0.5)" }}>
@@ -79,12 +81,12 @@ export default function LessonsPage() {
         {lessons.length === 0 && (
           <SacredCard>
             <SacredHeading
-              label="No lessons yet"
-              title="Step 1 awaits you"
-              subtitle="Your first lesson is ready. Begin your sacred journey."
+              label={t.lesson.lessonTitle}
+              title={t.lesson.step.replace("{n}", "1")}
+              subtitle={t.lesson.reading}
             />
             <Link href="/lessons/step-1" className="btn-sacred btn-sacred-gold" style={{ display: "inline-block", marginTop: "1rem", padding: "0.7rem 1.6rem", fontSize: "0.85rem", textDecoration: "none" }}>
-              ✦ Begin Step 1
+              ✦ {t.lesson.step.replace("{n}", "1")}
             </Link>
           </SacredCard>
         )}
@@ -126,15 +128,15 @@ export default function LessonsPage() {
                 </p>
                 {lesson.status === "COMPLETED" && (
                   <p style={{ fontSize: "0.72rem", color: "var(--gold)", letterSpacing: "0.05em" }}>
-                    ✓ Completed · +{lesson.xpEarned} XP{lesson.lastScore !== undefined ? ` · Score: ${lesson.lastScore}/100` : ""}
+                    ✓ {t.promptGuide.status.COMPLETED} · +{lesson.xpEarned} XP{lesson.lastScore !== undefined ? ` · ${t.promptGuide.score}: ${lesson.lastScore}/100` : ""}
                   </p>
                 )}
                 {lesson.status === "IN_PROGRESS" && (
-                  <p style={{ fontSize: "0.72rem", color: "#c9a227" }}>In progress — submit your prompt</p>
+                  <p style={{ fontSize: "0.72rem", color: "#c9a227" }}>{t.promptGuide.status.IN_PROGRESS}</p>
                 )}
                 {lesson.status === "FAILED" && (
                   <p style={{ fontSize: "0.72rem", color: "#a855f7" }}>
-                    {lesson.lastScore !== undefined ? `Score: ${lesson.lastScore}/100 — try again` : "Attempt failed — try again"}
+                    {lesson.lastScore !== undefined ? `${t.promptGuide.score}: ${lesson.lastScore}/100 — ${t.lesson.failed}` : t.promptGuide.status.FAILED}
                   </p>
                 )}
               </div>
@@ -146,7 +148,7 @@ export default function LessonsPage() {
                   className="btn-sacred btn-sacred-ghost"
                   style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", textDecoration: "none", whiteSpace: "nowrap" }}
                 >
-                  {lesson.status === "COMPLETED" ? "Review" : "Open →"}
+                  {lesson.status === "COMPLETED" ? t.promptGuide.lessonHistory : `${t.common.next} →`}
                 </Link>
               )}
             </div>
@@ -158,7 +160,7 @@ export default function LessonsPage() {
       {lessons.length === 0 && (
         <div style={{ marginTop: "2rem", textAlign: "center" }}>
           <p style={{ fontSize: "0.75rem", color: "rgba(237,232,220,0.35)" }}>
-            Free members: 1 prompt attempt per week · Initiates: 1 per day
+            {t.lesson.freeLimit} · {t.lesson.paidLimit}
           </p>
         </div>
       )}

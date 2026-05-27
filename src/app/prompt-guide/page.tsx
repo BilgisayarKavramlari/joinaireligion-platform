@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AttemptEntry {
   id: string;
@@ -24,6 +25,7 @@ interface LessonEntry {
 }
 
 export default function PromptGuidePage() {
+  const { t } = useLanguage();
   const [lessons,  setLessons]  = useState<LessonEntry[]>([]);
   const [selected, setSelected] = useState<LessonEntry | null>(null);
   const [loading,  setLoading]  = useState(true);
@@ -42,7 +44,7 @@ export default function PromptGuidePage() {
 
   if (loading) return (
     <SacredPage maxWidth={860}>
-      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>Loading…</div>
+      <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>{t.common.loading}</div>
     </SacredPage>
   );
 
@@ -53,26 +55,26 @@ export default function PromptGuidePage() {
           ✦ Sacred Record ✦
         </p>
         <h1 className="font-sacred" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 900, color: "var(--text-primary)", marginBottom: "1rem" }}>
-          Prompt Guide
+          {t.promptGuide.title}
         </h1>
         <p style={{ fontSize: "0.92rem", color: "rgba(237,232,220,0.5)", maxWidth: 520, margin: "0 auto", lineHeight: 1.75 }}>
-          Review your lessons, track your reflection scores, and read the AI guide&apos;s feedback on your journey.
+          {t.promptGuide.subtitle}
         </p>
       </div>
 
       {!authed ? (
         <SacredCard>
-          <SacredHeading label="Sign In Required" title="Begin your sacred path" subtitle="Log in or register to view your lesson history and prompt scores." />
+          <SacredHeading label="Sign In Required" title={t.promptGuide.title} subtitle={t.promptGuide.subtitle} />
           <div style={{ display: "flex", gap: "0.8rem", flexWrap: "wrap", marginTop: "1.2rem" }}>
-            <Link href="/login"    className="btn-sacred btn-sacred-gold"  style={{ textDecoration: "none", padding: "0.7rem 1.6rem", fontSize: "0.85rem" }}>Login</Link>
-            <Link href="/register" className="btn-sacred btn-sacred-ghost" style={{ textDecoration: "none", padding: "0.7rem 1.6rem", fontSize: "0.85rem" }}>Begin Journey</Link>
+            <Link href="/login"    className="btn-sacred btn-sacred-gold"  style={{ textDecoration: "none", padding: "0.7rem 1.6rem", fontSize: "0.85rem" }}>{t.auth.login}</Link>
+            <Link href="/register" className="btn-sacred btn-sacred-ghost" style={{ textDecoration: "none", padding: "0.7rem 1.6rem", fontSize: "0.85rem" }}>{t.nav.beginJourney}</Link>
           </div>
         </SacredCard>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: selected ? "260px 1fr" : "1fr", gap: "1.4rem" }}>
           {/* Lesson list */}
           <div>
-            <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.8rem" }}>Your Lessons</p>
+            <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.8rem" }}>{t.promptGuide.yourLessons}</p>
             {lessons.length === 0 ? (
               <SacredCard>
                 <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.45)", lineHeight: 1.7 }}>
@@ -88,7 +90,7 @@ export default function PromptGuidePage() {
                     <button key={lesson.lessonId} onClick={() => setSelected(isSelected ? null : lesson)} style={{ width: "100%", textAlign: "left", padding: "0.9rem 1rem", borderRadius: "0.75rem", border: `1px solid ${isSelected ? "var(--gold)" : "rgba(201,162,39,0.15)"}`, background: isSelected ? "rgba(201,162,39,0.07)" : "rgba(255,255,255,0.02)", cursor: "pointer", transition: "all 0.15s" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.2rem" }}>
                         <span style={{ fontSize: "0.6rem", color: statusColor }}>●</span>
-                        <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Step {lesson.stepNumber}</span>
+                        <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{t.lesson.step.replace("{n}", String(lesson.stepNumber))}</span>
                       </div>
                       <p style={{ fontSize: "0.88rem", color: isSelected ? "var(--gold-light)" : "var(--text-primary)", fontWeight: 600, lineHeight: 1.3 }}>{lesson.title}</p>
                       <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.3rem" }}>
@@ -101,7 +103,7 @@ export default function PromptGuidePage() {
               </div>
             )}
             <div style={{ marginTop: "1.2rem" }}>
-              <Link href="/lessons" className="btn-sacred btn-sacred-gold" style={{ display: "block", textAlign: "center", textDecoration: "none", padding: "0.6rem", fontSize: "0.78rem" }}>→ Open Lessons</Link>
+              <Link href="/lessons" className="btn-sacred btn-sacred-gold" style={{ display: "block", textAlign: "center", textDecoration: "none", padding: "0.6rem", fontSize: "0.78rem" }}>→ {t.promptGuide.yourLessons}</Link>
             </div>
           </div>
 
@@ -110,7 +112,7 @@ export default function PromptGuidePage() {
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <div>
-                  <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.2rem" }}>Step {selected.stepNumber}</p>
+                  <p style={{ fontSize: "0.65rem", letterSpacing: "0.15em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.2rem" }}>{t.lesson.step.replace("{n}", String(selected.stepNumber))}</p>
                   <h2 className="font-sacred" style={{ fontSize: "1.1rem", color: "var(--text-primary)" }}>{selected.title}</h2>
                 </div>
                 <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem" }}>✕</button>
@@ -118,8 +120,8 @@ export default function PromptGuidePage() {
 
               {selected.attempts.length === 0 ? (
                 <SacredCard>
-                  <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.45)" }}>No prompt submissions yet for this lesson.</p>
-                  <Link href={`/lessons/${selected.lessonId}`} className="btn-sacred btn-sacred-ghost" style={{ display: "inline-block", marginTop: "1rem", textDecoration: "none", padding: "0.6rem 1.2rem", fontSize: "0.78rem" }}>Open Lesson →</Link>
+                  <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.45)" }}>{t.promptGuide.noAttempts}</p>
+                  <Link href={`/lessons/${selected.lessonId}`} className="btn-sacred btn-sacred-ghost" style={{ display: "inline-block", marginTop: "1rem", textDecoration: "none", padding: "0.6rem 1.2rem", fontSize: "0.78rem" }}>{t.lesson.lessonTitle} →</Link>
                 </SacredCard>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -131,13 +133,13 @@ export default function PromptGuidePage() {
                           <span style={{ fontSize: "0.55rem", color: "var(--text-muted)" }}>/100</span>
                         </div>
                         <div>
-                          <p style={{ fontSize: "0.78rem", fontWeight: 700, color: attempt.passed ? "#14b8a6" : "#a855f7" }}>{attempt.passed ? "✦ Passed" : "△ Did not pass"}</p>
+                          <p style={{ fontSize: "0.78rem", fontWeight: 700, color: attempt.passed ? "#14b8a6" : "#a855f7" }}>{attempt.passed ? `✦ ${t.lesson.passed}` : `△ ${t.lesson.failed}`}</p>
                           <p style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Attempt #{selected.attempts.length - i} · {new Date(attempt.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       {attempt.feedback && (
                         <div style={{ borderLeft: "2px solid var(--gold-dim)", paddingLeft: "0.9rem", marginBottom: "1rem" }}>
-                          <p style={{ fontSize: "0.68rem", color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.4rem" }}>Guide&apos;s Feedback</p>
+                          <p style={{ fontSize: "0.68rem", color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.4rem" }}>{t.promptGuide.feedback}</p>
                           <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.65)", lineHeight: 1.75, fontStyle: "italic" }}>{attempt.feedback}</p>
                         </div>
                       )}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from "react";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredInput, SacredSelect, SacredAlert, SacredDivider, XPBar, StatBox } from "@/components/ui/SacredPage";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const LEVEL_TITLES = ["","Seeker","Awakened","Inquirer","Contemplative","Universal","Hermit","Returned","Bridge","Sovereign","Transcendent"];
 const TRADITIONS   = ["Not specified","Christianity","Islam","Judaism","Buddhism","Hinduism","Taoism","Sufism","Hermeticism / Esotericism","Shamanism / Indigenous","Rationalism / Secular","Atheism","Other"];
@@ -30,6 +31,7 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  const { t } = useLanguage();
   const [user,          setUser]          = useState<UserProfile | null>(null);
   const [displayName,   setDisplayName]   = useState("");
   const [tradition,     setTradition]     = useState("Not specified");
@@ -68,7 +70,7 @@ export default function ProfilePage() {
     });
   }, []);
 
-  async function save(e: React.FormEvent) {
+  async function save(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setMsg(null);
@@ -90,7 +92,7 @@ export default function ProfilePage() {
     setMsg(res.ok ? { text: "Profile saved successfully.", tone: "success" } : { text: "Failed to save. Please try again.", tone: "error" });
   }
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { setMsg({ text: "Image must be under 2MB.", tone: "error" }); return; }
@@ -118,10 +120,10 @@ export default function ProfilePage() {
   return (
     <SacredPage maxWidth={720}>
       <div style={{ marginBottom: "1.2rem" }}>
-        <Link href="/account" style={{ fontSize: "0.75rem", color: "rgba(237,232,220,0.4)", textDecoration: "none" }}>← Account Dashboard</Link>
+        <Link href="/account" style={{ fontSize: "0.75rem", color: "rgba(237,232,220,0.4)", textDecoration: "none" }}>← {t.account.dashboard}</Link>
       </div>
 
-      <SacredHeading label="Sacred Profile" title="Your Journey Profile" subtitle="Your spiritual path, progress, and identity on the sacred platform." />
+      <SacredHeading label="Sacred Profile" title={t.account.profile} subtitle={t.account.profileDesc} />
 
       {/* Avatar + Level summary */}
       <SacredCard style={{ marginBottom: "1.5rem" }}>
@@ -156,9 +158,9 @@ export default function ProfilePage() {
             <p className="font-sacred" style={{ fontSize: "1.4rem", color: "var(--text-primary)", fontWeight: 700, marginBottom: "0.5rem" }}>{levelTitle}</p>
             <XPBar current={xp} max={xpForNext} label={`${xp} XP`} />
             <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.8rem" }}>
-              <StatBox value={user?.daysActive || 0} label="Days Active" />
-              <StatBox value={level} label="Level" />
-              {user?.subscription?.status === "ACTIVE" && <StatBox value="Initiate" label="Membership" />}
+              <StatBox value={user?.daysActive || 0} label={t.account.daysActive} />
+              <StatBox value={level} label={t.account.currentLevel} />
+              {user?.subscription?.status === "ACTIVE" && <StatBox value="Initiate" label={t.account.membership_label} />}
             </div>
           </div>
         </div>
@@ -176,14 +178,14 @@ export default function ProfilePage() {
       {/* Profile form */}
       <form onSubmit={save}>
         <SacredCard style={{ marginBottom: "1.2rem" }}>
-          <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1rem" }}>Basic Information</p>
+          <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1rem" }}>{t.account.editProfile}</p>
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <SacredInput label="Display Name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="How shall the community know you?" />
-            <SacredSelect label="Spiritual Tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
-              {TRADITIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            <SacredInput label={t.auth.displayName} type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t.auth.displayNamePlaceholder} />
+            <SacredSelect label={t.account.tradition} value={tradition} onChange={(e) => setTradition(e.target.value)}>
+              {TRADITIONS.map((tr) => <option key={tr} value={tr}>{tr}</option>)}
             </SacredSelect>
             <div>
-              <label style={{ display: "block", fontSize: "0.72rem", color: "rgba(237,232,220,0.55)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "0.45rem" }}>Bio (optional)</label>
+              <label style={{ display: "block", fontSize: "0.72rem", color: "rgba(237,232,220,0.55)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "0.45rem" }}>{t.account.bio}</label>
               <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A few words about your path…" rows={3}
                 style={{ width: "100%", padding: "0.7rem 0.9rem", borderRadius: "0.55rem", border: "1px solid rgba(201,162,39,0.2)", background: "rgba(255,255,255,0.03)", color: "var(--text-primary)", fontSize: "0.88rem", lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
               />
@@ -192,33 +194,33 @@ export default function ProfilePage() {
         </SacredCard>
 
         <SacredCard style={{ marginBottom: "1.2rem" }}>
-          <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1rem" }}>Location & Contact (optional)</p>
+          <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1rem" }}>{t.account.city} & {t.account.phone}</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <SacredSelect label="Country" value={country} onChange={(e) => setCountry(e.target.value)}>
+            <SacredSelect label={t.account.country} value={country} onChange={(e) => setCountry(e.target.value)}>
               {COUNTRIES.map((c) => <option key={c} value={c}>{c || "— Select Country —"}</option>)}
             </SacredSelect>
-            <SacredInput label="City" type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Your city" />
-            <SacredInput label="Phone (optional)" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
-            <SacredInput label="Secondary Email (optional)" type="email" value={secondEmail} onChange={(e) => setSecondEmail(e.target.value)} placeholder="another@email.com" />
+            <SacredInput label={t.account.city} type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder={t.account.city} />
+            <SacredInput label={t.account.phone} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
+            <SacredInput label={t.account.secondaryEmail} type="email" value={secondEmail} onChange={(e) => setSecondEmail(e.target.value)} placeholder="another@email.com" />
           </div>
         </SacredCard>
 
         <SacredCard style={{ marginBottom: "1.5rem" }}>
-          <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1rem" }}>Social Media (optional)</p>
+          <p style={{ fontSize: "0.68rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1rem" }}>{t.account.socialMedia}</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <SacredInput label="Twitter / X" type="text" value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="@handle" />
-            <SacredInput label="Instagram" type="text" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@handle" />
-            <SacredInput label="LinkedIn" type="text" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="linkedin.com/in/yourname" />
-            <SacredInput label="Website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yoursite.com" />
+            <SacredInput label={t.account.twitter} type="text" value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="@handle" />
+            <SacredInput label={t.account.instagram} type="text" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@handle" />
+            <SacredInput label={t.account.linkedin} type="text" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="linkedin.com/in/yourname" />
+            <SacredInput label={t.account.website} type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yoursite.com" />
           </div>
         </SacredCard>
 
         <div style={{ display: "flex", gap: "0.8rem" }}>
           <button type="submit" disabled={saving} className="btn-sacred btn-sacred-gold" style={{ padding: "0.75rem 2rem", fontSize: "0.85rem" }}>
-            {saving ? "Saving…" : "✦ Save Profile"}
+            {saving ? t.common.saving : `✦ ${t.account.saveProfile}`}
           </button>
           <Link href="/account" className="btn-sacred btn-sacred-ghost" style={{ textDecoration: "none", padding: "0.75rem 1.2rem", fontSize: "0.85rem" }}>
-            Cancel
+            {t.common.cancel}
           </Link>
         </div>
       </form>
