@@ -9,7 +9,11 @@ export function getAdminEmails(): string[] {
 
 export async function requireAdminSession(): Promise<string> {
   const cookieStore = await cookies();
-  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
+  const sessionCookie =
+    cookieStore.get("jair_session")?.value ??
+    cookieStore.get("session")?.value;
+
+  const session = getSessionFromCookie(sessionCookie);
   if (!session) throw new Error("UNAUTHORIZED");
   if (!getAdminEmails().includes(session.email.toLowerCase())) throw new Error("FORBIDDEN_ADMIN");
   return session.email;
