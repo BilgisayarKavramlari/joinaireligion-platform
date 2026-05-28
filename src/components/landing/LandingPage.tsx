@@ -2,7 +2,8 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /* ═══════════════════════════════════════════════════════
    SACRED GEOMETRY — Rotating SVG Mandala
@@ -156,27 +157,38 @@ function SacredGeometry() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   PARTICLE FIELD
+   PARTICLE FIELD — client-only (avoids SSR hydration mismatch)
 ═══════════════════════════════════════════════════════ */
+type Particle = {
+  id: number; x: number; y: number; size: number;
+  dur: number; delay: number; opacity: number; color: string;
+};
+
 function ParticleField() {
-  const particles = useMemo(() =>
-    Array.from({ length: 90 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 2.8 + 0.8,
-      dur: Math.random() * 22 + 10,
-      delay: Math.random() * 12,
-      opacity: Math.random() * 0.5 + 0.15,
-      color:
-        i % 7 === 0 ? "#c9a227"
-        : i % 7 === 1 ? "#a855f7"
-        : i % 7 === 2 ? "#14b8a6"
-        : i % 7 === 3 ? "#f0d47a"
-        : "#ffffff",
-    })),
-    []
-  );
+  const [particles, setParticles] = useState<Particle[] | null>(null);
+
+  useEffect(() => {
+    setParticles(
+      Array.from({ length: 90 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 2.8 + 0.8,
+        dur: Math.random() * 22 + 10,
+        delay: Math.random() * 12,
+        opacity: Math.random() * 0.5 + 0.15,
+        color:
+          i % 7 === 0 ? "#c9a227"
+          : i % 7 === 1 ? "#a855f7"
+          : i % 7 === 2 ? "#14b8a6"
+          : i % 7 === 3 ? "#f0d47a"
+          : "#ffffff",
+      }))
+    );
+  }, []);
+
+  // Render nothing on server and on first client paint — no hydration mismatch
+  if (!particles) return null;
 
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -204,26 +216,39 @@ function ParticleField() {
 /* ═══════════════════════════════════════════════════════
    JOURNEY LEVELS DATA
 ═══════════════════════════════════════════════════════ */
-const LEVELS = [
-  { n: "I",   name: "Seeker",        icon: "○",  color: "#a0a0b0", desc: "You walk the path of your own faith, embracing its familiar ground." },
-  { n: "II",  name: "Awakened",      icon: "◎",  color: "#c9a227", desc: "You see your tradition through new eyes — beyond the inherited." },
-  { n: "III", name: "Inquirer",      icon: "△",  color: "#f0d47a", desc: "The sacred self emerges. You question, and the questions deepen." },
-  { n: "IV",  name: "Contemplative", icon: "✦",  color: "#14b8a6", desc: "Meditation unlocks the silent mind beneath the noise." },
-  { n: "V",   name: "Universal",     icon: "⬡",  color: "#a855f7", desc: "All paths reveal the same light. You stand equidistant from all." },
-  { n: "VI",  name: "Hermit",        icon: "◈",  color: "#7c3aed", desc: "You release the world to find yourself beyond its definitions." },
-  { n: "VII", name: "Returned",      icon: "⊕",  color: "#0891b2", desc: "Whole and found, you re-enter the world as yourself." },
-  { n: "VIII",name: "Bridge",        icon: "✶",  color: "#0e7490", desc: "You walk between worlds — spirit and matter — with grace." },
-  { n: "IX",  name: "Sovereign",     icon: "❋",  color: "#c026d3", desc: "You understand the inner art of becoming. The world bends." },
-  { n: "X",   name: "Transcendent",  icon: "✴",  color: "#c9a227", desc: "Beyond all forms, the formless remains. You are the threshold." },
+const LEVELS_EN = [
+  { n: "I",    icon: "○",  color: "#a0a0b0" },
+  { n: "II",   icon: "◎",  color: "#c9a227" },
+  { n: "III",  icon: "△",  color: "#f0d47a" },
+  { n: "IV",   icon: "✦",  color: "#14b8a6" },
+  { n: "V",    icon: "⬡",  color: "#a855f7" },
+  { n: "VI",   icon: "◈",  color: "#7c3aed" },
+  { n: "VII",  icon: "⊕",  color: "#0891b2" },
+  { n: "VIII", icon: "✶",  color: "#0e7490" },
+  { n: "IX",   icon: "❋",  color: "#c026d3" },
+  { n: "X",    icon: "✴",  color: "#c9a227" },
+];
+const LEVEL_NAMES = ["Seeker","Awakened","Inquirer","Contemplative","Universal","Hermit","Returned","Bridge","Sovereign","Transcendent"];
+const LEVEL_DESCS = [
+  "You walk the path of your own faith, embracing its familiar ground.",
+  "You see your tradition through new eyes — beyond the inherited.",
+  "The sacred self emerges. You question, and the questions deepen.",
+  "Meditation unlocks the silent mind beneath the noise.",
+  "All paths reveal the same light. You stand equidistant from all.",
+  "You release the world to find yourself beyond its definitions.",
+  "Whole and found, you re-enter the world as yourself.",
+  "You walk between worlds — spirit and matter — with grace.",
+  "You understand the inner art of becoming. The world bends.",
+  "Beyond all forms, the formless remains. You are the threshold.",
 ];
 
-const FEATURES = [
-  { icon: "◎", title: "Personalized Reflection", desc: "AI-assisted prompts calibrated to your worldview, practices, and the questions you actually carry." },
-  { icon: "✉", title: "Daily & Weekly Practice", desc: "Receive ritual practices matched to your journey level, language, and subscription rhythm." },
-  { icon: "△", title: "10-Level Journey System", desc: "Progress through symbolic initiations — each level unlocked by time, practice, and reflection." },
-  { icon: "✒", title: "AI-Assisted Journaling", desc: "Write deeply, clarify experience, and receive structured reflective support from the AI guide." },
-  { icon: "⬡", title: "Multilingual Universe", desc: "Reflect in your language. Interface and email preferences evolve separately." },
-  { icon: "❋", title: "Sacred Content Agents", desc: "Agents continuously generate personalized insights, rare wisdom, and symbolic images for your path." },
+const FEATURES_DATA = [
+  { icon: "◎", titleKey: "Personalized Reflection", descKey: "AI-assisted prompts calibrated to your worldview, practices, and the questions you actually carry." },
+  { icon: "✉", titleKey: "Daily & Weekly Practice",  descKey: "Receive ritual practices matched to your journey level, language, and subscription rhythm." },
+  { icon: "△", titleKey: "10-Level Journey System",  descKey: "Progress through symbolic initiations — each level unlocked by time, practice, and reflection." },
+  { icon: "✒", titleKey: "AI-Assisted Journaling",   descKey: "Write deeply, clarify experience, and receive structured reflective support from the AI guide." },
+  { icon: "⬡", titleKey: "Multilingual Universe",    descKey: "Reflect in your language. Interface and email preferences evolve separately." },
+  { icon: "❋", titleKey: "Sacred Content Agents",    descKey: "Agents continuously generate personalized insights, rare wisdom, and symbolic images for your path." },
 ];
 
 const TRADITIONS = [
@@ -470,6 +495,9 @@ function TraditionStar() {
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════ */
 export default function LandingPage() {
+  const { t } = useLanguage();
+  const L = t.landing;
+
   const [xpVisible, setXpVisible] = useState(false);
   const consoleRef = useRef<HTMLDivElement>(null);
 
@@ -540,7 +568,7 @@ export default function LandingPage() {
               marginBottom: "1.8rem",
               fontFamily: "var(--font-cinzel, Cinzel, serif)",
             }}>
-              ✦ &nbsp; Symbolic AI Reflection Platform &nbsp; ✦
+              ✦ &nbsp; {L.tagline} &nbsp; ✦
             </motion.p>
 
             <motion.h1
@@ -548,7 +576,7 @@ export default function LandingPage() {
               className="font-sacred text-shimmer"
               style={{ fontSize: "clamp(2.6rem, 7vw, 6rem)", lineHeight: 1.08, marginBottom: "0.3rem", fontWeight: 900 }}
             >
-              Join the Eternal
+              {L.heroTitle1}
             </motion.h1>
             <motion.h1
               {...fadeUp(0.14)}
@@ -559,12 +587,12 @@ export default function LandingPage() {
                 color: "var(--text-primary)",
               }}
             >
-              Journey
+              {L.heroTitle2}
             </motion.h1>
 
             <motion.div {...fadeUp(0.2)} style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
               <div className="sacred-divider" style={{ width: 320, fontSize: "0.65rem" }}>
-                ✦ Sacred Path ✦
+                ✦ {L.heroDivider} ✦
               </div>
             </motion.div>
 
@@ -575,8 +603,7 @@ export default function LandingPage() {
               margin: "0 auto 1.5rem",
               lineHeight: 1.75,
             }}>
-              An AI-guided symbolic reflective simulation. Through daily practice, journaling,
-              and sacred inquiry — you ascend ten levels of inner awakening.
+              {L.heroSubtitle}
             </motion.p>
 
             <motion.p {...fadeUp(0.3)} style={{
@@ -587,8 +614,7 @@ export default function LandingPage() {
               lineHeight: 1.7,
               fontStyle: "italic",
             }}>
-              ⚠ This is not a religion, not a church, not medical care, not psychological
-              treatment, and not a crisis service. A fictional educational simulation.
+              {L.heroDisclaimer}
             </motion.p>
 
             <motion.div {...fadeUp(0.35)} style={{
@@ -596,13 +622,13 @@ export default function LandingPage() {
               justifyContent: "center",
             }}>
               <Link href="/register" className="btn-sacred btn-sacred-gold">
-                ✦ Begin Your Journey
+                ✦ {L.ctaBegin}
               </Link>
               <Link href="/pricing" className="btn-sacred btn-sacred-ghost">
-                Explore Levels
+                {L.ctaLevels}
               </Link>
               <Link href="/donate" className="btn-sacred btn-sacred-violet">
-                Support the Path
+                {L.ctaDonate}
               </Link>
             </motion.div>
 
@@ -613,7 +639,7 @@ export default function LandingPage() {
               transition={{ delay: 1.5, duration: 1 }}
               style={{ marginTop: "4rem", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, opacity: 0.4 }}
             >
-              <span style={{ fontSize: "0.65rem", letterSpacing: "0.3em", color: "var(--gold)", textTransform: "uppercase" }}>Scroll</span>
+              <span style={{ fontSize: "0.65rem", letterSpacing: "0.3em", color: "var(--gold)", textTransform: "uppercase" }}>{L.scrollLabel}</span>
               <motion.div
                 animate={{ y: [0, 8, 0] }}
                 transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
@@ -630,10 +656,10 @@ export default function LandingPage() {
       <section ref={consoleRef} style={{ padding: "6rem 1.5rem", maxWidth: 900, margin: "0 auto" }}>
         <motion.div {...fadeUp(0)} style={{ textAlign: "center", marginBottom: "3rem" }}>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase", marginBottom: 12 }}>
-            Your Sacred Progress
+            {L.consoleLabel}
           </p>
           <h2 className="font-sacred" style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", color: "var(--text-primary)" }}>
-            The Journey Console
+            {L.consoleTitle}
           </h2>
         </motion.div>
 
@@ -665,7 +691,7 @@ export default function LandingPage() {
                   ◎
                 </div>
                 <div>
-                  <p style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.3em", textTransform: "uppercase" }}>Current Level</p>
+                  <p style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.3em", textTransform: "uppercase" }}>{L.consoleLevel}</p>
                   <p className="font-sacred" style={{ fontSize: "1.6rem", color: "var(--text-primary)", fontWeight: 700 }}>Seeker</p>
                   <p style={{ fontSize: "0.75rem", color: "rgba(237,232,220,0.45)" }}>Level I of X</p>
                 </div>
@@ -674,7 +700,7 @@ export default function LandingPage() {
               {/* XP Bar */}
               <div style={{ marginBottom: "1.5rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", letterSpacing: "0.15em" }}>EXPERIENCE</span>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", letterSpacing: "0.15em" }}>{L.consoleXp.toUpperCase()}</span>
                   <span style={{ fontSize: "0.7rem", color: "var(--gold)" }}>650 / 1000 XP</span>
                 </div>
                 <div className="xp-bar-track">
@@ -710,10 +736,10 @@ export default function LandingPage() {
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem" }}>
                 {[
-                  ["28", "Reflections", "◎"],
-                  ["7",  "Day Streak",  "⚡"],
-                  ["12", "Insights",    "△"],
-                  ["36", "Journal Entries", "✒"],
+                  ["28", L.consoleStat1, "◎"],
+                  ["7",  L.consoleStat2, "⚡"],
+                  ["12", L.consoleStat3, "△"],
+                  ["36", L.consoleStat4, "✒"],
                 ].map(([val, label, icon]) => (
                   <div key={label} style={{
                     background: "rgba(255,255,255,0.03)",
@@ -737,7 +763,7 @@ export default function LandingPage() {
                 color: "rgba(237,232,220,0.55)",
                 lineHeight: 1.7,
               }}>
-                &ldquo;The symbolic is the language of the soul, and reflection is how we listen.&rdquo;
+                &ldquo;{L.consoleQuote}&rdquo;
               </blockquote>
             </div>
           </div>
@@ -750,20 +776,20 @@ export default function LandingPage() {
       <section style={{ padding: "5rem 1.5rem", maxWidth: 1200, margin: "0 auto" }}>
         <motion.div {...fadeUp(0)} style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase", marginBottom: 12 }}>
-            The Sacred Path
+            {L.levelsLabel}
           </p>
           <h2 className="font-sacred" style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", color: "var(--text-primary)", marginBottom: "0.8rem" }}>
-            Ten Levels of Awakening
+            {L.levelsTitle}
           </h2>
           <p style={{ color: "rgba(237,232,220,0.5)", fontSize: "0.92rem", maxWidth: 500, margin: "0 auto" }}>
-            Each level is unlocked through practice, reflection, and a symbolic initiation rite.
+            {L.levelsSubtitle}
           </p>
         </motion.div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.1rem" }}>
-          {LEVELS.map((level, i) => (
+          {LEVELS_EN.map((level, i) => (
             <motion.div
-              key={level.name}
+              key={level.n}
               initial={{ opacity: 0, y: 40, scale: 0.95 }}
               whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true, amount: 0.15 }}
@@ -778,7 +804,7 @@ export default function LandingPage() {
                   fontSize: "0.65rem", color: "rgba(255,255,255,0.25)",
                   letterSpacing: "0.15em", textTransform: "uppercase",
                 }}>
-                  🔒 Locked
+                  🔒 {L.levelLocked}
                 </div>
               )}
 
@@ -805,10 +831,10 @@ export default function LandingPage() {
                     color: i === 0 ? "var(--gold-light)" : "var(--text-primary)",
                     marginBottom: "0.4rem",
                   }}>
-                    {level.name}
+                    {LEVEL_NAMES[i]}
                   </p>
                   <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.5)", lineHeight: 1.6 }}>
-                    {level.desc}
+                    {LEVEL_DESCS[i]}
                   </p>
                 </div>
               </div>
@@ -823,15 +849,15 @@ export default function LandingPage() {
       <section style={{ padding: "5rem 1.5rem", maxWidth: 1200, margin: "0 auto" }}>
         <motion.div {...fadeUp(0)} style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           <p style={{ fontSize: "0.7rem", letterSpacing: "0.4em", color: "var(--gold)", textTransform: "uppercase", marginBottom: 12 }}>
-            Core Experiences
+            {L.featuresLabel}
           </p>
           <h2 className="font-sacred" style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", color: "var(--text-primary)" }}>
-            What the Path Offers
+            {L.featuresTitle}
           </h2>
         </motion.div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.2rem" }}>
-          {FEATURES.map((f, i) => (
+          {FEATURES_DATA.map((f, i) => (
             <motion.div
               key={f.title}
               initial={{ opacity: 0, y: 36 }}
@@ -853,10 +879,10 @@ export default function LandingPage() {
                 fontSize: "1.05rem", fontWeight: 700,
                 color: "var(--text-primary)", marginBottom: "0.6rem",
               }}>
-                {f.title}
+                {f.titleKey}
               </h3>
               <p style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.55)", lineHeight: 1.75 }}>
-                {f.desc}
+                {f.descKey}
               </p>
             </motion.div>
           ))}
@@ -876,12 +902,12 @@ export default function LandingPage() {
 
         <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative" }}>
           <motion.div {...fadeUp(0)}>
-            <div className="sacred-divider" style={{ marginBottom: "2.5rem" }}>From Every Path</div>
+            <div className="sacred-divider" style={{ marginBottom: "2.5rem" }}>{L.traditionsLabel}</div>
             <h2 className="font-sacred" style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", color: "var(--text-primary)", marginBottom: "0.8rem" }}>
-              All Wisdom Traditions Welcome
+              {L.traditionsTitle}
             </h2>
             <p style={{ color: "rgba(237,232,220,0.5)", fontSize: "0.9rem", maxWidth: 480, margin: "0 auto 3rem" }}>
-              Whether you come from faith, doubt, or somewhere between — every path is honored here.
+              {L.traditionsSubtitle}
             </p>
           </motion.div>
 
@@ -906,7 +932,7 @@ export default function LandingPage() {
               letterSpacing: "0.04em",
             }}
           >
-            &ldquo;From every direction, the pilgrim returns to the same fire.&rdquo;
+            &ldquo;{L.traditionsQuote}&rdquo;
           </motion.p>
         </div>
       </section>
@@ -930,24 +956,24 @@ export default function LandingPage() {
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center", position: "relative" }}>
           <motion.div {...fadeUp(0)}>
             <p style={{ fontSize: "0.7rem", letterSpacing: "0.45em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "1.5rem" }}>
-              ✦ &nbsp; The Gate is Open &nbsp; ✦
+              ✦ &nbsp; {L.ctaLabel} &nbsp; ✦
             </p>
             <h2 className="font-sacred text-shimmer" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 900, lineHeight: 1.15, marginBottom: "1.5rem" }}>
-              Your next reflective question is waiting.
+              {L.ctaTitle}
             </h2>
             <p style={{
               fontSize: "1rem", color: "rgba(237,232,220,0.6)",
               maxWidth: 420, margin: "0 auto 3rem",
               lineHeight: 1.8,
             }}>
-              Step into a space of curiosity, clarity, and meaning. Begin for free. Ascend at your own pace.
+              {L.ctaSubtitle}
             </p>
             <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/register" className="btn-sacred btn-sacred-gold" style={{ fontSize: "0.88rem", padding: "0.9rem 2.5rem" }}>
-                ✦ &nbsp; Begin Your Journey
+                ✦ &nbsp; {L.ctaBegin}
               </Link>
               <Link href="/prompt-guide" className="btn-sacred btn-sacred-ghost">
-                Read the Prompt Guide
+                {L.ctaGuide}
               </Link>
             </div>
           </motion.div>
@@ -963,19 +989,24 @@ export default function LandingPage() {
         textAlign: "center",
       }}>
         <p className="font-sacred" style={{ fontSize: "1.1rem", color: "var(--gold)", marginBottom: "0.5rem" }}>
-          Join AI Religion
+          {L.footerTagline}
         </p>
         <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", maxWidth: 480, margin: "0 auto 1.5rem", lineHeight: 1.7 }}>
-          A fictional educational platform for symbolic reflection and AI-guided journaling.
-          Not a religion. Not medical care. A journey inward.
+          {L.footerDesc}
         </p>
         <div style={{ display: "flex", gap: "1.5rem", justifyContent: "center", flexWrap: "wrap" }}>
-          {[["Pricing", "/pricing"], ["Donate", "/donate"], ["Prompt Guide", "/prompt-guide"], ["Login", "/login"], ["Register", "/register"]].map(([label, href]) => (
-            <Link key={label} href={href} className="nav-link" style={{ fontSize: "0.72rem" }}>{label}</Link>
+          {[
+            [t.nav.pricing, "/pricing"],
+            [t.nav.donate, "/donate"],
+            [t.nav.promptGuide, "/prompt-guide"],
+            [t.auth.login, "/login"],
+            [t.nav.register, "/register"],
+          ].map(([label, href]) => (
+            <Link key={href} href={href} className="nav-link" style={{ fontSize: "0.72rem" }}>{label}</Link>
           ))}
         </div>
         <p style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", marginTop: "2rem", letterSpacing: "0.15em" }}>
-          © {new Date().getFullYear()} Join AI Religion. All symbolic inquiries reserved.
+          © {new Date().getFullYear()} Join AI Religion. {t.footer.fictional}
         </p>
       </footer>
     </div>

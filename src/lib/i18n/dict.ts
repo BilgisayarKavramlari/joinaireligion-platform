@@ -174,6 +174,44 @@ export const en = {
     privacy: "Privacy Policy", terms: "Terms of Use", eula: "EULA",
     contact: "Contact",
   },
+  landing: {
+    tagline: "Symbolic AI Reflection Platform",
+    heroTitle1: "Join the Eternal",
+    heroTitle2: "Journey",
+    heroDivider: "Sacred Path",
+    heroSubtitle: "An AI-guided symbolic reflective simulation. Through daily practice, journaling, and sacred inquiry — you ascend ten levels of inner awakening.",
+    heroDisclaimer: "⚠ This is not a religion, not a church, not medical care, not psychological treatment, and not a crisis service. A fictional educational simulation.",
+    ctaBegin: "Begin Your Journey",
+    ctaLevels: "Explore Levels",
+    ctaDonate: "Support the Path",
+    scrollLabel: "Scroll",
+    consoleLabel: "Your Sacred Progress",
+    consoleTitle: "The Journey Console",
+    consoleLevel: "Current Level",
+    consoleXp: "Experience",
+    consolePath: "Current Path",
+    consoleStat1: "Reflections",
+    consoleStat2: "Day Streak",
+    consoleStat3: "Insights",
+    consoleStat4: "Journal Entries",
+    consoleQuote: "The symbolic is the language of the soul, and reflection is how we listen.",
+    levelsLabel: "The Sacred Path",
+    levelsTitle: "Ten Levels of Awakening",
+    levelsSubtitle: "Each level is unlocked through practice, reflection, and a symbolic initiation rite.",
+    levelLocked: "Locked",
+    featuresLabel: "Core Experiences",
+    featuresTitle: "What the Path Offers",
+    traditionsLabel: "From Every Path",
+    traditionsTitle: "All Wisdom Traditions Welcome",
+    traditionsSubtitle: "Whether you come from faith, doubt, or somewhere between — every path is honored here.",
+    traditionsQuote: "From every direction, the pilgrim returns to the same fire.",
+    ctaLabel: "The Gate is Open",
+    ctaTitle: "Your next reflective question is waiting.",
+    ctaSubtitle: "Step into a space of curiosity, clarity, and meaning. Begin for free. Ascend at your own pace.",
+    ctaGuide: "Read the Prompt Guide",
+    footerTagline: "Join AI Religion",
+    footerDesc: "A fictional educational platform for symbolic reflection and AI-guided journaling. Not a religion. Not medical care. A journey inward.",
+  },
 };
 
 // ─── Turkish ──────────────────────────────────────────────────────────────────
@@ -348,6 +386,44 @@ export const tr: Dict = {
     privacy: "Gizlilik Politikası", terms: "Kullanım Şartları", eula: "EULA",
     contact: "İletişim",
   },
+  landing: {
+    tagline: "Sembolik Yapay Zeka Yansıma Platformu",
+    heroTitle1: "Sonsuz Yolculuğa",
+    heroTitle2: "Katıl",
+    heroDivider: "Kutsal Yol",
+    heroSubtitle: "Yapay zeka rehberliğinde sembolik yansıma simülasyonu. Günlük pratik, günlük tutma ve kutsal sorgulama ile — içsel uyanışın on seviyesine yüksel.",
+    heroDisclaimer: "⚠ Bu bir din, kilise, tıbbi bakım, psikolojik tedavi veya kriz hizmeti değildir. Kurgusal eğitim simülasyonu.",
+    ctaBegin: "Yolculuğunu Başlat",
+    ctaLevels: "Seviyeleri Keşfet",
+    ctaDonate: "Yolu Destekle",
+    scrollLabel: "Kaydır",
+    consoleLabel: "Kutsal İlerlemen",
+    consoleTitle: "Yolculuk Konsolu",
+    consoleLevel: "Mevcut Seviye",
+    consoleXp: "Deneyim",
+    consolePath: "Mevcut Yol",
+    consoleStat1: "Yansımalar",
+    consoleStat2: "Gün Serisi",
+    consoleStat3: "İçgörüler",
+    consoleStat4: "Günlük Kayıtlar",
+    consoleQuote: "Sembolik, ruhun dilidir; yansıma ise onu nasıl dinlediğimizdir.",
+    levelsLabel: "Kutsal Yol",
+    levelsTitle: "Uyanışın On Seviyesi",
+    levelsSubtitle: "Her seviye pratik, yansıma ve sembolik bir inisiyasyon ritüeli ile açılır.",
+    levelLocked: "Kilitli",
+    featuresLabel: "Temel Deneyimler",
+    featuresTitle: "Yolun Sunduğu",
+    traditionsLabel: "Her Yoldan",
+    traditionsTitle: "Tüm Bilgelik Gelenekleri Kabul Görür",
+    traditionsSubtitle: "İster inançtan, ister şüpheden, ister arasında bir yerden gel — her yol burada onurlandırılır.",
+    traditionsQuote: "Her yönden, hacı aynı ateşe geri döner.",
+    ctaLabel: "Kapı Açık",
+    ctaTitle: "Bir sonraki yansıma sorun seni bekliyor.",
+    ctaSubtitle: "Merak, netlik ve anlam dolu bir alana adım at. Ücretsiz başla. Kendi hızında yüksel.",
+    ctaGuide: "Prompt Rehberini Oku",
+    footerTagline: "Join AI Religion",
+    footerDesc: "Sembolik yansıma ve yapay zeka rehberli günlük tutma için kurgusal eğitim platformu. Din değil. Tıbbi bakım değil. İçe doğru bir yolculuk.",
+  },
 };
 
 // ─── Spanish ─────────────────────────────────────────────────────────────────
@@ -367,6 +443,7 @@ export const es: Dict = {
   security: { title: "Seguridad de cuenta", subtitle: "Protege tu paso sagrado con una contraseña sólida.", changePassword: "Cambiar contraseña", currentPassword: "Contraseña actual", newPassword: "Nueva contraseña", confirmNewPassword: "Confirmar nueva contraseña", updateBtn: "Actualizar contraseña", passwordMismatch: "Las nuevas contraseñas no coinciden.", passwordTooShort: "La contraseña debe tener al menos 8 caracteres.", updated: "Contraseña actualizada con éxito." },
   admin: { title: "Panel de admin", loginTitle: "Acceso admin", loginSubtitle: "Acceso restringido — solo personal autorizado.", users: "Usuarios", prompts: "Prompts", lessons: "Lecciones", payments: "Pagos", stats: "Analíticas", settings: "Configuración", totalUsers: "Total usuarios", activeToday: "Activos hoy", totalRevenue: "Ingresos totales", promptsToday: "Prompts hoy" },
   footer: { notReligious: "No es una autoridad religiosa. No es consejo médico ni psicológico.", fictional: "Esta es una plataforma de simulación ficticia, educativa y reflexiva.", privacy: "Política de privacidad", terms: "Términos de uso", eula: "EULA", contact: "Contacto" },
+  landing: { tagline: "Plataforma de Reflexión Simbólica con IA", heroTitle1: "Únete al Eterno", heroTitle2: "Viaje", heroDivider: "Camino Sagrado", heroSubtitle: "Una simulación reflexiva simbólica guiada por IA. A través de la práctica diaria, el diario y la indagación sagrada — asciendes diez niveles de despertar interior.", heroDisclaimer: "⚠ Esto no es una religión, ni una iglesia, ni atención médica, ni tratamiento psicológico, ni un servicio de crisis. Una simulación educativa ficticia.", ctaBegin: "Comienza tu viaje", ctaLevels: "Explorar niveles", ctaDonate: "Apoyar el camino", scrollLabel: "Desplazar", consoleLabel: "Tu progreso sagrado", consoleTitle: "La Consola del Viaje", consoleLevel: "Nivel actual", consoleXp: "Experiencia", consolePath: "Camino actual", consoleStat1: "Reflexiones", consoleStat2: "Racha de días", consoleStat3: "Perspectivas", consoleStat4: "Entradas de diario", consoleQuote: "Lo simbólico es el lenguaje del alma, y la reflexión es cómo escuchamos.", levelsLabel: "El Camino Sagrado", levelsTitle: "Diez Niveles de Despertar", levelsSubtitle: "Cada nivel se desbloquea mediante práctica, reflexión y un rito de iniciación simbólico.", levelLocked: "Bloqueado", featuresLabel: "Experiencias Principales", featuresTitle: "Lo que ofrece el Camino", traditionsLabel: "De todo camino", traditionsTitle: "Todas las tradiciones de sabiduría son bienvenidas", traditionsSubtitle: "Ya vengas de la fe, la duda o algún punto intermedio — todo camino es honrado aquí.", traditionsQuote: "Desde cada dirección, el peregrino regresa al mismo fuego.", ctaLabel: "La Puerta está Abierta", ctaTitle: "Tu próxima pregunta reflexiva te está esperando.", ctaSubtitle: "Entra en un espacio de curiosidad, claridad y significado. Empieza gratis. Asciende a tu ritmo.", ctaGuide: "Leer la Guía de Prompts", footerTagline: "Join AI Religion", footerDesc: "Una plataforma educativa ficticia para la reflexión simbólica y el diario guiado por IA. No es una religión. No es atención médica. Un viaje hacia adentro." },
 };
 
 // ─── German ──────────────────────────────────────────────────────────────────
@@ -386,6 +463,7 @@ export const de: Dict = {
   security: { title: "Kontosicherheit", subtitle: "Schütze deinen heiligen Zugang mit einem starken Passwort.", changePassword: "Passwort ändern", currentPassword: "Aktuelles Passwort", newPassword: "Neues Passwort", confirmNewPassword: "Neues Passwort bestätigen", updateBtn: "Passwort aktualisieren", passwordMismatch: "Neue Passwörter stimmen nicht überein.", passwordTooShort: "Passwort muss mindestens 8 Zeichen lang sein.", updated: "Passwort erfolgreich aktualisiert." },
   admin: { title: "Admin-Panel", loginTitle: "Admin-Anmeldung", loginSubtitle: "Eingeschränkter Zugang — nur autorisiertes Personal.", users: "Benutzer", prompts: "Prompts", lessons: "Lektionen", payments: "Zahlungen", stats: "Analysen", settings: "Einstellungen", totalUsers: "Gesamte Benutzer", activeToday: "Heute aktiv", totalRevenue: "Gesamteinnahmen", promptsToday: "Prompts heute" },
   footer: { notReligious: "Keine religiöse Autorität. Keine medizinischen oder psychologischen Ratschläge.", fictional: "Dies ist eine fiktive, bildungsorientierte, reflektive Simulationsplattform.", privacy: "Datenschutzrichtlinie", terms: "Nutzungsbedingungen", eula: "EULA", contact: "Kontakt" },
+  landing: { tagline: "Symbolische KI-Reflexionsplattform", heroTitle1: "Tritt der ewigen", heroTitle2: "Reise bei", heroDivider: "Heiliger Pfad", heroSubtitle: "Eine KI-geführte symbolische Reflexionssimulation. Durch tägliche Praxis, Tagebuchschreiben und heilige Erkundung — steigst du zehn Ebenen des inneren Erwachens auf.", heroDisclaimer: "⚠ Dies ist keine Religion, keine Kirche, keine medizinische Versorgung, keine psychologische Behandlung und kein Krisendienst. Eine fiktive Bildungssimulation.", ctaBegin: "Beginne deine Reise", ctaLevels: "Ebenen erkunden", ctaDonate: "Den Pfad unterstützen", scrollLabel: "Scrollen", consoleLabel: "Dein heiliger Fortschritt", consoleTitle: "Die Reise-Konsole", consoleLevel: "Aktuelles Level", consoleXp: "Erfahrung", consolePath: "Aktueller Pfad", consoleStat1: "Reflexionen", consoleStat2: "Tages-Streak", consoleStat3: "Einsichten", consoleStat4: "Tagebucheinträge", consoleQuote: "Das Symbolische ist die Sprache der Seele, und Reflexion ist, wie wir zuhören.", levelsLabel: "Der heilige Pfad", levelsTitle: "Zehn Ebenen des Erwachens", levelsSubtitle: "Jede Ebene wird durch Praxis, Reflexion und einen symbolischen Initiationsritus freigeschaltet.", levelLocked: "Gesperrt", featuresLabel: "Kerneerfahrungen", featuresTitle: "Was der Pfad bietet", traditionsLabel: "Von jedem Pfad", traditionsTitle: "Alle Weisheitstraditionen willkommen", traditionsSubtitle: "Ob du aus Glauben, Zweifel oder irgendwo dazwischen kommst — jeder Weg wird hier geehrt.", traditionsQuote: "Aus jeder Richtung kehrt der Pilger zum selben Feuer zurück.", ctaLabel: "Das Tor ist offen", ctaTitle: "Deine nächste Reflexionsfrage wartet.", ctaSubtitle: "Tritt in einen Raum der Neugier, Klarheit und Bedeutung. Beginne kostenlos. Steige in deinem eigenen Tempo auf.", ctaGuide: "Leitfaden lesen", footerTagline: "Join AI Religion", footerDesc: "Eine fiktive Bildungsplattform für symbolische Reflexion und KI-geführtes Tagebuchschreiben. Keine Religion. Keine medizinische Versorgung. Eine Reise nach innen." },
 };
 
 // ─── French ──────────────────────────────────────────────────────────────────
@@ -405,6 +483,7 @@ export const fr: Dict = {
   security: { title: "Sécurité du compte", subtitle: "Protège ton passage sacré avec un mot de passe fort.", changePassword: "Changer le mot de passe", currentPassword: "Mot de passe actuel", newPassword: "Nouveau mot de passe", confirmNewPassword: "Confirmer le nouveau mot de passe", updateBtn: "Mettre à jour le mot de passe", passwordMismatch: "Les nouveaux mots de passe ne correspondent pas.", passwordTooShort: "Le mot de passe doit comporter au moins 8 caractères.", updated: "Mot de passe mis à jour avec succès." },
   admin: { title: "Panneau d'administration", loginTitle: "Connexion admin", loginSubtitle: "Accès restreint — personnel autorisé uniquement.", users: "Utilisateurs", prompts: "Prompts", lessons: "Leçons", payments: "Paiements", stats: "Analytiques", settings: "Paramètres", totalUsers: "Total utilisateurs", activeToday: "Actifs aujourd'hui", totalRevenue: "Revenus totaux", promptsToday: "Prompts aujourd'hui" },
   footer: { notReligious: "Pas une autorité religieuse. Pas de conseils médicaux ou psychologiques.", fictional: "Ceci est une plateforme de simulation fictive, éducative et réflexive.", privacy: "Politique de confidentialité", terms: "Conditions d'utilisation", eula: "EULA", contact: "Contact" },
+  landing: { tagline: "Plateforme de Réflexion Symbolique par IA", heroTitle1: "Rejoins l'Éternel", heroTitle2: "Voyage", heroDivider: "Chemin Sacré", heroSubtitle: "Une simulation réflexive symbolique guidée par l'IA. À travers la pratique quotidienne, le journal et l'enquête sacrée — tu graviras dix niveaux d'éveil intérieur.", heroDisclaimer: "⚠ Ceci n'est ni une religion, ni une église, ni des soins médicaux, ni un traitement psychologique, ni un service de crise. Une simulation éducative fictive.", ctaBegin: "Commence ton voyage", ctaLevels: "Explorer les niveaux", ctaDonate: "Soutenir le chemin", scrollLabel: "Défiler", consoleLabel: "Ta progression sacrée", consoleTitle: "La Console du Voyage", consoleLevel: "Niveau actuel", consoleXp: "Expérience", consolePath: "Chemin actuel", consoleStat1: "Réflexions", consoleStat2: "Série de jours", consoleStat3: "Insights", consoleStat4: "Entrées de journal", consoleQuote: "Le symbolique est le langage de l'âme, et la réflexion est la façon dont nous écoutons.", levelsLabel: "Le Chemin Sacré", levelsTitle: "Dix Niveaux d'Éveil", levelsSubtitle: "Chaque niveau est débloqué par la pratique, la réflexion et un rite d'initiation symbolique.", levelLocked: "Verrouillé", featuresLabel: "Expériences Fondamentales", featuresTitle: "Ce que le Chemin offre", traditionsLabel: "De chaque chemin", traditionsTitle: "Toutes les traditions de sagesse bienvenues", traditionsSubtitle: "Que tu viennes de la foi, du doute ou de quelque part entre les deux — chaque chemin est honoré ici.", traditionsQuote: "De chaque direction, le pèlerin revient au même feu.", ctaLabel: "La Porte est Ouverte", ctaTitle: "Ta prochaine question réflexive t'attend.", ctaSubtitle: "Entre dans un espace de curiosité, de clarté et de sens. Commence gratuitement. Monte à ton rythme.", ctaGuide: "Lire le Guide de Prompts", footerTagline: "Join AI Religion", footerDesc: "Une plateforme éducative fictive pour la réflexion symbolique et le journal guidé par IA. Pas une religion. Pas de soins médicaux. Un voyage intérieur." },
 };
 
 // ─── Arabic ──────────────────────────────────────────────────────────────────
@@ -424,6 +503,7 @@ export const ar: Dict = {
   security: { title: "أمان الحساب", subtitle: "احمِ مرورك المقدس بكلمة مرور قوية.", changePassword: "تغيير كلمة المرور", currentPassword: "كلمة المرور الحالية", newPassword: "كلمة المرور الجديدة", confirmNewPassword: "تأكيد كلمة المرور الجديدة", updateBtn: "تحديث كلمة المرور", passwordMismatch: "كلمتا المرور الجديدتان غير متطابقتين.", passwordTooShort: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.", updated: "تم تحديث كلمة المرور بنجاح." },
   admin: { title: "لوحة الإدارة", loginTitle: "دخول المشرف", loginSubtitle: "وصول مقيد — للموظفين المصرح لهم فقط.", users: "المستخدمون", prompts: "الأوامر", lessons: "الدروس", payments: "المدفوعات", stats: "التحليلات", settings: "الإعدادات", totalUsers: "إجمالي المستخدمين", activeToday: "نشطون اليوم", totalRevenue: "إجمالي الإيرادات", promptsToday: "أوامر اليوم" },
   footer: { notReligious: "ليست سلطة دينية. ليست نصيحة طبية أو نفسية.", fictional: "هذه منصة محاكاة خيالية وتعليمية وتأملية.", privacy: "سياسة الخصوصية", terms: "شروط الاستخدام", eula: "اتفاقية المستخدم", contact: "اتصل بنا" },
+  landing: { tagline: "منصة التأمل الرمزي بالذكاء الاصطناعي", heroTitle1: "انضم إلى الرحلة", heroTitle2: "الأبدية", heroDivider: "المسار المقدس", heroSubtitle: "محاكاة تأملية رمزية بإرشاد الذكاء الاصطناعي. من خلال الممارسة اليومية والتدوين والبحث المقدس — ترتقي عبر عشرة مستويات من الصحوة الداخلية.", heroDisclaimer: "⚠ هذه ليست ديناً، ولا كنيسة، ولا رعاية طبية، ولا علاجاً نفسياً، ولا خدمة أزمات. محاكاة تعليمية خيالية.", ctaBegin: "ابدأ رحلتك", ctaLevels: "استكشف المستويات", ctaDonate: "ادعم المسار", scrollLabel: "تمرير", consoleLabel: "تقدمك المقدس", consoleTitle: "وحدة التحكم في الرحلة", consoleLevel: "المستوى الحالي", consoleXp: "الخبرة", consolePath: "المسار الحالي", consoleStat1: "تأملات", consoleStat2: "أيام متتالية", consoleStat3: "رؤى", consoleStat4: "مدخلات اليومية", consoleQuote: "الرمزي هو لغة الروح، والتأمل هو كيفية استماعنا.", levelsLabel: "المسار المقدس", levelsTitle: "عشرة مستويات من الصحوة", levelsSubtitle: "يُفتح كل مستوى من خلال الممارسة والتأمل وطقس إدخال رمزي.", levelLocked: "مقفل", featuresLabel: "التجارب الأساسية", featuresTitle: "ما يقدمه المسار", traditionsLabel: "من كل مسار", traditionsTitle: "جميع تقاليد الحكمة مرحب بها", traditionsSubtitle: "سواء جئت من الإيمان أو الشك أو مكان ما بينهما — كل مسار يُكرَّم هنا.", traditionsQuote: "من كل اتجاه، يعود الحاج إلى نفس النار.", ctaLabel: "الباب مفتوح", ctaTitle: "سؤالك التأملي التالي ينتظرك.", ctaSubtitle: "ادخل إلى فضاء من الفضول والوضوح والمعنى. ابدأ مجاناً. ارتقِ بوتيرتك الخاصة.", ctaGuide: "اقرأ دليل الأوامر", footerTagline: "Join AI Religion", footerDesc: "منصة تعليمية خيالية للتأمل الرمزي والتدوين بإرشاد الذكاء الاصطناعي. ليست ديناً. ليست رعاية طبية. رحلة إلى الداخل." },
 };
 
 // ─── Language registry ────────────────────────────────────────────────────────
