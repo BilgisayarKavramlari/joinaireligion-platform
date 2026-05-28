@@ -1,0 +1,144 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CI → Deploy  |  joinaireligion
+#
+# Triggers on every push to main.
+# Two sequential jobs:
+#   build   — install, generate Prisma client, compile Next.js
+#   deploy  — SSH into VPS, pull code, preserve .env, rebuild containers,
+#             verify health endpoint
+#
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#   VPS_HOST        — IP or hostname of the VPS
+#   VPS_USER        — SSH user (e.g. deploy or root)
+#   VPS_SSH_KEY     — Private key whose public half is in ~/.ssh/authorized_keys
+#   VPS_APP_DIR     — Absolute path on VPS (e.g. /opt/apps/joinaireligion)
+#   PRODUCTION_URL  — Full origin without trailing slash (e.g. https://joinaireligion.com)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI → Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Prevent two deploys running simultaneously; never cancel an in-flight deploy.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # ── Job 1: Build ────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Prisma generate is normally triggered by @prisma/client postinstall,
+      # but we run it explicitly so any schema drift surfaces as a build error.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # next build needs SOME value for DATABASE_URL so Prisma's module-level
+      # code doesn't throw at import time.  The placeholder is never used to
+      # make a real connection during a static compile.
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+          NEXTAUTH_SECRET: ci-placeholder-not-used-in-production
+          NODE_ENV: production
+
+  # ── Job 2: Deploy ───────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    needs: build          # only runs if build succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          # Pass secrets as env vars so they are available inside the remote
+          # shell as $APP_DIR and $PROD_URL (appleboy forwards them via envs:).
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          PROD_URL: ${{ secrets.PRODUCTION_URL }}
+        with:
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          envs:     APP_DIR,PROD_URL
+          # Abort immediately on any error.
+          script: |
+            set -euo pipefail
+
+            echo "━━━ [1/5] Enter app directory ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            cd "$APP_DIR"
+
+            # ── Preserve .env ─────────────────────────────────────────────────
+            # .env should already be in .gitignore so git reset won't touch it,
+            # but we back it up unconditionally as a belt-and-suspenders measure.
+            echo "━━━ [2/5] Preserve .env ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            ENV_BACKUP="/tmp/joinaireligion_env_$(date +%s).bak"
+            if [ -f .env ]; then
+              cp .env "$ENV_BACKUP"
+              echo "✔  .env backed up → $ENV_BACKUP"
+            else
+              echo "⚠  No .env found in $APP_DIR."
+              echo "   Create one from .env.example before the first deploy."
+              exit 1
+            fi
+
+            # ── Pull latest code ───────────────────────────────────────────────
+            echo "━━━ [3/5] Pull origin/main ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Restore .env after git reset (safety net — git won't overwrite a
+            # gitignored file, but we restore regardless).
+            cp "$ENV_BACKUP" .env
+            echo "✔  .env restored"
+
+            # ── Rebuild & restart containers ───────────────────────────────────
+            echo "━━━ [4/5] docker compose up -d --build ━━━━━━━━━━━━━━━━━━━━"
+            docker compose up -d --build
+
+            echo "── Container status ──────────────────────────────────────────"
+            docker compose ps
+
+            # ── Health check ───────────────────────────────────────────────────
+            echo "━━━ [5/5] Health check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Waiting 20 s for app to become ready…"
+            sleep 20
+
+            HEALTH_URL="$PROD_URL/api/health"
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 30 --retry 4 --retry-delay 5 --retry-connrefused \
+              "$HEALTH_URL")
+
+            if [ "$HTTP_STATUS" -ne 200 ]; then
+              echo "✗  Health check FAILED — HTTP $HTTP_STATUS from $HEALTH_URL"
+              echo "── Last 60 log lines ─────────────────────────────────────"
+              docker compose logs --tail=60
+              exit 1
+            fi
+
+            echo "✔  Health check passed (HTTP $HTTP_STATUS)"
+            echo "━━━ Deployment complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ── Optional: notify on failure ──────────────────────────────────────────
+      # Uncomment and configure if you want Slack/email alerts on deploy failure.
+      # - name: Notify failure
+      #   if: failure()
+      #   run: echo "Deploy failed — add notification step here"
