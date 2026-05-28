@@ -31,7 +31,7 @@ export default async function AdminDashboard() {
   ] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { emailVerifiedAt: { not: null } } }),
-    db.user.count({ where: { onboardingDone: true } }),
+    db.user.count({ where: { onboarding: { some: {} } } }),
     db.user.count({ where: { subscription: { status: "ACTIVE" } } }),
     db.userLesson.count(),
     db.userLesson.count({ where: { status: "COMPLETED" } }),
@@ -40,9 +40,9 @@ export default async function AdminDashboard() {
     db.user.count({ where: { createdAt: { gte: dayAgo } } }),
     db.user.count({ where: { createdAt: { gte: weekAgo } } }),
     db.invoiceRecord.aggregate({ _sum: { amountCents: true }, where: { status: "paid" } }),
-    db.user.findMany({ take: 10, orderBy: { createdAt: "desc" }, select: { id: true, email: true, displayName: true, currentLevel: true, xpTotal: true, onboardingDone: true, createdAt: true, subscription: { select: { status: true } } } }),
+    db.user.findMany({ take: 10, orderBy: { createdAt: "desc" }, select: { id: true, email: true, displayName: true, currentLevel: true, xpTotal: true, onboarding: { take: 1, select: { id: true } }, createdAt: true, subscription: { select: { status: true } } } }),
     db.lessonAttempt.findMany({ take: 10, orderBy: { createdAt: "desc" }, select: { id: true, userId: true, score: true, passed: true, createdAt: true, userLesson: { select: { lesson: { select: { stepNumber: true, title: true } } } }, user: { select: { email: true } } } }),
-    db.siteVisit.count({ where: { createdAt: { gte: dayAgo } } }),
+    Promise.resolve(0), // SiteVisit model not yet in schema
   ]);
 
   const totalRevenue = ((totalRevenueCents._sum.amountCents || 0) / 100).toFixed(2);
@@ -108,7 +108,7 @@ export default async function AdminDashboard() {
                       </span>
                     </td>
                     <td style={{ padding: "0.7rem 1rem" }}>
-                      <span style={{ color: u.onboardingDone ? "#14b8a6" : "rgba(237,232,220,0.3)" }}>{u.onboardingDone ? "✓" : "○"}</span>
+                      <span style={{ color: u.onboarding.length > 0 ? "#14b8a6" : "rgba(237,232,220,0.3)" }}>{u.onboarding.length > 0 ? "✓" : "○"}</span>
                     </td>
                     <td style={{ padding: "0.7rem 1rem", color: "rgba(237,232,220,0.4)", fontSize: "0.72rem" }}>{new Date(u.createdAt).toLocaleDateString()}</td>
                   </tr>

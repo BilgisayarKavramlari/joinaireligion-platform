@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/auth";
 import { env } from "@/lib/env";
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
           tradition: template.tradition,
           readingText: template.readingText,
           practiceDescription: template.practiceDescription,
-          questions: template.questions,
+          questions: template.questions as Prisma.InputJsonValue,
           isTemplate: false,
           forUserId: userId,
         },

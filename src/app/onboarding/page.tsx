@@ -272,7 +272,7 @@ export default function OnboardingPage() {
         {/* ── Select input ── */}
         {q.type === "select" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {(q.options as string[]).map((opt) => (
+            {(q.options as unknown as string[]).map((opt) => (
               <button
                 key={opt}
                 onClick={() => handleAnswer(opt)}
@@ -309,7 +309,7 @@ export default function OnboardingPage() {
         {/* ── Language selector ── */}
         {q.type === "language" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.7rem" }}>
-            {(q.options as LanguageOption[]).map((lang) => {
+            {(q.options as unknown as LanguageOption[]).map((lang) => {
               const selected = answers[q.key] === lang.code;
               return (
                 <button

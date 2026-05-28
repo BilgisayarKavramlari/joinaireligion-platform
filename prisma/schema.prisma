@@ -55,6 +55,13 @@ model User {
   emailFrequency          String             @default("weekly")
   unsubscribeToken        String?            @unique
   lastPracticeEmailSentAt DateTime?
+  currentLevel            Int                @default(1)
+  xpTotal                 Int                @default(0)
+  daysActive              Int                @default(0)
+  lastActiveDate          DateTime?
+  onboardingDone          Boolean            @default(false)
+  onboardingDoneAt        DateTime?
+  unsubscribedAt          DateTime?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   profile                 UserProfile?
@@ -68,6 +75,9 @@ model User {
   activityLogs            UserActivityLog[]
   dialogues               AiDialogue[]
   invoices                InvoiceRecord[]
+  lessonQuota             LessonQuota?
+  userLessons             UserLesson[]
+  lessonAttempts          LessonAttempt[]
 }
 
 model EarlyAccessLead {
@@ -80,14 +90,21 @@ model EarlyAccessLead {
 }
 
 model UserProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  bio       String?
-  intent    String?
-  timezone  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  bio            String?
+  intent         String?
+  timezone       String?
+  tradition      String?
+  country        String?
+  city           String?
+  phone          String?
+  secondaryEmail String?
+  socialMedia    Json?
+  avatarPath     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model OnboardingAnswer {
@@ -276,4 +293,71 @@ model InvoiceRecord {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+model Lesson {
+  id                  String       @id @default(cuid())
+  stepNumber          Int
+  isTemplate          Boolean      @default(false)
+  forUserId           String?
+  levelRequired       Int          @default(1)
+  title               String
+  tradition           String?
+  readingText         String
+  practiceDescription String
+  questions           Json
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  userLessons         UserLesson[]
+
+  @@index([stepNumber, isTemplate, forUserId])
+}
+
+model UserLesson {
+  id          String          @id @default(cuid())
+  userId      String
+  lessonId    String
+  status      String          @default("PENDING")
+  xpEarned    Int?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson      Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attempts    LessonAttempt[]
+
+  @@unique([userId, lessonId])
+  @@index([userId, status])
+}
+
+model LessonAttempt {
+  id              String     @id @default(cuid())
+  userLessonId    String
+  userId          String
+  promptText      String
+  fullContextSent String
+  aiRawResponse   String
+  score           Int
+  passed          Boolean
+  feedback        String?
+  tokensUsed      Int?
+  latencyMs       Int?
+  createdAt       DateTime   @default(now())
+  userLesson      UserLesson @relation(fields: [userLessonId], references: [id], onDelete: Cascade)
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userLessonId])
+}
+
+model LessonQuota {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  periodStart  DateTime
+  periodEnd    DateTime
+  usedAttempts Int      @default(0)
+  maxAttempts  Int      @default(1)
+  lastResetAt  DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
