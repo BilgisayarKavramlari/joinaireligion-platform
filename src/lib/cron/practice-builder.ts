@@ -1,13 +1,21 @@
 /**
  * practice-builder.ts
  *
- * Builds deterministic placeholder practice content from user context.
- * No OpenAI calls — all output is generated from template pools.
- * When OpenAI is integrated, replace buildPlaceholderContent() with a call
- * to the AI service; the types and buildUserContext() stay unchanged.
+ * Builds practice content from user context.
+ *
+ * Modes (controlled by PRACTICE_GENERATION_MODE env var):
+ *   placeholder (default) — deterministic template pools, no AI calls
+ *   openai                — GPT-generated personalised content, with
+ *                           automatic fallback to placeholder on failure
+ *
+ * Public API:
+ *   buildUserContext()         — extract PracticeContext from DB row
+ *   buildPlaceholderContent()  — deterministic content (always available)
+ *   generatePracticeContent()  — mode-aware async dispatcher (primary entry point)
  */
 
 import { MessageCadence, SubscriptionStatus } from "@prisma/client";
+import { env } from "@/lib/env";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -344,4 +352,177 @@ export function buildPlaceholderContent(ctx: PracticeContext): PracticeContent {
   const xpReward = ctx.cadence === MessageCadence.DAILY ? 20 : 10;
 
   return { subject, bodyText, bodyHtml, xpReward };
+}
+
+// ─── Mode-aware dispatcher ────────────────────────────────────────────────────
+
+/** Prompt spec reference returned alongside generated content. */
+export type PromptSpec = {
+  name: string;
+  version: number;
+  body: string;
+};
+
+/** Result from generatePracticeContent — content + audit metadata. */
+export type GeneratedPracticeContent = PracticeContent & {
+  /** Which prompt spec produced this content (for PromptVersion upsert). */
+  promptSpec: PromptSpec;
+  /** True when OpenAI generated this content; false for placeholder. */
+  usedOpenAI: boolean;
+  /** Error message from the OpenAI call if fallback was triggered. */
+  openAIError?: string;
+};
+
+/**
+ * Mode-aware content generator.  This is the primary entry point for the
+ * generate-practices cron route.
+ *
+ * Behaviour:
+ *   - PRACTICE_GENERATION_MODE !== "openai"  →  deterministic placeholder
+ *   - PRACTICE_GENERATION_MODE === "openai"
+ *       + OPENAI_API_KEY set   →  OpenAI call; fallback to placeholder on error
+ *       + OPENAI_API_KEY unset →  placeholder (with a warning in the result)
+ *
+ * This function never throws — all errors produce placeholder fallback.
+ */
+export async function generatePracticeContent(
+  ctx: PracticeContext
+): Promise<GeneratedPracticeContent> {
+  const mode = env.PRACTICE_GENERATION_MODE;
+
+  if (mode !== "openai") {
+    // ── PLACEHOLDER mode (default) ─────────────────────────────────────────
+    const { PLACEHOLDER_PROMPT_SPEC } = await import(
+      "@/lib/openai/practice-prompt"
+    );
+    return {
+      ...buildPlaceholderContent(ctx),
+      promptSpec: PLACEHOLDER_PROMPT_SPEC,
+      usedOpenAI: false,
+    };
+  }
+
+  // ── OPENAI mode ────────────────────────────────────────────────────────────
+  const {
+    isOpenAIEnabled,
+    callOpenAIJsonWithError,
+  } = await import("@/lib/openai/client");
+  const {
+    buildSystemPrompt,
+    buildUserPrompt,
+    validatePracticeOutput,
+    PRACTICE_PROMPT_SPEC,
+    PLACEHOLDER_PROMPT_SPEC,
+  } = await import("@/lib/openai/practice-prompt");
+
+  if (!isOpenAIEnabled()) {
+    return {
+      ...buildPlaceholderContent(ctx),
+      promptSpec: PLACEHOLDER_PROMPT_SPEC,
+      usedOpenAI: false,
+      openAIError: "OPENAI_API_KEY not configured; using placeholder",
+    };
+  }
+
+  const { data, error } = await callOpenAIJsonWithError(
+    buildSystemPrompt(),
+    buildUserPrompt(ctx)
+  );
+
+  if (error || !validatePracticeOutput(data)) {
+    // Fallback: log the failure reason but silently serve placeholder content
+    return {
+      ...buildPlaceholderContent(ctx),
+      promptSpec: PLACEHOLDER_PROMPT_SPEC,
+      usedOpenAI: false,
+      openAIError: error ?? "Schema validation failed",
+    };
+  }
+
+  // ── Convert OpenAI output → PracticeContent ────────────────────────────────
+  const cadenceLabel = ctx.cadence === MessageCadence.DAILY ? "daily" : "weekly";
+  const dateStr = ctx.scheduledDate.toISOString().slice(0, 10);
+  const subject = `Your ${cadenceLabel} practice — ${data.title} (${dateStr})`;
+  const xpReward = ctx.cadence === MessageCadence.DAILY ? 20 : 10;
+
+  const bodyText = [
+    `Hello ${ctx.displayName},`,
+    "",
+    data.reading,
+    "",
+    "─────────────────────────────────",
+    "",
+    data.practice,
+    "",
+    "─────────────────────────────────",
+    "",
+    "Reflection question:",
+    data.reflectionPrompt,
+    "",
+    data.safetyNote,
+    "",
+    "In presence,",
+    "The JoinAI Practice Team",
+  ].join("\n");
+
+  const bodyHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${subject}</title>
+<style>
+  body { margin: 0; padding: 0; background: #0a0614; font-family: Georgia, serif; color: #ede8dc; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 40px 24px; }
+  .header { text-align: center; padding-bottom: 32px; border-bottom: 1px solid rgba(201,162,39,0.2); margin-bottom: 32px; }
+  .gold { color: #c9a227; }
+  .light-gold { color: #f0d47a; }
+  .muted { color: rgba(237,232,220,0.5); font-size: 0.85em; }
+  h1 { font-size: 1.4rem; color: #f0d47a; margin: 0 0 8px; font-weight: 600; }
+  .meta { font-size: 0.8rem; color: rgba(237,232,220,0.4); letter-spacing: 0.05em; text-transform: uppercase; }
+  .reading { font-style: italic; color: rgba(237,232,220,0.72); line-height: 1.85; margin-bottom: 28px; font-size: 0.93rem; }
+  .instruction { background: rgba(255,255,255,0.03); border-left: 3px solid rgba(201,162,39,0.4); padding: 20px 24px; border-radius: 0 4px 4px 0; margin-bottom: 24px; line-height: 1.75; }
+  .reflection { background: rgba(201,162,39,0.06); border: 1px solid rgba(201,162,39,0.2); border-radius: 4px; padding: 16px 20px; margin-bottom: 24px; }
+  .reflection-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #c9a227; margin-bottom: 8px; font-family: system-ui, sans-serif; }
+  .reflection-text { font-style: italic; line-height: 1.6; }
+  .safety { font-size: 0.83rem; color: rgba(237,232,220,0.45); line-height: 1.65; margin-bottom: 24px; }
+  .footer { text-align: center; margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(201,162,39,0.15); font-size: 0.8rem; color: rgba(237,232,220,0.35); font-family: system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="meta">${cadenceLabel} practice &nbsp;·&nbsp; ${dateStr}</div>
+    <h1>${data.title}</h1>
+    <div class="muted">Level ${ctx.level}${ctx.tradition ? ` &nbsp;·&nbsp; ${ctx.tradition}` : ""}</div>
+  </div>
+
+  <p>Dear ${ctx.displayName},</p>
+  <div class="reading">${data.reading.replace(/\n/g, "<br>")}</div>
+
+  <h2 style="font-size:1rem;color:#c9a227;margin-bottom:12px;">Practice</h2>
+  <div class="instruction">${data.practice.replace(/\n/g, "<br>")}</div>
+
+  <div class="reflection">
+    <div class="reflection-label">Reflection question</div>
+    <div class="reflection-text">${data.reflectionPrompt}</div>
+  </div>
+
+  <p class="safety">${data.safetyNote}</p>
+
+  <div class="footer">
+    JoinAI &nbsp;·&nbsp; Your Personalised Contemplative Path
+  </div>
+</div>
+</body>
+</html>`;
+
+  return {
+    subject,
+    bodyText,
+    bodyHtml,
+    xpReward,
+    promptSpec: PRACTICE_PROMPT_SPEC,
+    usedOpenAI: true,
+  };
 }

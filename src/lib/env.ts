@@ -19,6 +19,7 @@ export const env = {
   EMAIL_FROM: readEnv("EMAIL_FROM"),
   CRON_SECRET: readEnv("CRON_SECRET"),
   EMAIL_SENDING_ENABLED: readEnv("EMAIL_SENDING_ENABLED"), // set to "true" to enable live sending
+  PRACTICE_GENERATION_MODE: readEnv("PRACTICE_GENERATION_MODE"), // "openai" to use AI generation; default is placeholder
 };
 
 export function requireEnv(key: keyof typeof env): string {
