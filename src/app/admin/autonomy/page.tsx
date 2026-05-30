@@ -58,6 +58,32 @@ const S = {
 
 // ─── Data fetchers ────────────────────────────────────────────────────────────
 
+async function fetchDeployStatus() {
+  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const cronSecret = env.CRON_SECRET ?? "";
+  try {
+    const res = await fetch(`${appUrl}/api/admin/autonomy/deploy-status`, {
+      headers: { Authorization: `Bearer ${cronSecret}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<{
+      checkedAt: string;
+      gitCommit: string | null;
+      buildTimestamp: string | null;
+      appVersion: string | null;
+      dbConnected: boolean;
+      generationMode: string;
+      openaiKeyPresent: boolean;
+      emailMode: string;
+      emailSendingEnabled: boolean;
+      lastAgentRuns: Record<string, { status: string; startedAt: string; durationMs: number | null } | null>;
+    }>;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchHealthReport() {
   const appUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const cronSecret = env.CRON_SECRET ?? "";
@@ -157,8 +183,9 @@ import type React from "react";
 export default async function AutonomyDashboard() {
   try { await requireAdminSession(); } catch { redirect("/admin/login"); }
 
-  const [health, agentRuns, queueStats, onboardingStats, genStats] = await Promise.all([
+  const [health, deployStatus, agentRuns, queueStats, onboardingStats, genStats] = await Promise.all([
     fetchHealthReport(),
+    fetchDeployStatus(),
     fetchAgentRuns(),
     fetchQueueStats(),
     fetchOnboardingStats(),
@@ -190,6 +217,44 @@ export default async function AutonomyDashboard() {
 
       {/* ── Action buttons (client component) ── */}
       <AutonomyActions />
+
+      {/* ── Deployment status ── */}
+      <div style={S.section}>
+        <p style={S.sectionH}>Deployment</p>
+        <div style={S.grid}>
+          <StatCard label="Git Commit" value={deployStatus?.gitCommit ?? "unknown"} />
+          <StatCard label="Built At" value={deployStatus?.buildTimestamp
+            ? new Date(deployStatus.buildTimestamp).toISOString().replace("T"," ").slice(0,19) + " UTC"
+            : "unknown"} />
+          <StatCard label="Version" value={deployStatus?.appVersion ?? "—"} />
+          <StatCard label="DB" value={deployStatus?.dbConnected ? "Connected" : "UNREACHABLE"}
+            sub={deployStatus?.dbConnected ? undefined : "Check DATABASE_URL"} />
+          <StatCard label="Generation Mode" value={deployStatus?.generationMode ?? "—"}
+            sub={deployStatus?.openaiKeyPresent ? "API key present" : "No OpenAI key"} />
+          <StatCard label="Email Mode" value={deployStatus?.emailMode ?? "—"}
+            sub={deployStatus?.emailSendingEnabled ? "Live sending active" : "Logging only"} />
+        </div>
+        {deployStatus && (
+          <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            {Object.entries(deployStatus.lastAgentRuns).map(([name, run]) => (
+              <div key={name} style={{ ...S.card, padding: "0.6rem 0.9rem", flex: "0 0 auto" }}>
+                <p style={S.label}>{name}</p>
+                {run ? (
+                  <>
+                    <span style={S.badge(run.status)}>{run.status}</span>
+                    <p style={{ fontSize: "0.65rem", color: "rgba(237,232,220,0.4)", marginTop: "0.2rem" }}>
+                      {new Date(run.startedAt).toISOString().replace("T"," ").slice(0,16)} UTC
+                      {run.durationMs != null ? ` · ${(run.durationMs/1000).toFixed(1)}s` : ""}
+                    </p>
+                  </>
+                ) : (
+                  <span style={{ fontSize: "0.72rem", color: "rgba(237,232,220,0.3)" }}>never run</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Queue stats ── */}
       <div style={S.section}>
