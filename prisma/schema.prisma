@@ -133,6 +133,7 @@ model User {
   dialogues               AiDialogue[]
   invoices                InvoiceRecord[]
   lessonQuota             LessonQuota?
+  feedbackItems           FeedbackItem[]
   userLessons             UserLesson[]
   lessonAttempts          LessonAttempt[]
 
@@ -566,4 +567,43 @@ model XpLedger {
 
   @@index([userId, createdAt])
   @@index([source, sourceId])
+}
+
+// ─── Feedback system ──────────────────────────────────────────────────────────
+
+enum FeedbackCategory {
+  BUG
+  TRANSLATION
+  CONTENT
+  COMPLAINT
+  FEATURE_REQUEST
+}
+
+enum FeedbackStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  WONT_FIX
+}
+
+/// User-submitted feedback items (bugs, translations, content issues, etc.)
+/// Visible in admin and surfaced to the autonomy system for task generation.
+model FeedbackItem {
+  id          String           @id @default(cuid())
+  /// Null when submitted anonymously (not yet implemented) or user is deleted.
+  userId      String?
+  category    FeedbackCategory
+  status      FeedbackStatus   @default(OPEN)
+  /// The URL or page path the user was on when submitting feedback.
+  pageContext  String?
+  /// Free-text message from the user.
+  message     String
+  /// Admin-written notes or resolution summary.
+  adminNotes  String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, category, createdAt])
+  @@index([userId, createdAt])
 }

@@ -324,6 +324,25 @@ async function checkUserData(findings: Finding[]): Promise<void> {
   });
 }
 
+async function checkFeedbackBacklog(findings: Finding[]): Promise<void> {
+  // Warn when there are 5 or more open BUG or TRANSLATION items — these signal
+  // product-health issues that the autonomy system should surface for task creation.
+  const actionableCount = await db.feedbackItem.count({
+    where: {
+      status:   { in: ["OPEN", "IN_REVIEW"] },
+      category: { in: ["BUG", "TRANSLATION"] },
+    },
+  });
+  findings.push({
+    key:     "feedback_actionable",
+    level:   actionableCount >= 5 ? "warning" : "ok",
+    message: actionableCount >= 5
+      ? `${actionableCount} unresolved BUG/TRANSLATION feedback items need review — consider creating improvement tasks.`
+      : `${actionableCount} unresolved BUG/TRANSLATION feedback item(s). No action required.`,
+    value: actionableCount,
+  });
+}
+
 function checkConfig(findings: Finding[]): void {
   // Email sending mode
   const emailEnabled = env.EMAIL_SENDING_ENABLED === "true";
@@ -443,6 +462,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       checkQueues(findings),
       checkXpIntegrity(findings),
       checkUserData(findings),
+      checkFeedbackBacklog(findings),
     ]);
   }
   checkConfig(findings);

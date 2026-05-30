@@ -1,182 +1,53 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getQuestions } from "@/lib/i18n/onboarding-questions";
+import type { LangCode } from "@/lib/i18n/dict";
 
-// ─── Question definitions ──────────────────────────────────────────────────────
-// type: "select" | "textarea" | "language" | "acknowledge"
-const QUESTIONS = [
-  {
-    key: "tradition",
-    text: "What is your spiritual background or primary tradition?",
-    hint: "Select the path closest to your upbringing or current orientation.",
-    type: "select",
-    options: ["Christianity","Islam","Judaism","Buddhism","Hinduism","Taoism","Sufism","Hermeticism / Esotericism","Shamanism / Indigenous","Rationalism / Secular","Agnostic / Uncertain","Atheism","Other / Eclectic"],
-  },
-  {
-    key: "relationship",
-    text: "How would you describe your relationship with spirituality right now?",
-    hint: "Be honest — there is no wrong answer here.",
-    type: "select",
-    options: ["Deeply committed and practicing","Curious but not yet committed","Questioning my inherited tradition","Exploring new perspectives","Skeptical but open","Disconnected — looking for meaning","Returning after a period away","Just starting for the first time"],
-  },
-  {
-    key: "preferred_language",
-    text: "Which language would you prefer for lessons and communications?",
-    hint: "You can change this at any time in your account preferences.",
-    type: "language",
-    options: [
-      { code: "en", label: "🇬🇧 English" },
-      { code: "tr", label: "🇹🇷 Türkçe" },
-      { code: "es", label: "🇪🇸 Español" },
-      { code: "de", label: "🇩🇪 Deutsch" },
-      { code: "fr", label: "🇫🇷 Français" },
-      { code: "ar", label: "🇸🇦 العربية" },
-    ],
-  },
-  {
-    key: "draw",
-    text: "What draws you to explore this path at this moment in your life?",
-    hint: "Write freely — this is for your eyes and your guide.",
-    type: "textarea",
-  },
-  {
-    key: "conflict",
-    text: "When you face inner conflict or difficulty, what is your first instinct?",
-    hint: "Think of a real recent example if it helps.",
-    type: "select",
-    options: ["Seek solitude and reflect","Talk it through with someone I trust","Distract myself with activity","Pray, meditate, or engage in practice","Analyze the situation logically","Push through and keep moving","Seek guidance from a text or teaching","Surrender to what is"],
-  },
-  {
-    key: "higher_power",
-    text: "How do you relate to the concept of a higher power, source, or ultimate reality?",
-    hint: "Express this in your own terms — there is no required answer.",
-    type: "textarea",
-  },
-  {
-    key: "practice",
-    text: "What practice or discipline, if any, do you already maintain?",
-    hint: "Meditation, prayer, journaling, ritual, exercise, study — anything counts.",
-    type: "select",
-    options: ["Daily meditation or contemplation","Regular prayer or devotion","Journaling or self-reflection writing","Study of sacred or philosophical texts","Yoga or body-based practice","Community ritual or worship","None yet — I am beginning","Multiple practices"],
-  },
-  {
-    key: "obstacle",
-    text: "What is the greatest obstacle in your inner life that you wish to overcome?",
-    hint: "Doubt, fear, restlessness, pride, grief, confusion — name it honestly.",
-    type: "textarea",
-  },
-  {
-    key: "awakening",
-    text: "What does 'awakening' or 'inner growth' mean to you in your own words?",
-    hint: "Your definition matters — not any tradition's definition.",
-    type: "textarea",
-  },
-  {
-    key: "silence",
-    text: "How comfortable are you with silence and solitude?",
-    hint: "Consider how you feel when left alone without distraction.",
-    type: "select",
-    options: ["Very comfortable — I seek it","Somewhat comfortable","Neutral","Slightly uncomfortable — my mind races","Quite uncomfortable","I actively avoid it"],
-  },
-  {
-    key: "community",
-    text: "What role does community and shared ritual play in your life?",
-    hint: "Community does not need to be religious — it can be any gathering of meaning.",
-    type: "select",
-    options: ["Central — I cannot grow without others","Important but not essential","Nice to have occasionally","Not important for my path","I prefer to walk alone","I have not yet found my community"],
-  },
-  {
-    key: "meaning_channel",
-    text: "How do you most naturally experience meaning or truth?",
-    hint: "Which channel feels most alive for you?",
-    type: "select",
-    options: ["Through reason, logic and inquiry","Through emotion and felt experience","Through the body — sensation, movement","Through imagination, symbols and dreams","Through direct silence or awareness","Through relationships and love","Through nature and the cosmos","Through creative expression"],
-  },
-  {
-    key: "question",
-    text: "What is the one question about existence, purpose, or the sacred that you most want to explore on this journey?",
-    hint: "Write your deepest, most honest question. This will guide your entire path.",
-    type: "textarea",
-  },
-  // ─── Personalization: intent, practice style, sensitivity, email cadence ──────
-  {
-    key: "intent",
-    text: "What are you primarily seeking through this practice platform?",
-    hint: "This shapes the type of content and practices you receive.",
-    type: "select",
-    options: [
-      "Learning — I want to understand traditions and teachings",
-      "Reflection — I want to turn inward and examine my life",
-      "Meditation — I want to develop stillness and awareness",
-      "Comparison — I want to explore multiple traditions side by side",
-      "Self-discovery — I want to understand who I am at a deeper level",
-      "All of the above — I am open to the full journey",
-    ],
-  },
-  {
-    key: "practice_style",
-    text: "Which style of practice resonates most with you?",
-    hint: "Your practices will be designed around your preferred mode of engagement.",
-    type: "select",
-    options: [
-      "Reading — I engage most through text, stories and teachings",
-      "Journaling — I process through writing and self-reflection",
-      "Meditation — I find clarity in silence and awareness",
-      "Prayer-like reflection — I prefer devotional or contemplative forms",
-      "Philosophical inquiry — I thrive when questioning and reasoning",
-      "Mixed — I want variety depending on the day",
-    ],
-  },
-  {
-    key: "sensitivity_boundaries",
-    text: "Are there any topics or approaches you would prefer to avoid in your practice content?",
-    hint: "For example: graphic descriptions of death, strong theological claims, trauma-adjacent content. Your boundaries are respected.",
-    type: "select",
-    options: [
-      "No boundaries — I am open to all content",
-      "Please avoid strong claims about God's existence",
-      "Please avoid content involving death and afterlife imagery",
-      "Please avoid content that may trigger grief or loss",
-      "Please avoid content referencing trauma or abuse",
-      "Please keep practices secular-adjacent — minimal religious language",
-      "Other (I will describe in my first dialogue)",
-    ],
-  },
-  {
-    key: "email_cadence_consent",
-    text: "How often would you like to receive practice messages by email?",
-    hint: "You can change this any time from your account settings.",
-    type: "select",
-    options: [
-      "Daily — I want a practice every morning",
-      "Weekly — I prefer one thoughtful practice each week",
-      "I prefer not to receive email practices (I will log in directly)",
-    ],
-  },
-  // ─── Final: Safety acknowledgement (must be accepted to proceed) ──────────────
-  {
-    key: "safety_acknowledgement",
-    text: "Before you begin, please read and confirm the following.",
-    hint: "",
-    type: "acknowledge",
-    options: [],
-  },
-] as const;
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-type QuestionKey = typeof QUESTIONS[number]["key"];
 type LanguageOption = { code: string; label: string };
+
+// The language question is injected inline between "relationship" and "draw".
+// The acknowledge question is injected at the end.
+// Neither is part of getQuestions() so we handle them separately below.
+
+const LANGUAGE_OPTIONS: LanguageOption[] = [
+  { code: "en", label: "🇬🇧 English" },
+  { code: "tr", label: "🇹🇷 Türkçe" },
+  { code: "es", label: "🇪🇸 Español" },
+  { code: "de", label: "🇩🇪 Deutsch" },
+  { code: "fr", label: "🇫🇷 Français" },
+  { code: "ar", label: "🇸🇦 العربية" },
+];
 
 const LANGUAGE_COLORS: Record<string, string> = {
   en: "#c0c0ff", tr: "#80ffb0", es: "#ff8080",
   de: "#ffe080", fr: "#c0ffe0", ar: "#f9c8ff",
 };
 
+const LANGUAGE_QUESTION = {
+  key: "preferred_language",
+  type: "language" as const,
+  text: "Which language would you prefer for lessons and communications?",
+  hint: "You can change this at any time in your account preferences.",
+};
+
+const ACKNOWLEDGE_QUESTION = {
+  key: "safety_acknowledgement",
+  type: "acknowledge" as const,
+  text: "Before you begin, please read and confirm the following.",
+  hint: "",
+};
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
+
 export default function OnboardingPage() {
   const router = useRouter();
-  const { t, setLang } = useLanguage();
+  const { t, lang, setLang } = useLanguage();
   const [step,           setStep]           = useState(0);
   const [answers,        setAnswers]        = useState<Record<string, string>>({});
   const [acknowledged,   setAcknowledged]   = useState(false);
@@ -196,28 +67,45 @@ export default function OnboardingPage() {
       .catch(() => router.push("/login"));
   }, [router]);
 
-  const q         = QUESTIONS[step];
-  const isLast    = step === QUESTIONS.length - 1;
-  const total     = QUESTIONS.length;
-  const progress  = ((step + 1) / total) * 100;
+  // Build the full question list reactively when lang changes.
+  // getQuestions(lang) returns localised text/hint/labels; stable values are
+  // preserved so saved answers remain valid across locale switches.
+  const QUESTIONS = useMemo(() => {
+    const base = getQuestions(lang);
+    // Inject language question after "relationship" (index 1 in base → index 2 in final)
+    const result = [
+      ...base.slice(0, 2),
+      { ...LANGUAGE_QUESTION },
+      ...base.slice(2),
+      ACKNOWLEDGE_QUESTION,
+    ];
+    return result;
+  }, [lang, t]);
+
+  const q        = QUESTIONS[step];
+  const isLast   = step === QUESTIONS.length - 1;
+  const total    = QUESTIONS.length;
+  const progress = ((step + 1) / total) * 100;
 
   function handleAnswer(value: string) {
     setAnswers((prev) => ({ ...prev, [q.key]: value }));
-    // Apply language immediately if this is the language question
+    // Apply language immediately when the language question is answered
     if (q.key === "preferred_language") {
-      setLang(value as Parameters<typeof setLang>[0]);
+      setLang(value as LangCode);
     }
   }
 
   function handleNext() {
-    // Special validation for acknowledge step
     if (q.type === "acknowledge") {
       if (!acknowledged) { setError("You must read and confirm the disclaimer to continue."); return; }
       setError("");
       handleSubmit();
       return;
     }
-    if (!answers[q.key]?.trim()) { setError("Please answer this question to continue."); return; }
+    if (q.type !== "language" && !answers[q.key]?.trim()) {
+      setError("Please answer this question to continue.");
+      return;
+    }
     setError("");
     if (isLast) { handleSubmit(); return; }
     setStep((s) => s + 1);
@@ -325,57 +213,61 @@ export default function OnboardingPage() {
         )}
 
         {/* ── Select input ── */}
-        {q.type === "select" && (
+        {q.type === "select" && "options" in q && q.options && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {(q.options as unknown as string[]).map((opt) => (
-              <button
-                key={opt}
-                onClick={() => handleAnswer(opt)}
-                style={{
-                  padding: "0.7rem 1rem",
-                  borderRadius: "0.6rem",
-                  border: `1px solid ${answers[q.key] === opt ? "var(--gold)" : "rgba(201,162,39,0.2)"}`,
-                  background: answers[q.key] === opt ? "rgba(201,162,39,0.12)" : "rgba(255,255,255,0.02)",
-                  color: answers[q.key] === opt ? "var(--gold-light)" : "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                  textAlign: "left",
-                  transition: "all 0.15s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                }}
-              >
-                <span style={{
-                  width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                  border: `1.5px solid ${answers[q.key] === opt ? "var(--gold)" : "rgba(201,162,39,0.3)"}`,
-                  background: answers[q.key] === opt ? "var(--gold)" : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "0.55rem", color: "#000",
-                }}>
-                  {answers[q.key] === opt ? "✓" : ""}
-                </span>
-                {opt}
-              </button>
-            ))}
+            {q.options.map((opt) => {
+              // opt is { value, label } from getQuestions; we compare by value and display label
+              const isSelected = answers[q.key] === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => handleAnswer(opt.value)}
+                  style={{
+                    padding: "0.7rem 1rem",
+                    borderRadius: "0.6rem",
+                    border: `1px solid ${isSelected ? "var(--gold)" : "rgba(201,162,39,0.2)"}`,
+                    background: isSelected ? "rgba(201,162,39,0.12)" : "rgba(255,255,255,0.02)",
+                    color: isSelected ? "var(--gold-light)" : "var(--text-primary)",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    textAlign: "left",
+                    transition: "all 0.15s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.6rem",
+                  }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                    border: `1.5px solid ${isSelected ? "var(--gold)" : "rgba(201,162,39,0.3)"}`,
+                    background: isSelected ? "var(--gold)" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.55rem", color: "#000",
+                  }}>
+                    {isSelected ? "✓" : ""}
+                  </span>
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* ── Language selector ── */}
         {q.type === "language" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.7rem" }}>
-            {(q.options as unknown as LanguageOption[]).map((lang) => {
-              const selected = answers[q.key] === lang.code;
+            {LANGUAGE_OPTIONS.map((langOpt) => {
+              const selected = answers[q.key] === langOpt.code;
               return (
                 <button
-                  key={lang.code}
-                  onClick={() => handleAnswer(lang.code)}
+                  key={langOpt.code}
+                  onClick={() => handleAnswer(langOpt.code)}
                   style={{
                     padding: "0.9rem 1rem",
                     borderRadius: "0.75rem",
-                    border: `1.5px solid ${selected ? LANGUAGE_COLORS[lang.code] || "var(--gold)" : "rgba(201,162,39,0.2)"}`,
-                    background: selected ? `${LANGUAGE_COLORS[lang.code] || "rgba(201,162,39,0.1)"}22` : "rgba(255,255,255,0.02)",
-                    color: selected ? (LANGUAGE_COLORS[lang.code] || "var(--gold-light)") : "var(--text-primary)",
+                    border: `1.5px solid ${selected ? LANGUAGE_COLORS[langOpt.code] || "var(--gold)" : "rgba(201,162,39,0.2)"}`,
+                    background: selected ? `${LANGUAGE_COLORS[langOpt.code] || "rgba(201,162,39,0.1)"}22` : "rgba(255,255,255,0.02)",
+                    color: selected ? (LANGUAGE_COLORS[langOpt.code] || "var(--gold-light)") : "var(--text-primary)",
                     cursor: "pointer",
                     fontSize: "0.92rem",
                     textAlign: "center",
@@ -384,12 +276,12 @@ export default function OnboardingPage() {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "0.5rem",
-                    boxShadow: selected ? `0 0 14px ${LANGUAGE_COLORS[lang.code] || "#c9a227"}44` : "none",
+                    boxShadow: selected ? `0 0 14px ${LANGUAGE_COLORS[langOpt.code] || "#c9a227"}44` : "none",
                     fontWeight: selected ? 700 : 400,
                   }}
                 >
                   {selected && <span style={{ fontSize: "0.7rem" }}>✓</span>}
-                  {lang.label}
+                  {langOpt.label}
                 </button>
               );
             })}

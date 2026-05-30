@@ -35,6 +35,7 @@ const mockPracticeRes = { count: jest.fn() };
 const mockUser        = { count: jest.fn() };
 const mockJourneyState = { count: jest.fn() };
 const mockOnboardingAnswer = { groupBy: jest.fn() };
+const mockFeedbackItem = { count: jest.fn() };
 
 jest.mock("@/lib/db", () => ({
   db: {
@@ -45,6 +46,7 @@ jest.mock("@/lib/db", () => ({
     user:                mockUser,
     userJourneyState:    mockJourneyState,
     onboardingAnswer:    mockOnboardingAnswer,
+    feedbackItem:        mockFeedbackItem,
   },
 }));
 
@@ -94,6 +96,8 @@ function setupHappyPathMocks() {
   mockOnboardingAnswer.groupBy.mockResolvedValue(
     Array.from({ length: 5 }, (_, i) => ({ userId: `u${i}` }))
   );
+  // Feedback: no actionable items
+  mockFeedbackItem.count.mockResolvedValue(0);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -150,6 +154,7 @@ describe("GET /api/admin/autonomy/health", () => {
     mockUser.count.mockResolvedValue(2);
     mockJourneyState.count.mockResolvedValue(2);
     mockOnboardingAnswer.groupBy.mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]);
+    mockFeedbackItem.count.mockResolvedValue(0);
 
     const { status, body } = await callHealth();
 
@@ -175,6 +180,7 @@ describe("GET /api/admin/autonomy/health", () => {
     mockUser.count.mockResolvedValue(1);
     mockJourneyState.count.mockResolvedValue(1);
     mockOnboardingAnswer.groupBy.mockResolvedValue([{ userId: "u1" }]);
+    mockFeedbackItem.count.mockResolvedValue(0);
 
     const { body } = await callHealth();
 
@@ -196,6 +202,7 @@ describe("GET /api/admin/autonomy/health", () => {
     mockUser.count.mockResolvedValue(2);
     mockJourneyState.count.mockResolvedValue(2);
     mockOnboardingAnswer.groupBy.mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]);
+    mockFeedbackItem.count.mockResolvedValue(0);
 
     const { status, body } = await callHealth();
 

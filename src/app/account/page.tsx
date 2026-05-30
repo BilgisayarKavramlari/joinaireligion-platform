@@ -4,12 +4,43 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SacredPage, SacredCard, XPBar, StatBox } from "@/components/ui/SacredPage";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LEVEL_XP_THRESHOLDS } from "@/lib/journey-types";
+
+// ─── Level display names (matches LEVEL_XP_THRESHOLDS, 1-indexed) ─────────────
+const LEVEL_NAMES: Record<number, string> = {
+  1:  "Seeker",
+  2:  "Pilgrim",
+  3:  "Inquirer",
+  4:  "Initiate",
+  5:  "Devotee",
+  6:  "Adept",
+  7:  "Sage",
+  8:  "Luminary",
+  9:  "Awakened",
+  10: "Illuminate",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** XP required to reach the next level; returns the max threshold when at cap. */
+function xpMaxForLevel(currentLevel: number): number {
+  // LEVEL_XP_THRESHOLDS is 0-indexed; element at index [currentLevel] is the
+  // threshold for level (currentLevel + 1).
+  return LEVEL_XP_THRESHOLDS[currentLevel] ?? LEVEL_XP_THRESHOLDS[LEVEL_XP_THRESHOLDS.length - 1] ?? 500;
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type UserData = {
   email?: string;
   displayName?: string | null;
   subscription?: { status?: string; plan?: string } | null;
+  currentLevel?: number;
+  xpTotal?: number;
+  daysActive?: number;
 };
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AccountPage() {
   const { t } = useLanguage();
@@ -24,6 +55,13 @@ export default function AccountPage() {
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Seeker";
   const tier        = user?.subscription?.status === "active" ? (user.subscription.plan || "Seeker") : "Free";
   const tierLabel   = tier === "Free" ? "Wanderer" : tier.charAt(0).toUpperCase() + tier.slice(1);
+
+  // Real account stats — default to clean new-user state (level 1, 0 XP, 0 days)
+  const currentLevel = user?.currentLevel ?? 1;
+  const xpTotal      = user?.xpTotal      ?? 0;
+  const daysActive   = user?.daysActive   ?? 0;
+  const xpMax        = xpMaxForLevel(currentLevel);
+  const levelName    = LEVEL_NAMES[currentLevel] ?? `Level ${currentLevel}`;
 
   const NAV_ITEMS = [
     { href: "/account/profile",     icon: "⚗️",  label: t.account.profile,      desc: t.account.profileDesc      },
@@ -68,16 +106,16 @@ export default function AccountPage() {
         </div>
       </div>
 
-      {/* XP Stats */}
+      {/* XP Stats — sourced from real account data */}
       <SacredCard style={{ marginBottom: "1.5rem" }}>
         <div style={{ marginBottom: "1rem" }}>
-          <XPBar current={240} max={500} label="Journey Experience" />
+          <XPBar current={xpTotal} max={xpMax} label="Journey Experience" />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "0.75rem" }}>
-          <StatBox value="Lv 3" label="Inquirer" icon="🌀" />
-          <StatBox value="240" label={t.account.xpEarned} icon="⭐" />
-          <StatBox value="12" label={t.account.daysActive} icon="🕯️" />
-          <StatBox value={tierLabel} label={t.account.membership_label} icon="💎" />
+          <StatBox value={`Lv ${currentLevel}`} label={levelName}              icon="🌀" />
+          <StatBox value={String(xpTotal)}       label={t.account.xpEarned}    icon="⭐" />
+          <StatBox value={String(daysActive)}    label={t.account.daysActive}  icon="🕯️" />
+          <StatBox value={tierLabel}             label={t.account.membership_label} icon="💎" />
         </div>
       </SacredCard>
 

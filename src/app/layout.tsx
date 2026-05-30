@@ -4,6 +4,7 @@ import { Cinzel } from "next/font/google";
 import "./globals.css";
 import { PublicHeader } from "@/components/PublicHeader";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { FeedbackButton } from "@/components/ui/FeedbackButton";
 
 const cinzel = Cinzel({
   subsets: ["latin"],
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <LanguageProvider>
           <PublicHeader />
           {children}
+          <FeedbackButton />
         </LanguageProvider>
       </body>
     </html>

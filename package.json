@@ -23,6 +23,9 @@
     "react-dom": "19.2.0",
     "stripe": "^17.7.0"
   },
+  "prisma": {
+    "seed": "node --require jiti/register prisma/seed.ts"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.8",
     "@types/jest": "^29.5.14",

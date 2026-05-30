@@ -85,9 +85,9 @@ export default function LessonsPage() {
               title={t.lesson.step.replace("{n}", "1")}
               subtitle={t.lesson.reading}
             />
-            <Link href="/lessons/step-1" className="btn-sacred btn-sacred-gold" style={{ display: "inline-block", marginTop: "1rem", padding: "0.7rem 1.6rem", fontSize: "0.85rem", textDecoration: "none" }}>
-              ✦ {t.lesson.step.replace("{n}", "1")}
-            </Link>
+            <p style={{ fontSize: "0.82rem", color: "rgba(237,232,220,0.5)", marginTop: "1rem" }}>
+              Your first lesson is being prepared. Please refresh in a moment.
+            </p>
           </SacredCard>
         )}
 

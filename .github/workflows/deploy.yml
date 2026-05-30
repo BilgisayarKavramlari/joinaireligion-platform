@@ -147,14 +147,21 @@ jobs:
             echo "── Container status ──────────────────────────────────────────"
             docker compose ps
 
-            # ── [5/6] Run prisma db push ───────────────────────────────────────
+            # ── [5/7] Run prisma db push ───────────────────────────────────────
             # Applies any schema changes that are safe (non-destructive).
             # Uses DATABASE_URL from the container's .env — never logged.
-            echo "━━━ [5/6] prisma db push ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "━━━ [5/7] prisma db push ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             docker compose exec -u root app npx prisma db push --accept-data-loss
             echo "✔  prisma db push complete"
 
-            # ── [6/6] Health checks ────────────────────────────────────────────
+            # ── [6/7] Run prisma db seed ───────────────────────────────────────
+            # Idempotent — safe to run on every deploy. Ensures Step 1 lesson
+            # template exists so new users always receive a non-empty first lesson.
+            echo "━━━ [6/7] prisma db seed ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            docker compose exec -u root app npx prisma db seed || echo "⚠  Seed step returned non-zero — lesson template may already exist (safe)"
+            echo "✔  prisma db seed complete"
+
+            # ── [7/7] Health checks ────────────────────────────────────────────
             echo "━━━ [6/6] Health checks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "Waiting 20 s for app to become ready…"
             sleep 20

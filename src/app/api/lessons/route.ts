@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { STEP1_LESSON } from "@/lib/lesson-defaults";
 
 export async function GET() {
   try {
@@ -21,29 +22,43 @@ export async function GET() {
       orderBy: { lesson: { stepNumber: "asc" } },
     });
 
-    // If no lessons yet, create UserLesson for step 1 template
+    // If no lessons yet, ensure the Step 1 template exists (self-healing) and
+    // create a UserLesson for this user pointing to it.
     if (userLessons.length === 0) {
-      const step1 = await db.lesson.findFirst({
+      // Find or create the Step 1 template lesson — this is the self-healing path
+      // for environments where `prisma db seed` has not yet been executed.
+      let step1 = await db.lesson.findFirst({
         where: { stepNumber: 1, isTemplate: true, forUserId: null },
       });
-      if (step1) {
-        const ul = await db.userLesson.create({
-          data: { userId, lessonId: step1.id, status: "PENDING" },
-          include: { lesson: true, attempts: true },
-        });
-        return NextResponse.json({
-          lessons: [{
-            userLessonId: ul.id,
-            lessonId: ul.lessonId,
-            stepNumber: ul.lesson.stepNumber,
-            title: ul.lesson.title,
-            status: ul.status,
-            xpEarned: ul.xpEarned,
-            lastScore: undefined,
-          }],
+
+      if (!step1) {
+        // Template not seeded — create it inline so new users always get a lesson.
+        step1 = await db.lesson.create({
+          data: {
+            ...STEP1_LESSON,
+            isTemplate: true,
+            forUserId: null,
+            questions: STEP1_LESSON.questions as object,
+          },
         });
       }
-      return NextResponse.json({ lessons: [] });
+
+      const ul = await db.userLesson.create({
+        data: { userId, lessonId: step1.id, status: "PENDING" },
+        include: { lesson: true, attempts: true },
+      });
+
+      return NextResponse.json({
+        lessons: [{
+          userLessonId: ul.id,
+          lessonId: ul.lessonId,
+          stepNumber: ul.lesson.stepNumber,
+          title: ul.lesson.title,
+          status: ul.status,
+          xpEarned: ul.xpEarned,
+          lastScore: undefined,
+        }],
+      });
     }
 
     const lessons = userLessons.map((ul) => ({
