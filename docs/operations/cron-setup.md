@@ -384,7 +384,8 @@ DRY_RUN=1 sudo -u joinai /opt/joinaireligion/scripts/cron/autonomy-repair.sh
 
 ### Security gates
 - [ ] No `.env` file committed to git (`git ls-files | grep -E "\.env$"` returns empty).
-- [ ] No secrets in git log (`git log --all -p | grep -E "CRON_SECRET|API_KEY|DATABASE_URL"` returns empty in committed files).
+- [ ] No `.env` files tracked by git (`git ls-files | grep -E "^\.env"` returns empty — existence check only, never print values).
+- [ ] No secret-bearing commits (`git log --all --oneline -- .env '*.env*' | head -5` returns empty — lists filenames only, never prints file content).
 - [ ] `npm run test:ci` passes in CI/CD pipeline.
 - [ ] `npx tsc --noEmit --skipLibCheck --project tsconfig.verify.json` passes.
 
