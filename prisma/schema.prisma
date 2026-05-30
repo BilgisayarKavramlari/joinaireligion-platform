@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Existing enums ───────────────────────────────────────────────────────────
+
 enum SubscriptionStatus {
   TRIAL
   ACTIVE
@@ -38,6 +40,58 @@ enum PracticeType {
   REFLECTION
 }
 
+// ─── Journey automation enums ─────────────────────────────────────────────────
+
+/// Whether the practice is delivered daily (paid) or weekly (free).
+enum MessageCadence {
+  DAILY
+  WEEKLY
+}
+
+/// The user's subscription tier that determines practice cadence.
+enum PracticeTier {
+  FREE
+  PAID
+}
+
+/// Lifecycle state of AI content generation for a PracticeMessage.
+enum GenerationStatus {
+  PENDING
+  GENERATING
+  GENERATED
+  FAILED
+}
+
+/// Email delivery state for a PracticeMessage.
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+/// Execution state for an AgentRun task.
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+/// Origin of an XP award or deduction recorded in XpLedger.
+enum XpSource {
+  PRACTICE_RESPONSE
+  LESSON_COMPLETE
+  ONBOARDING_BONUS
+  LEVEL_UP_BONUS
+  STREAK_BONUS
+  MANUAL_ADJUSTMENT
+}
+
+// ─── Core user model ──────────────────────────────────────────────────────────
+
 model User {
   id                      String             @id @default(cuid())
   email                   String             @unique
@@ -64,6 +118,8 @@ model User {
   unsubscribedAt          DateTime?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+
+  // ── Existing relations ──────────────────────────────────────────────────────
   profile                 UserProfile?
   onboarding              OnboardingAnswer[]
   queries                 AiQuery[]
@@ -78,6 +134,13 @@ model User {
   lessonQuota             LessonQuota?
   userLessons             UserLesson[]
   lessonAttempts          LessonAttempt[]
+
+  // ── Journey automation relations ────────────────────────────────────────────
+  practiceMessages        PracticeMessage[]
+  practiceResponses       PracticeResponse[]
+  xpLedger                XpLedger[]
+  agentRuns               AgentRun[]
+  journeyState            UserJourneyState?
 }
 
 model EarlyAccessLead {
@@ -360,4 +423,146 @@ model LessonQuota {
   maxAttempts  Int      @default(1)
   lastResetAt  DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Journey automation models ────────────────────────────────────────────────
+
+/// Tracks the current state of each user's automated practice journey.
+/// One record per user; updated on every delivery, response, or level-up.
+model UserJourneyState {
+  id                      String       @id @default(cuid())
+  userId                  String       @unique
+  tier                    PracticeTier @default(FREE)
+  practiceStreak          Int          @default(0)
+  longestStreak           Int          @default(0)
+  totalPracticesDelivered Int          @default(0)
+  totalResponsesSubmitted Int          @default(0)
+  lastPracticeDeliveredAt DateTime?
+  lastResponseSubmittedAt DateTime?
+  nextDailyPracticeDate   DateTime?    // next scheduled daily (paid only)
+  nextWeeklyPracticeDate  DateTime?    // next scheduled weekly (free + paid)
+  pendingLevelUp          Boolean      @default(false)
+  lastLevelUpAt           DateTime?
+  metadata                Json?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Versioned prompt templates used by the agent to generate practice messages.
+/// name + version form a unique key so old messages can always reference
+/// the exact prompt that produced them.
+model PromptVersion {
+  id        String            @id @default(cuid())
+  name      String            // logical prompt name, e.g. "daily-practice-gen-v1"
+  version   Int
+  body      String            // prompt template; may contain {{variable}} placeholders
+  variables Json?             // array of expected variable names for documentation
+  isActive  Boolean           @default(false)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  messages  PracticeMessage[]
+
+  @@unique([name, version])
+  @@index([name, isActive])
+}
+
+/// One record per agent task execution (generation, scoring, delivery, etc.).
+/// Multiple PracticeMessages or PracticeResponses may link to a single run
+/// when the agent processes a batch.
+model AgentRun {
+  id                String            @id @default(cuid())
+  agentName         String            // e.g. "practice-generator", "response-scorer"
+  taskType          String            // e.g. "GENERATE_DAILY_BATCH", "SCORE_RESPONSE"
+  status            AgentRunStatus    @default(PENDING)
+  userId            String?           // null for system-wide batch runs
+  input             Json?             // serialised task parameters
+  output            Json?             // serialised result summary
+  errorMessage      String?
+  startedAt         DateTime          @default(now())
+  completedAt       DateTime?
+  durationMs        Int?
+  createdAt         DateTime          @default(now())
+  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  generatedMessages PracticeMessage[] // messages this run created
+  scoredResponses   PracticeResponse[] @relation("ScoringRun")
+
+  @@index([agentName, status, createdAt])
+  @@index([taskType, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// One personalized practice message per user per cadence per scheduled date.
+/// Generated by the agent, delivered by email, responded to by the user.
+model PracticeMessage {
+  id               String           @id @default(cuid())
+  userId           String
+  cadence          MessageCadence   // DAILY (paid) or WEEKLY (free)
+  tier             PracticeTier     // tier at time of generation
+  scheduledDate    DateTime         // the calendar date this message is for (time is midnight UTC)
+  subject          String?          // email subject line
+  bodyText         String?          // plain-text body
+  bodyHtml         String?          // HTML body
+  generationStatus GenerationStatus @default(PENDING)
+  deliveryStatus   DeliveryStatus   @default(PENDING)
+  promptVersionId  String?          // which prompt was used
+  agentRunId       String?          // which AgentRun produced this
+  xpReward         Int              @default(0) // XP to award when user responds
+  sentAt           DateTime?
+  generatedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promptVersion    PromptVersion?   @relation(fields: [promptVersionId], references: [id])
+  agentRun         AgentRun?        @relation(fields: [agentRunId], references: [id])
+  responses        PracticeResponse[]
+
+  // One scheduled practice per user per cadence per day — prevents duplicates.
+  @@unique([userId, cadence, scheduledDate])
+  @@index([userId, scheduledDate])
+  @@index([generationStatus, deliveryStatus, scheduledDate])
+}
+
+/// The user's written response to a PracticeMessage, including AI scoring (0–5)
+/// and the XP awarded.  One response per user per message enforced by the
+/// unique constraint.
+model PracticeResponse {
+  id                String          @id @default(cuid())
+  userId            String
+  practiceMessageId String
+  responseText      String          // user's submitted response
+  score             Int?            // 0–5, set by scoring agent after submission
+  feedback          String?         // AI-generated qualitative feedback
+  xpEarned          Int             @default(0)
+  scoringAgentRunId String?         // AgentRun that scored this response
+  createdAt         DateTime        @default(now())
+  scoredAt          DateTime?
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceMessage   PracticeMessage @relation(fields: [practiceMessageId], references: [id], onDelete: Cascade)
+  scoringAgentRun   AgentRun?       @relation("ScoringRun", fields: [scoringAgentRunId], references: [id])
+
+  // One response per user per practice message.
+  @@unique([userId, practiceMessageId])
+  @@index([userId, createdAt])
+  @@index([score, scoredAt])
+}
+
+/// Immutable ledger of every XP delta for a user.
+/// balanceBefore + amount == balanceAfter; application code is responsible
+/// for keeping this consistent with User.xpTotal.
+model XpLedger {
+  id            String    @id @default(cuid())
+  userId        String
+  amount        Int       // positive (award) or negative (correction)
+  source        XpSource  // what caused this delta
+  sourceId      String?   // ID of the originating record (PracticeResponse.id, etc.)
+  balanceBefore Int
+  balanceAfter  Int
+  notes         String?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([source, sourceId])
 }
