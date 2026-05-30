@@ -131,8 +131,11 @@ async function checkAgentRuns(findings: Finding[]): Promise<void> {
   }
 
   // email delivery
+  // The send-practice-emails route writes agentName "practice-email-sender".
+  // A legacy name "email-delivery" was used in older runs; support both so that
+  // production databases with historical records are handled correctly.
   const lastEmail = await db.agentRun.findFirst({
-    where: { agentName: "email-delivery" },
+    where: { agentName: { in: ["practice-email-sender", "email-delivery"] } },
     orderBy: { startedAt: "desc" },
     select: { status: true, startedAt: true, output: true },
   });

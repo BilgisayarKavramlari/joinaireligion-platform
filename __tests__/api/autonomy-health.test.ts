@@ -253,6 +253,50 @@ describe("GET /api/admin/autonomy/health", () => {
     expect(body.findings.every((f: { level: string }) => f.level === "ok")).toBe(true);
   });
 
+  // ── Email delivery agent name regression ─────────────────────────────────
+  //
+  // The email delivery route writes agentName "practice-email-sender".
+  // The health check previously queried for "email-delivery" — causing a
+  // false "never run" warning even when emails had been sent successfully.
+  // This test pins the correct behaviour.
+
+  it("does NOT report 'never run' when a practice-email-sender AgentRun exists", async () => {
+    setupHappyPathMocks();
+    mockQueryRaw
+      .mockResolvedValueOnce([{ "?column?": 1 }]) // SELECT 1
+      .mockResolvedValueOnce([{ n: BigInt(0) }]);  // XP duplicate check
+
+    const { body } = await callHealth();
+
+    const emailFinding = body.findings.find(
+      (f: { key: string }) => f.key === "agent_email_last_run"
+    );
+    expect(emailFinding).toBeDefined();
+    expect(emailFinding.level).toBe("ok");
+    expect(emailFinding.message).not.toContain("never run");
+  });
+
+  it("health check queries for agentName 'practice-email-sender' (not legacy 'email-delivery')", async () => {
+    setupHappyPathMocks();
+    mockQueryRaw
+      .mockResolvedValueOnce([{ "?column?": 1 }])
+      .mockResolvedValueOnce([{ n: BigInt(0) }]);
+
+    await callHealth();
+
+    // Verify at least one findFirst call included "practice-email-sender" in the filter
+    const calls = mockAgentRun.findFirst.mock.calls as Array<[{ where: { agentName: unknown } }]>;
+    const emailCall = calls.find((args) => {
+      const nameFilter = args[0]?.where?.agentName;
+      if (typeof nameFilter === "string") return nameFilter === "practice-email-sender";
+      if (nameFilter && typeof nameFilter === "object" && "in" in nameFilter) {
+        return (nameFilter as { in: string[] }).in.includes("practice-email-sender");
+      }
+      return false;
+    });
+    expect(emailCall).toBeDefined();
+  });
+
   // ── Response structure ────────────────────────────────────────────────────
 
   it("response always contains required top-level fields", async () => {
