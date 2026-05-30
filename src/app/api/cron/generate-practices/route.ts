@@ -175,7 +175,7 @@ export async function POST(request: Request): Promise<Response> {
       bodyHtml: content.bodyHtml,
       xpReward: content.xpReward,
       generationStatus: GenerationStatus.GENERATED,
-      deliveryStatus: DeliveryStatus.PENDING,
+      deliveryStatus: DeliveryStatus.QUEUED, // ready for send-practice-emails cron
       agentRunId: agentRun.id,
       generatedAt: now,
     });

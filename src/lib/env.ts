@@ -18,6 +18,7 @@ export const env = {
   INTERNAL_AGENT_API_KEY: readEnv("INTERNAL_AGENT_API_KEY"),
   EMAIL_FROM: readEnv("EMAIL_FROM"),
   CRON_SECRET: readEnv("CRON_SECRET"),
+  EMAIL_SENDING_ENABLED: readEnv("EMAIL_SENDING_ENABLED"), // set to "true" to enable live sending
 };
 
 export function requireEnv(key: keyof typeof env): string {

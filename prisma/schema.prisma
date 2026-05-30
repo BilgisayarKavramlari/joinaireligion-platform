@@ -64,11 +64,12 @@ enum GenerationStatus {
 
 /// Email delivery state for a PracticeMessage.
 enum DeliveryStatus {
-  PENDING
-  SENT
-  DELIVERED
-  FAILED
-  SKIPPED
+  PENDING   // created but not yet queued for delivery
+  QUEUED    // generation complete, queued for the send cron
+  SENT      // handed off to email provider
+  DELIVERED // provider confirmed delivery (webhook)
+  FAILED    // provider returned an error
+  SKIPPED   // excluded from this run (e.g. user unsubscribed after generation)
 }
 
 /// Execution state for an AgentRun task.
