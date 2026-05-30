@@ -8,10 +8,12 @@ Operational reference for configuring and managing the scheduled job pipeline on
 
 ```
 VPS crontab
-  ├─ 06:00 UTC  generate-practices.sh   → POST /api/cron/generate-practices
-  ├─ 07:00 UTC  send-practice-emails.sh → POST /api/cron/send-practice-emails
-  ├─ */1  UTC   score-practice-responses.sh → POST /api/cron/score-practice-responses
-  └─ */5  UTC   system-health.sh        → GET  /api/health
+  ├─ 06:00 UTC  generate-practices.sh        → POST /api/cron/generate-practices
+  ├─ 07:00 UTC  send-practice-emails.sh      → POST /api/cron/send-practice-emails
+  ├─ 07:30 UTC  autonomy-health.sh           → GET  /api/admin/autonomy/health
+  ├─ 07:35 UTC  autonomy-repair.sh           → POST /api/cron/autonomy-repair
+  ├─ */1  UTC   score-practice-responses.sh  → POST /api/cron/score-practice-responses
+  └─ */5  UTC   system-health.sh             → GET  /api/health
 ```
 
 Each script reads credentials from `/etc/joinaireligion/cron.env`, which is readable only by the `joinai` service account.  No secrets appear in crontab itself.
@@ -99,7 +101,13 @@ JOINAI_ENV_FILE=/etc/joinaireligion/cron.env
 # 3. Score practice responses and award XP — every hour at :30
 30 * * * * /opt/joinaireligion/scripts/cron/score-practice-responses.sh >> /var/log/joinaireligion/cron.log 2>&1
 
-# 4. System health probe — every 5 minutes
+# 4. OpenClaw autonomy health probe — 07:30 UTC (30 min after email delivery)
+30 7 * * * /opt/joinaireligion/scripts/cron/autonomy-health.sh >> /var/log/joinaireligion/autonomy.log 2>&1
+
+# 5. OpenClaw safe repair — 07:35 UTC (5 min after health probe)
+35 7 * * * /opt/joinaireligion/scripts/cron/autonomy-repair.sh >> /var/log/joinaireligion/autonomy.log 2>&1
+
+# 6. System health probe — every 5 minutes
 */5 * * * * /opt/joinaireligion/scripts/cron/system-health.sh >> /var/log/joinaireligion/health.log 2>&1
 ```
 
@@ -291,3 +299,96 @@ This should not occur due to the `(source, sourceId)` idempotency check in `XpLe
 
 **practice_messages stuck in QUEUED**
 `send-practice-emails.sh` may not have run or `EMAIL_SENDING_ENABLED` is not `true` in the app environment.  Check `cron.log` for the most recent send run and confirm the app's email configuration.
+
+
+---
+
+## 9. Autonomy Scripts
+
+The two autonomy scripts provide OpenClaw's daily self-check and repair loop.
+
+### 9.1 autonomy-health.sh
+
+Calls `GET /api/admin/autonomy/health` and logs structured JSON.  Exits 2 on CRITICAL status and optionally emails `ALERT_EMAIL`.
+
+```bash
+# Dry-run
+DRY_RUN=1 /opt/joinaireligion/scripts/cron/autonomy-health.sh
+
+# Live
+sudo -u joinai /opt/joinaireligion/scripts/cron/autonomy-health.sh
+```
+
+### 9.2 autonomy-repair.sh
+
+Calls `POST /api/cron/autonomy-repair`.  Safe, idempotent.  Logs `totalFixed` count.
+
+```bash
+# Dry-run
+DRY_RUN=1 /opt/joinaireligion/scripts/cron/autonomy-repair.sh
+
+# Live
+sudo -u joinai /opt/joinaireligion/scripts/cron/autonomy-repair.sh
+```
+
+---
+
+## 10. Production Readiness Checklist
+
+Complete this checklist before going live or after any significant deployment.
+
+### Infrastructure
+- [ ] VPS is running, SSH access confirmed.
+- [ ] `/etc/joinaireligion/cron.env` exists, is `chmod 600`, owned by `joinai`.
+- [ ] `APP_URL`, `CRON_SECRET` are set in `cron.env`.
+- [ ] All scripts copied to `/opt/joinaireligion/scripts/cron/` and `chmod 750`.
+- [ ] `/var/log/joinaireligion/` exists and is writable by `joinai`.
+- [ ] Log rotation configured (`/etc/logrotate.d/joinaireligion`).
+
+### Crontab
+- [ ] `sudo crontab -u joinai -l` shows all 6 entries (generate, send, score, autonomy-health, autonomy-repair, health).
+- [ ] No secrets appear in crontab output.
+
+### Application
+- [ ] `DATABASE_URL` is set correctly in application `.env`.
+- [ ] `CRON_SECRET` in application `.env` matches `cron.env`.
+- [ ] `EMAIL_SENDING_ENABLED` is set to `true` only when Resend is configured.
+- [ ] `RESEND_API_KEY` and `EMAIL_FROM` are set if email sending is enabled.
+- [ ] `OPENAI_API_KEY` is set if `PRACTICE_GENERATION_MODE=openai`.
+- [ ] `ADMIN_EMAILS` includes at least one valid admin address.
+- [ ] `NEXT_PUBLIC_APP_URL` matches the production domain.
+
+### Verification commands
+```bash
+# 1. Health endpoint
+curl -s "https://joinaireligion.com/api/health" | python3 -m json.tool
+
+# 2. Autonomy health
+sudo -u joinai /opt/joinaireligion/scripts/cron/autonomy-health.sh
+
+# 3. Practice generation dry-run
+DRY_RUN=1 sudo -u joinai /opt/joinaireligion/scripts/cron/generate-practices.sh
+
+# 4. Email delivery dry-run
+DRY_RUN=1 sudo -u joinai /opt/joinaireligion/scripts/cron/send-practice-emails.sh
+
+# 5. Scoring dry-run
+DRY_RUN=1 sudo -u joinai /opt/joinaireligion/scripts/cron/score-practice-responses.sh
+
+# 6. Autonomy repair dry-run
+DRY_RUN=1 sudo -u joinai /opt/joinaireligion/scripts/cron/autonomy-repair.sh
+
+# 7. Admin dashboard
+# Visit https://joinaireligion.com/admin/autonomy (admin login required)
+```
+
+### Security gates
+- [ ] No `.env` file committed to git (`git ls-files | grep -E "\.env$"` returns empty).
+- [ ] No secrets in git log (`git log --all -p | grep -E "CRON_SECRET|API_KEY|DATABASE_URL"` returns empty in committed files).
+- [ ] `npm run test:ci` passes in CI/CD pipeline.
+- [ ] `npx tsc --noEmit --skipLibCheck --project tsconfig.verify.json` passes.
+
+### Data safety
+- [ ] No migration run without backup.
+- [ ] XP ledger duplicate check returns 0 rows (see §5.6).
+- [ ] `UserJourneyState` count equals verified user count (or repair has been run).
