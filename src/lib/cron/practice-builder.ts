@@ -45,6 +45,10 @@ export type PracticeContext = {
   level: number;
   tradition: string | null;
   intent: string | null;
+  /** Preferred practice style from onboarding (e.g. "Journaling", "Meditation"). */
+  practiceStyle: string | null;
+  /** Self-reported sensitivity boundaries from onboarding. */
+  sensitivityBoundaries: string | null;
   cadence: MessageCadence;
   scheduledDate: Date;
   /** Extracts from the user's most recent practice responses (for context). */
@@ -231,6 +235,9 @@ export function buildUserContext(
     level: user.currentLevel,
     tradition: user.profile?.tradition ?? null,
     intent: user.profile?.intent ?? null,
+    practiceStyle: user.onboarding.find((a) => a.questionKey === "practice_style")?.answer
+      ?.split(" — ")[0]?.trim() ?? null,
+    sensitivityBoundaries: user.onboarding.find((a) => a.questionKey === "sensitivity_boundaries")?.answer ?? null,
     cadence,
     scheduledDate,
     recentResponseSnippets: user.practiceResponses

@@ -25,18 +25,33 @@ export async function POST(req: NextRequest) {
       await db.onboardingAnswer.createMany({ data: rows, skipDuplicates: true });
     }
 
-    // ── 2. Denormalise tradition + preferred locale into UserProfile / User ────
-    const tradition      = answers["tradition"] || null;
+    // ── 2. Denormalise personalization fields into UserProfile / User ────────────
+    const tradition       = answers["tradition"] || null;
     const preferredLocale = answers["preferred_language"] || null;
+    // intent: extract the short label before the first " — " separator
+    const intentRaw = answers["intent"] || null;
+    const intent    = intentRaw
+      ? intentRaw.split(" — ")[0].replace(/All of the above.*/i, "Open exploration").trim()
+      : null;
+    // email cadence consent → map to emailOptIn boolean
+    const cadenceAnswer   = answers["email_cadence_consent"] || "";
+    const emailOptIn      = cadenceAnswer.startsWith("Daily") || cadenceAnswer.startsWith("Weekly");
 
     await db.userProfile.upsert({
       where:  { userId },
-      update: { tradition: tradition ?? undefined },
-      create: { userId, tradition },
+      update: {
+        tradition: tradition ?? undefined,
+        intent:    intent    ?? undefined,
+      },
+      create: { userId, tradition, intent },
     });
 
-    if (preferredLocale) {
-      await db.user.update({ where: { id: userId }, data: { preferredLocale } });
+    const userUpdates: Record<string, unknown> = {};
+    if (preferredLocale) userUpdates.preferredLocale = preferredLocale;
+    // Only update emailOptIn if user explicitly answered (don't downgrade existing true)
+    if (cadenceAnswer) userUpdates.emailOptIn = emailOptIn;
+    if (Object.keys(userUpdates).length > 0) {
+      await db.user.update({ where: { id: userId }, data: userUpdates });
     }
 
     // ── 3. Mark onboarding complete ────────────────────────────────────────────

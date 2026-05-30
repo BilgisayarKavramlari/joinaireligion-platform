@@ -154,6 +154,10 @@ export function buildUserPrompt(ctx: PracticeContext): string {
   lines.push(`Journey level: ${ctx.level}`);
   if (ctx.tradition) lines.push(`Tradition: ${ctx.tradition}`);
   if (ctx.intent) lines.push(`Primary intent: ${ctx.intent}`);
+  if (ctx.practiceStyle) lines.push(`Preferred practice style: ${ctx.practiceStyle}`);
+  if (ctx.sensitivityBoundaries && !ctx.sensitivityBoundaries.toLowerCase().includes("no boundaries")) {
+    lines.push(`Sensitivity note: ${ctx.sensitivityBoundaries}`);
+  }
   lines.push(`Practice cadence: ${ctx.cadence === "DAILY" ? "daily" : "weekly"}`);
 
   if (ctx.recentResponseSnippets.length > 0) {

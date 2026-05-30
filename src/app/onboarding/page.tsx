@@ -101,6 +101,61 @@ const QUESTIONS = [
     hint: "Write your deepest, most honest question. This will guide your entire path.",
     type: "textarea",
   },
+  // ─── Personalization: intent, practice style, sensitivity, email cadence ──────
+  {
+    key: "intent",
+    text: "What are you primarily seeking through this practice platform?",
+    hint: "This shapes the type of content and practices you receive.",
+    type: "select",
+    options: [
+      "Learning — I want to understand traditions and teachings",
+      "Reflection — I want to turn inward and examine my life",
+      "Meditation — I want to develop stillness and awareness",
+      "Comparison — I want to explore multiple traditions side by side",
+      "Self-discovery — I want to understand who I am at a deeper level",
+      "All of the above — I am open to the full journey",
+    ],
+  },
+  {
+    key: "practice_style",
+    text: "Which style of practice resonates most with you?",
+    hint: "Your practices will be designed around your preferred mode of engagement.",
+    type: "select",
+    options: [
+      "Reading — I engage most through text, stories and teachings",
+      "Journaling — I process through writing and self-reflection",
+      "Meditation — I find clarity in silence and awareness",
+      "Prayer-like reflection — I prefer devotional or contemplative forms",
+      "Philosophical inquiry — I thrive when questioning and reasoning",
+      "Mixed — I want variety depending on the day",
+    ],
+  },
+  {
+    key: "sensitivity_boundaries",
+    text: "Are there any topics or approaches you would prefer to avoid in your practice content?",
+    hint: "For example: graphic descriptions of death, strong theological claims, trauma-adjacent content. Your boundaries are respected.",
+    type: "select",
+    options: [
+      "No boundaries — I am open to all content",
+      "Please avoid strong claims about God's existence",
+      "Please avoid content involving death and afterlife imagery",
+      "Please avoid content that may trigger grief or loss",
+      "Please avoid content referencing trauma or abuse",
+      "Please keep practices secular-adjacent — minimal religious language",
+      "Other (I will describe in my first dialogue)",
+    ],
+  },
+  {
+    key: "email_cadence_consent",
+    text: "How often would you like to receive practice messages by email?",
+    hint: "You can change this any time from your account settings.",
+    type: "select",
+    options: [
+      "Daily — I want a practice every morning",
+      "Weekly — I prefer one thoughtful practice each week",
+      "I prefer not to receive email practices (I will log in directly)",
+    ],
+  },
   // ─── Final: Safety acknowledgement (must be accepted to proceed) ──────────────
   {
     key: "safety_acknowledgement",
