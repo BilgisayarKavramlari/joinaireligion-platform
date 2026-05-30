@@ -17,6 +17,7 @@ export const env = {
   ADMIN_EMAILS: readEnv("ADMIN_EMAILS"),
   INTERNAL_AGENT_API_KEY: readEnv("INTERNAL_AGENT_API_KEY"),
   EMAIL_FROM: readEnv("EMAIL_FROM"),
+  CRON_SECRET: readEnv("CRON_SECRET"),
 };
 
 export function requireEnv(key: keyof typeof env): string {
