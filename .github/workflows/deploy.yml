@@ -151,7 +151,7 @@ jobs:
             # Applies any schema changes that are safe (non-destructive).
             # Uses DATABASE_URL from the container's .env — never logged.
             echo "━━━ [5/7] prisma db push ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            docker compose exec -u root app npx prisma db push --accept-data-loss
+            docker compose exec -u root app npx prisma db push
             echo "✔  prisma db push complete"
 
             # ── [6/7] Run prisma db seed ───────────────────────────────────────
