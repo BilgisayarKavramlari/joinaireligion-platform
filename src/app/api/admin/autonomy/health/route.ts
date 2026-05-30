@@ -247,26 +247,43 @@ async function checkQueues(findings: Finding[]): Promise<void> {
 }
 
 async function checkXpIntegrity(findings: Finding[]): Promise<void> {
-  // Detect potential duplicate XP entries (same source+sourceId appearing twice)
-  const dupResult = await db.$queryRaw<{ n: bigint }[]>`
-    SELECT COUNT(*) AS n
-    FROM (
-      SELECT source, source_id
-      FROM xp_ledger
-      GROUP BY source, source_id
-      HAVING COUNT(*) > 1
-    ) dups
-  `;
-  const dupCount = Number(dupResult[0]?.n ?? 0);
-  findings.push({
-    key: "xp_duplicate_risk",
-    level: dupCount > 0 ? "critical" : "ok",
-    message:
-      dupCount > 0
-        ? `${dupCount} XP ledger (source, sourceId) pair(s) have duplicate entries — idempotency violation.`
-        : "XP ledger: no duplicate source entries detected.",
-    value: dupCount,
-  });
+  // Detect potential duplicate XP entries (same source+sourceId appearing twice).
+  //
+  // Prisma preserves model/field casing in PostgreSQL (no @@map), so the table
+  // is "XpLedger" and columns are camelCase ("sourceId").  This raw query must
+  // use double-quoted identifiers; snake_case names will produce 42P01 errors.
+  //
+  // The entire check is wrapped in try/catch: a schema mismatch should produce
+  // a WARNING finding, not a 500 on the health endpoint.
+  try {
+    const dupResult = await db.$queryRaw<{ n: bigint }[]>`
+      SELECT COUNT(*) AS n
+      FROM (
+        SELECT "source", "sourceId"
+        FROM "XpLedger"
+        GROUP BY "source", "sourceId"
+        HAVING COUNT(*) > 1
+      ) dups
+    `;
+    const dupCount = Number(dupResult[0]?.n ?? 0);
+    findings.push({
+      key: "xp_duplicate_risk",
+      level: dupCount > 0 ? "critical" : "ok",
+      message:
+        dupCount > 0
+          ? `${dupCount} XP ledger (source, sourceId) pair(s) have duplicate entries — idempotency violation.`
+          : "XP ledger: no duplicate source entries detected.",
+      value: dupCount,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    findings.push({
+      key: "xp_duplicate_risk",
+      level: "warning",
+      message: `XP ledger integrity check failed (schema query error): ${msg.slice(0, 200)}`,
+      value: null,
+    });
+  }
 }
 
 async function checkUserData(findings: Finding[]): Promise<void> {
@@ -378,9 +395,15 @@ function buildRecommendations(findings: Finding[]): {
         safeAutoFixActions.push("autonomy-repair: score all unscored practice responses");
         break;
       case "xp_duplicate_risk":
-        requiresHumanApproval.push(
-          "XP duplicate entries detected — manual audit required before any automated cleanup."
-        );
+        if (f.level === "critical") {
+          requiresHumanApproval.push(
+            "XP duplicate entries detected — manual audit required before any automated cleanup."
+          );
+        } else {
+          recommendedActions.push(
+            "XP ledger integrity check returned a query error — verify database schema is fully migrated (run: npx prisma db push)."
+          );
+        }
         break;
       case "users_missing_journey_state":
         safeAutoFixActions.push("autonomy-repair: create missing UserJourneyState rows for verified users");
