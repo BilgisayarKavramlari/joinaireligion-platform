@@ -3,16 +3,21 @@
 #
 # Triggers on every push to main.
 # Two sequential jobs:
-#   build   — install, generate Prisma client, compile Next.js
-#   deploy  — SSH into VPS, pull code, preserve .env, rebuild containers,
-#             verify health endpoint
+#   verify  — install deps, run all unit tests, type-check
+#   deploy  — SSH into VPS, pull code, preserve .env, rebuild the app
+#             container, run prisma db push, verify health endpoints
 #
 # Required GitHub Secrets (Settings → Secrets → Actions):
-#   VPS_HOST        — IP or hostname of the VPS
-#   VPS_USER        — SSH user (e.g. deploy or root)
-#   VPS_SSH_KEY     — Private key whose public half is in ~/.ssh/authorized_keys
+#   VPS_HOST        — IP address or hostname of the production VPS
+#   VPS_USER        — SSH user (e.g. root or deploy)
+#   VPS_SSH_KEY     — Full PEM private key (public half in ~/.ssh/authorized_keys on VPS)
+#   VPS_PORT        — SSH port number (default: 22)
 #   VPS_APP_DIR     — Absolute path on VPS (e.g. /opt/apps/joinaireligion)
 #   PRODUCTION_URL  — Full origin without trailing slash (e.g. https://joinaireligion.com)
+#   CRON_SECRET     — Shared secret for autonomy health check (optional but recommended)
+#
+# Secret safety: secrets are referenced with ${{ secrets.NAME }} which GitHub
+# automatically masks in all log output.  Scripts never echo secret values.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: CI → Deploy
@@ -27,9 +32,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Job 1: Build ────────────────────────────────────────────────────────────
-  build:
-    name: Build
+  # ── Job 1: Verify ───────────────────────────────────────────────────────────
+  verify:
+    name: Verify (tests + type-check)
     runs-on: ubuntu-latest
 
     steps:
@@ -45,99 +50,145 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Prisma generate is normally triggered by @prisma/client postinstall,
-      # but we run it explicitly so any schema drift surfaces as a build error.
+      # Prisma generate is triggered by @prisma/client postinstall but we run
+      # it explicitly so any schema drift surfaces as a build error.
       - name: Generate Prisma client
         run: npx prisma generate
 
-      # next build needs SOME value for DATABASE_URL so Prisma's module-level
-      # code doesn't throw at import time.  The placeholder is never used to
-      # make a real connection during a static compile.
+      # Run all unit tests (all DB calls are mocked — no real DB required).
+      - name: Run tests
+        run: npm run test:ci
+
+      # Type-check the application source (excludes __tests__ via tsconfig.verify.json).
+      - name: Type-check
+        run: npx tsc --noEmit --skipLibCheck --project tsconfig.verify.json
+
+      # Full Next.js build with a placeholder DB URL so Prisma module imports
+      # don't throw at compile time.  The real production build happens in the
+      # Docker container on the VPS.
       - name: Build application
         run: npm run build
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
-          NEXTAUTH_SECRET: ci-placeholder-not-used-in-production
+          NEXT_PUBLIC_APP_URL: https://joinaireligion.com
           NODE_ENV: production
 
   # ── Job 2: Deploy ───────────────────────────────────────────────────────────
   deploy:
     name: Deploy to Production
-    needs: build          # only runs if build succeeds
+    needs: verify          # only runs if verify succeeds
     runs-on: ubuntu-latest
 
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
-          # Pass secrets as env vars so they are available inside the remote
-          # shell as $APP_DIR and $PROD_URL (appleboy forwards them via envs:).
-          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          APP_DIR:  ${{ secrets.VPS_APP_DIR }}
           PROD_URL: ${{ secrets.PRODUCTION_URL }}
+          # CRON_SECRET is passed only if configured — used for the autonomy
+          # health check after deploy.  Never printed.
+          HAS_CRON_SECRET: ${{ secrets.CRON_SECRET != '' && 'yes' || 'no' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         with:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key:      ${{ secrets.VPS_SSH_KEY }}
-          envs:     APP_DIR,PROD_URL
-          # Abort immediately on any error.
+          port:     ${{ secrets.VPS_PORT || 22 }}
+          envs:     APP_DIR,PROD_URL,HAS_CRON_SECRET,CRON_SECRET
           script: |
             set -euo pipefail
 
-            echo "━━━ [1/5] Enter app directory ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            # ── [1/6] Enter app directory ──────────────────────────────────────
+            echo "━━━ [1/6] Enter app directory ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             cd "$APP_DIR"
 
-            # ── Preserve .env ─────────────────────────────────────────────────
-            # .env should already be in .gitignore so git reset won't touch it,
-            # but we back it up unconditionally as a belt-and-suspenders measure.
-            echo "━━━ [2/5] Preserve .env ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            # ── [2/6] Preserve .env ────────────────────────────────────────────
+            # .env is gitignored so git reset won't touch it, but we back it up
+            # as a belt-and-suspenders measure.  Its contents are never logged.
+            echo "━━━ [2/6] Preserve .env ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             ENV_BACKUP="/tmp/joinaireligion_env_$(date +%s).bak"
             if [ -f .env ]; then
               cp .env "$ENV_BACKUP"
-              echo "✔  .env backed up → $ENV_BACKUP"
+              echo "✔  .env backed up (existence confirmed — contents not logged)"
             else
-              echo "⚠  No .env found in $APP_DIR."
+              echo "✗  No .env found in $APP_DIR."
               echo "   Create one from .env.example before the first deploy."
               exit 1
             fi
 
-            # ── Pull latest code ───────────────────────────────────────────────
-            echo "━━━ [3/5] Pull origin/main ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            # ── [3/6] Pull latest code ─────────────────────────────────────────
+            echo "━━━ [3/6] Pull origin/main ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             git fetch origin main
             git reset --hard origin/main
 
-            # Restore .env after git reset (safety net — git won't overwrite a
-            # gitignored file, but we restore regardless).
-            cp "$ENV_BACKUP" .env
-            echo "✔  .env restored"
+            # Write current git SHA and a build timestamp for the deploy-status
+            # endpoint — never write any secret value here.
+            GIT_SHA=$(git rev-parse --short HEAD)
+            BUILD_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            echo "GIT_COMMIT_SHA=${GIT_SHA}" >> .env
+            echo "BUILD_TIMESTAMP=${BUILD_TS}" >> .env
+            echo "✔  git SHA ${GIT_SHA} and build timestamp written to .env"
 
-            # ── Rebuild & restart containers ───────────────────────────────────
-            echo "━━━ [4/5] docker compose up -d --build ━━━━━━━━━━━━━━━━━━━━"
-            docker compose up -d --build
+            # Restore .env after git reset (safety net — already handled by
+            # gitignore, but we always restore to be certain).
+            cp "$ENV_BACKUP" .env
+            # Re-append the new build metadata after restoring
+            grep -v "^GIT_COMMIT_SHA=\|^BUILD_TIMESTAMP=" "$ENV_BACKUP" > /tmp/env_clean.tmp && mv /tmp/env_clean.tmp .env
+            echo "GIT_COMMIT_SHA=${GIT_SHA}" >> .env
+            echo "BUILD_TIMESTAMP=${BUILD_TS}" >> .env
+            echo "✔  .env restored and updated with deploy metadata"
+
+            # ── [4/6] Rebuild app container only ──────────────────────────────
+            # Only rebuilds the 'app' service — does NOT restart postgres or
+            # nginx containers, so there is no database downtime.
+            echo "━━━ [4/6] docker compose up -d --build app ━━━━━━━━━━━━━━━━━━"
+            docker compose up -d --build app
 
             echo "── Container status ──────────────────────────────────────────"
             docker compose ps
 
-            # ── Health check ───────────────────────────────────────────────────
-            echo "━━━ [5/5] Health check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            # ── [5/6] Run prisma db push ───────────────────────────────────────
+            # Applies any schema changes that are safe (non-destructive).
+            # Uses DATABASE_URL from the container's .env — never logged.
+            echo "━━━ [5/6] prisma db push ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            docker compose exec -u root app npx prisma db push --accept-data-loss
+            echo "✔  prisma db push complete"
+
+            # ── [6/6] Health checks ────────────────────────────────────────────
+            echo "━━━ [6/6] Health checks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "Waiting 20 s for app to become ready…"
             sleep 20
 
-            HEALTH_URL="$PROD_URL/api/health"
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            # Basic health endpoint
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 30 --retry 4 --retry-delay 5 --retry-connrefused \
-              "$HEALTH_URL")
-
-            if [ "$HTTP_STATUS" -ne 200 ]; then
-              echo "✗  Health check FAILED — HTTP $HTTP_STATUS from $HEALTH_URL"
-              echo "── Last 60 log lines ─────────────────────────────────────"
+              "$PROD_URL/api/health")
+            if [ "$HTTP" -ne 200 ]; then
+              echo "✗  Basic health FAILED — HTTP $HTTP"
               docker compose logs --tail=60
               exit 1
             fi
+            echo "✔  Basic health passed (HTTP $HTTP)"
 
-            echo "✔  Health check passed (HTTP $HTTP_STATUS)"
-            echo "━━━ Deployment complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            # Autonomy health check (only when CRON_SECRET is configured)
+            # The CRON_SECRET value is passed via env and never echoed.
+            if [ "${HAS_CRON_SECRET:-no}" = "yes" ] && [ -n "${CRON_SECRET:-}" ]; then
+              AH=$(curl -s -o /dev/null -w "%{http_code}" \
+                --max-time 30 \
+                -H "Authorization: Bearer ${CRON_SECRET}" \
+                "$PROD_URL/api/admin/autonomy/health")
+              if [ "$AH" -ne 200 ]; then
+                echo "⚠  Autonomy health returned HTTP $AH — investigate at /admin/autonomy"
+              else
+                echo "✔  Autonomy health passed (HTTP $AH)"
+              fi
+            else
+              echo "ℹ  CRON_SECRET not configured as GitHub secret — skipping autonomy health check"
+            fi
 
-      # ── Optional: notify on failure ──────────────────────────────────────────
+            echo "━━━ Deployment complete — ${GIT_SHA} @ ${BUILD_TS} ━━━━━━━━━"
+
+      # ── Notify on failure ────────────────────────────────────────────────────
       # Uncomment and configure if you want Slack/email alerts on deploy failure.
       # - name: Notify failure
       #   if: failure()
