@@ -1,8 +1,10 @@
-import { AgentRunStatus, FeedbackStatus } from "@prisma/client";
+import { AgentRunStatus, FeedbackStatus, SupportTriageStatus } from "@prisma/client";
 
 const mockAgentRunCreate = jest.fn();
 const mockAgentRunUpdate = jest.fn();
 const mockFeedbackItemFindMany = jest.fn();
+const mockFeedbackItemUpdate = jest.fn();
+const mockSupportTriageDecisionCreate = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
@@ -12,6 +14,10 @@ jest.mock("@/lib/db", () => ({
     },
     feedbackItem: {
       findMany: (...args: unknown[]) => mockFeedbackItemFindMany(...args),
+      update: (...args: unknown[]) => mockFeedbackItemUpdate(...args),
+    },
+    supportTriageDecision: {
+      create: (...args: unknown[]) => mockSupportTriageDecisionCreate(...args),
     },
   },
 }));
@@ -34,14 +40,26 @@ function makeRequest(secret?: string): Request {
 describe("POST /api/cron/support-triage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAgentRunCreate.mockReset();
+    mockAgentRunUpdate.mockReset();
+    mockFeedbackItemFindMany.mockReset();
+    mockFeedbackItemUpdate.mockReset();
+    mockSupportTriageDecisionCreate.mockReset();
+
     mockAgentRunCreate.mockResolvedValue({ id: "run_support_001" });
     mockAgentRunUpdate.mockResolvedValue({});
+    mockFeedbackItemUpdate.mockResolvedValue({});
     mockFeedbackItemFindMany.mockResolvedValue([
       { id: "fb_1", message: "I was charged twice and need a refund." },
       { id: "fb_2", message: "The onboarding is still in English." },
       { id: "fb_3", message: "The lesson page crashes with a 500 error." },
       { id: "fb_4", message: "Buy now http://spam.example http://spam2.example free money" },
     ]);
+    let decisionCounter = 0;
+    mockSupportTriageDecisionCreate.mockImplementation(async () => {
+      decisionCounter += 1;
+      return { id: `decision_${decisionCounter}` };
+    });
   });
 
   it("returns 401 without a valid CRON_SECRET bearer token", async () => {
@@ -71,6 +89,8 @@ describe("POST /api/cron/support-triage", () => {
       }),
     });
     expect(mockAgentRunUpdate).toHaveBeenCalledTimes(1);
+    expect(mockSupportTriageDecisionCreate).toHaveBeenCalledTimes(4);
+    expect(mockFeedbackItemUpdate).toHaveBeenCalledTimes(4);
     expect(mockAgentRunUpdate).toHaveBeenCalledWith({
       where: { id: "run_support_001" },
       data: expect.objectContaining({
@@ -123,6 +143,44 @@ describe("POST /api/cron/support-triage", () => {
     expect(JSON.stringify(body.sampleResults)).not.toContain("charged twice");
   });
 
+  it("creates one SupportTriageDecision per analyzed item and updates current-state triage fields without changing FeedbackItem.status", async () => {
+    await POST(makeRequest("test-cron-secret"));
+
+    expect(mockSupportTriageDecisionCreate).toHaveBeenNthCalledWith(1, {
+      data: {
+        feedbackItemId: "fb_1",
+        agentRunId: "run_support_001",
+        decisionSource: "DETERMINISTIC",
+        category: "BILLING",
+        severity: "HIGH",
+        recommendedAction: "ESCALATE_TO_ADMIN",
+        reasonSummary: "Deterministic support-triage analysis.",
+        reasonJson: {
+          source: "deterministic",
+          version: "phase-1-task-3a-1d",
+          category: "BILLING",
+          severity: "HIGH",
+          recommendedAction: "ESCALATE_TO_ADMIN",
+        },
+      },
+      select: { id: true },
+    });
+
+    const updateCall = mockFeedbackItemUpdate.mock.calls[0][0];
+    expect(updateCall.where).toEqual({ id: "fb_1" });
+    expect(updateCall.data).toEqual(
+      expect.objectContaining({
+        triageCategory: "BILLING",
+        triageSeverity: "HIGH",
+        recommendedAction: "ESCALATE_TO_ADMIN",
+        triageStatus: SupportTriageStatus.TRIAGED,
+        triageRunId: "run_support_001",
+        latestTriageDecisionId: "decision_1",
+      })
+    );
+    expect(updateCall.data).not.toHaveProperty("status");
+  });
+
   it("reads only OPEN feedback items and limits sample results to safe ids plus classifications", async () => {
     mockFeedbackItemFindMany.mockResolvedValue(
       Array.from({ length: 7 }, (_, index) => ({
@@ -130,14 +188,17 @@ describe("POST /api/cron/support-triage", () => {
         message: `The navigation is confusing on screen ${index + 1}.`,
       }))
     );
+    mockFeedbackItemUpdate.mockReset();
+    mockSupportTriageDecisionCreate.mockImplementation(async ({ data }: { data: { feedbackItemId: string } }) => ({
+      id: `decision_${data.feedbackItemId}`,
+    }));
+    mockFeedbackItemUpdate.mockResolvedValue({});
 
     const response = await POST(makeRequest("test-cron-secret"));
     const body = await response.json();
 
-    await POST(makeRequest("test-cron-secret"));
-
-    expect(mockFeedbackItemFindMany).toHaveBeenCalledTimes(2);
-    expect(mockFeedbackItemFindMany).toHaveBeenLastCalledWith({
+    expect(mockFeedbackItemFindMany).toHaveBeenCalledTimes(1);
+    expect(mockFeedbackItemFindMany).toHaveBeenCalledWith({
       where: { status: FeedbackStatus.OPEN },
       select: {
         id: true,
@@ -153,6 +214,39 @@ describe("POST /api/cron/support-triage", () => {
       category: "UX",
       severity: "LOW",
       recommendedAction: "AUTO_REPLY_DRAFT",
+    });
+  });
+
+  it("repeated runs append decision history and point latestTriageDecisionId at the newest decision with preserved agentRun linkage", async () => {
+    mockAgentRunCreate
+      .mockResolvedValueOnce({ id: "run_support_001" })
+      .mockResolvedValueOnce({ id: "run_support_002" });
+    let decisionCounter = 0;
+    mockSupportTriageDecisionCreate.mockReset();
+    mockSupportTriageDecisionCreate.mockImplementation(async ({ data }: { data: { agentRunId: string; feedbackItemId: string } }) => {
+      decisionCounter += 1;
+      return { id: `decision_${data.agentRunId}_${data.feedbackItemId}_${decisionCounter}` };
+    });
+    mockFeedbackItemUpdate.mockReset();
+    mockFeedbackItemUpdate.mockResolvedValue({});
+
+    await POST(makeRequest("test-cron-secret"));
+    await POST(makeRequest("test-cron-secret"));
+
+    expect(mockSupportTriageDecisionCreate).toHaveBeenCalledTimes(8);
+    expect(mockSupportTriageDecisionCreate.mock.calls[4][0]).toEqual({
+      data: expect.objectContaining({
+        feedbackItemId: "fb_1",
+        agentRunId: "run_support_002",
+      }),
+      select: { id: true },
+    });
+    expect(mockFeedbackItemUpdate.mock.calls[4][0]).toEqual({
+      where: { id: "fb_1" },
+      data: expect.objectContaining({
+        triageRunId: "run_support_002",
+        latestTriageDecisionId: "decision_run_support_002_fb_1_5",
+      }),
     });
   });
 });

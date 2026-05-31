@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { AgentRunStatus, FeedbackStatus } from "@prisma/client";
+import {
+  AgentRunStatus,
+  FeedbackStatus,
+  SupportTriageStatus,
+} from "@prisma/client";
 
 import { classifySupportTicket, type SupportTicketCategory } from "@/lib/cron/support-ticket-classifier";
 import {
@@ -121,6 +125,41 @@ export async function POST(request: Request): Promise<Response> {
     });
     const analyzedCount = analysisResults.length;
     const sampleResults = analysisResults.slice(0, SAMPLE_RESULT_LIMIT);
+
+    for (const result of analysisResults) {
+      const decision = await db.supportTriageDecision.create({
+        data: {
+          feedbackItemId: result.id,
+          agentRunId: agentRun.id,
+          decisionSource: "DETERMINISTIC",
+          category: result.category,
+          severity: result.severity,
+          recommendedAction: result.recommendedAction,
+          reasonSummary: "Deterministic support-triage analysis.",
+          reasonJson: {
+            source: "deterministic",
+            version: "phase-1-task-3a-1d",
+            category: result.category,
+            severity: result.severity,
+            recommendedAction: result.recommendedAction,
+          },
+        },
+        select: { id: true },
+      });
+
+      await db.feedbackItem.update({
+        where: { id: result.id },
+        data: {
+          triageCategory: result.category,
+          triageSeverity: result.severity,
+          recommendedAction: result.recommendedAction,
+          triageStatus: SupportTriageStatus.TRIAGED,
+          triagedAt: startedAt,
+          triageRunId: agentRun.id,
+          latestTriageDecisionId: decision.id,
+        },
+      });
+    }
 
     const completedAt = new Date();
     await db.agentRun.update({

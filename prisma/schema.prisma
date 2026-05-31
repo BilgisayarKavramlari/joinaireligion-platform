@@ -489,6 +489,8 @@ model AgentRun {
   user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   generatedMessages PracticeMessage[] // messages this run created
   scoredResponses   PracticeResponse[] @relation("ScoringRun")
+  triagedFeedbackItems FeedbackItem[] @relation("FeedbackCurrentTriageRun")
+  supportTriageDecisions SupportTriageDecision[] @relation("SupportTriageRun")
 
   @@index([agentName, status, createdAt])
   @@index([taskType, createdAt])
@@ -591,6 +593,40 @@ enum FeedbackAuthState {
   ANONYMOUS
 }
 
+enum SupportTriageCategory {
+  BUG
+  ACCOUNT
+  BILLING
+  CONTENT
+  I18N
+  UX
+  SPAM
+  OTHER
+}
+
+enum SupportTriageSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SupportTriageRecommendedAction {
+  AUTO_REPLY_DRAFT
+  CREATE_CODING_TASK
+  ESCALATE_TO_ADMIN
+  MARK_SPAM
+  MONITOR
+}
+
+enum SupportTriageStatus {
+  NOT_TRIAGED
+  TRIAGED
+  REVIEWED
+  ESCALATED
+  REPLY_DRAFTED
+}
+
 /// User-submitted feedback items (bugs, translations, content issues, etc.)
 /// Visible in admin and surfaced to the autonomy system for task generation.
 model FeedbackItem {
@@ -610,11 +646,45 @@ model FeedbackItem {
   message        String
   /// Admin-written notes or resolution summary.
   adminNotes     String?
+  triageCategory SupportTriageCategory?
+  triageSeverity SupportTriageSeverity?
+  recommendedAction SupportTriageRecommendedAction?
+  triageStatus   SupportTriageStatus @default(NOT_TRIAGED)
+  triagedAt      DateTime?
+  triageRunId    String?
+  latestTriageDecisionId String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  triageRun      AgentRun?         @relation("FeedbackCurrentTriageRun", fields: [triageRunId], references: [id], onDelete: SetNull)
+  latestTriageDecision SupportTriageDecision? @relation("FeedbackLatestTriageDecision", fields: [latestTriageDecisionId], references: [id], onDelete: SetNull)
+  triageDecisions SupportTriageDecision[] @relation("FeedbackDecisionHistory")
 
   @@index([status, category, createdAt])
   @@index([userId, createdAt])
   @@index([authState, createdAt])
+  @@index([triageStatus, triageSeverity, createdAt])
+  @@index([triageRunId, triagedAt])
+}
+
+model SupportTriageDecision {
+  id                String                          @id @default(cuid())
+  feedbackItemId    String
+  agentRunId        String
+  decisionSource    String
+  category          SupportTriageCategory
+  severity          SupportTriageSeverity
+  recommendedAction SupportTriageRecommendedAction
+  reasonSummary     String?
+  reasonJson        Json?
+  replyDraftId      String?
+  codingTaskRef     String?
+  createdAt         DateTime                        @default(now())
+  feedbackItem      FeedbackItem                    @relation("FeedbackDecisionHistory", fields: [feedbackItemId], references: [id], onDelete: Cascade)
+  agentRun          AgentRun                        @relation("SupportTriageRun", fields: [agentRunId], references: [id], onDelete: Cascade)
+  latestForFeedback FeedbackItem[]                  @relation("FeedbackLatestTriageDecision")
+
+  @@index([feedbackItemId, createdAt])
+  @@index([agentRunId, createdAt])
+  @@index([recommendedAction, severity, createdAt])
 }
