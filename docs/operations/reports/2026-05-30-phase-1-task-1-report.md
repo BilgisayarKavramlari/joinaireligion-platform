@@ -53,13 +53,16 @@ Status: Implemented locally, verified, committed, pushed, production observation
 
 ## Deployment Observation
 
-- Commit pushed: `0c54c62` (`Add agent registry and policy foundation`)
+- Commits pushed:
+  - `0c54c62` — `Add agent registry and policy foundation`
+  - `e6ba46e` — `Update Task 1 deployment observation`
 - `origin/main` updated successfully
-- Production observation window:
-  - `https://joinaireligion.com/api/health` briefly recovered to `200`
-  - `https://joinaireligion.com/admin/agents` returned `404` during one probe
-  - latest probes for `/api/health`, `/admin`, `/admin/autonomy`, and `/api/admin/agents` returned `502`
-- Conclusion at observation time:
-  - GitHub-triggered deploy was started by the push
-  - `/admin/agents` was not confirmed live in production
-  - existing agents could not be confirmed on production because the app was unstable and the authenticated admin registry endpoint was not reachable
+- Production observation sequence:
+  - deployment briefly returned `502`
+  - health later recovered to `200` at `https://joinaireligion.com/api/health`
+  - `https://joinaireligion.com/admin/agents` now returns `307` to `/admin/login`
+  - `https://joinaireligion.com/api/admin/agents` now returns `401` without auth
+- Conclusion:
+  - the new `/admin/agents` route is live in production as a protected admin page
+  - the new `/api/admin/agents` route is live in production as a protected admin endpoint
+  - existing agents are confirmed in the shipped implementation and local verification, but production list contents were not directly inspected because an authenticated admin session or production `CRON_SECRET` was not available in this workspace
