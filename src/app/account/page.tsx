@@ -87,6 +87,7 @@ export default function AccountPage() {
     { href: "/account/profile",     icon: "⚗️",  label: t.account.profile,      desc: t.account.profileDesc      },
     { href: "/account/billing",     icon: "💎",  label: t.account.membership,   desc: t.account.membershipDesc   },
     { href: "/prompt-guide",        icon: "🧭",  label: t.account.yourJourney,  desc: t.account.yourJourneyDesc  },
+    { href: "/account/support",     icon: "💬",  label: t.account.support,      desc: t.account.supportDesc      },
     { href: "/account/invoices",    icon: "📜",  label: t.account.invoices,     desc: t.account.invoicesDesc     },
     { href: "/account/preferences", icon: "🌐",  label: t.account.preferences,  desc: t.account.preferencesDesc  },
     { href: "/account/security",    icon: "🔐",  label: t.account.security,     desc: t.account.securityDesc     },
