@@ -43,3 +43,15 @@ Task 2 backlog now explicitly includes a Phase 1 `P0` data/access integrity issu
 - no automatic support replies
 - no real email enablement
 - no social posting, SEO publishing, ad spend, or CFO actions
+
+## Post-Deploy Observation
+
+- pushed commit: `25fd024`
+- `https://joinaireligion.com/api/health` returned `200`
+- anonymous observation of `https://joinaireligion.com/account` and `https://joinaireligion.com/lessons` returned `200`
+- anonymous observation of `https://joinaireligion.com/admin/feedback` returned `500`
+
+Current interpretation:
+
+- the deployment is up, but the production admin feedback surface needs follow-up before linked-user feedback visibility can be considered production-confirmed
+- authenticated onboarding enforcement for verified users with `onboardingDone=false` shipped in code and passed local tests, but it could not be fully validated against production without an authenticated non-onboarded session
