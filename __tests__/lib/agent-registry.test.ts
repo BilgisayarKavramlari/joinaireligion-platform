@@ -25,9 +25,11 @@ describe("agent registry policy foundation", () => {
     const supportTriage = AGENT_DEFINITIONS.find((agent) => agent.agentName === "support-triage");
 
     expect(supportTriage).toBeDefined();
+    expect(supportTriage?.lifecycle).toBe("IMPLEMENTED");
+    expect(supportTriage?.mode).toBe("SKELETON");
     expect(supportTriage?.policy.autonomyLevel).toBe(1);
     expect(supportTriage?.policy.decisionLog.requiresRoutineHumanApproval).toBe(false);
-    expect(supportTriage?.policy.defaultSafeBoundaries).toContain("draft or internal-only actions until enabled");
+    expect(supportTriage?.policy.defaultSafeBoundaries).toContain("no replies");
   });
 
   it("includes revenue and reporting agents with safe default restrictions", () => {

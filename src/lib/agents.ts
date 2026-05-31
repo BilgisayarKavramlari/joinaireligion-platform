@@ -7,6 +7,7 @@ export type AgentLifecycle = "IMPLEMENTED" | "PLANNED";
 export type AgentRegistryStatus = "ACTIVE" | "IDLE" | "INACTIVE" | "FAILED" | "BLOCKED";
 export type AgentExecutionMode =
   | "LIVE"
+  | "SKELETON"
   | "LOG_ONLY"
   | "DRAFT_ONLY"
   | "REPORT_ONLY"
@@ -180,17 +181,17 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "support-triage",
     title: "Support Triage",
-    description: "Classifies and routes support tickets inside policy-based autonomy boundaries.",
-    lifecycle: "PLANNED",
-    mode: "INACTIVE",
+    description: "Endpoint and cron script are live; the current skeleton records AgentRuns and OPEN feedback backlog only, with no classification or replies yet.",
+    lifecycle: "IMPLEMENTED",
+    mode: "SKELETON",
     schedule: { kind: "interval_hours", label: "Every 2 hours", cron: "0 */2 * * *", intervalHours: 2, minute: 0 },
     backlogLabel: "open support tickets",
     policy: {
       autonomyLevel: 1,
-      allowedActions: ["classify tickets", "draft replies", "assign severity and ownership", "escalate abnormal cases"],
+      allowedActions: ["count open support backlog", "record AgentRun output", "surface readiness for future classification"],
       forbiddenActions: ["send real support email by default", "promise refunds", "bypass privacy boundaries"],
-      escalationConditions: ["legal, safety, abuse, refund, or auth issues", "confidence below threshold", "duplicate surge"],
-      defaultSafeBoundaries: ["draft or internal-only actions until enabled", "no routine owner approvals", "log every triage decision"],
+      escalationConditions: ["classification is requested before implementation", "legal, safety, abuse, refund, or auth issues", "duplicate surge"],
+      defaultSafeBoundaries: ["skeleton only", "no classification yet", "no replies", "no routine owner approvals", "log every triage run"],
       decisionLog: DECISION_LOG_CONTRACT,
     },
   },
@@ -351,6 +352,24 @@ function buildStatus(definition: AgentDefinition, latestRun: AgentRunSummary | n
     return {
       status: "BLOCKED" as const,
       statusReason: "Execution mode is intentionally inactive.",
+    };
+  }
+
+  if (definition.mode === "SKELETON") {
+    if (isRunFresh(latestRun, definition.schedule, now)) {
+      return {
+        status: "ACTIVE" as const,
+        statusReason: backlogCount && backlogCount > 0
+          ? "Skeleton endpoint is running and counting open support backlog. Classification and replies remain disabled."
+          : "Skeleton endpoint is running. Classification and replies remain disabled.",
+      };
+    }
+
+    return {
+      status: "IDLE" as const,
+      statusReason: latestRun
+        ? "Skeleton is implemented, but no recent support-triage run is inside the expected schedule window."
+        : "Skeleton is implemented with endpoint and cron script, but no AgentRun has been recorded yet.",
     };
   }
 

@@ -98,9 +98,11 @@ describe("GET /api/admin/agents", () => {
 
     expect(practiceGenerator.latestAgentRun.taskType).toBe("GENERATE_DAILY_BATCH");
     expect(practiceGenerator.backlogCount).toBe(3);
-    expect(supportTriage.lifecycle).toBe("PLANNED");
-    expect(supportTriage.status).toBe("INACTIVE");
+    expect(supportTriage.lifecycle).toBe("IMPLEMENTED");
+    expect(supportTriage.mode).toBe("SKELETON");
+    expect(supportTriage.status).toBe("IDLE");
     expect(supportTriage.backlogCount).toBe(7);
+    expect(supportTriage.statusReason).toContain("endpoint and cron script");
     expect(revenueOrchestrator.mode).toBe("INACTIVE");
     expect(responseScorer.status).toBe("FAILED");
     expect(body.decisionLogContract.requiresRoutineHumanApproval).toBe(false);
