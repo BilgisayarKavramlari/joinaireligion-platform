@@ -13,7 +13,15 @@ import React from "react";
 import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin";
 import { db } from "@/lib/db";
-import { FeedbackAuthState, FeedbackCategory, FeedbackStatus } from "@prisma/client";
+import {
+  FeedbackAuthState,
+  FeedbackCategory,
+  FeedbackStatus,
+  SupportTriageCategory,
+  SupportTriageRecommendedAction,
+  SupportTriageSeverity,
+  SupportTriageStatus,
+} from "@prisma/client";
 
 // ─── Status update action ──────────────────────────────────────────────────────
 
@@ -66,6 +74,11 @@ const FEEDBACK_FULL_SELECT = {
   pageContext: true,
   message: true,
   adminNotes: true,
+  triageCategory: true,
+  triageSeverity: true,
+  recommendedAction: true,
+  triageStatus: true,
+  triagedAt: true,
   createdAt: true,
   user: { select: FEEDBACK_USER_SELECT },
 } as const;
@@ -95,6 +108,11 @@ type FeedbackListItem = {
   pageContext: string | null;
   message: string;
   adminNotes: string | null;
+  triageCategory: SupportTriageCategory | null;
+  triageSeverity: SupportTriageSeverity | null;
+  recommendedAction: SupportTriageRecommendedAction | null;
+  triageStatus: SupportTriageStatus | null;
+  triagedAt: Date | null;
   createdAt: Date;
   user: {
     email: string;
@@ -132,6 +150,11 @@ async function loadFeedbackItems(args: {
         userAgent: item.userAgent ?? null,
         pageContext: item.pageContext ?? null,
         adminNotes: item.adminNotes ?? null,
+        triageCategory: item.triageCategory ?? null,
+        triageSeverity: item.triageSeverity ?? null,
+        recommendedAction: item.recommendedAction ?? null,
+        triageStatus: item.triageStatus ?? null,
+        triagedAt: item.triagedAt ?? null,
       })),
     };
   } catch (error) {
@@ -153,9 +176,33 @@ async function loadFeedbackItems(args: {
         userAgent: null,
         pageContext: item.pageContext ?? null,
         adminNotes: item.adminNotes ?? null,
+        triageCategory: null,
+        triageSeverity: null,
+        recommendedAction: null,
+        triageStatus: null,
+        triagedAt: null,
       })),
     };
   }
+}
+
+const TRIAGE_SEVERITY_COLORS: Record<SupportTriageSeverity, string> = {
+  LOW: "#94a3b8",
+  MEDIUM: "#c9a227",
+  HIGH: "#f97316",
+  CRITICAL: "#ef4444",
+};
+
+const TRIAGE_ACTION_COLORS: Record<SupportTriageRecommendedAction, string> = {
+  AUTO_REPLY_DRAFT: "#14b8a6",
+  CREATE_CODING_TASK: "#c9a227",
+  ESCALATE_TO_ADMIN: "#f97316",
+  MARK_SPAM: "#ef4444",
+  MONITOR: "#94a3b8",
+};
+
+function formatTriageLabel(value: string): string {
+  return value.replaceAll("_", " ").toLowerCase();
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -319,6 +366,46 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
                 {item.pageUrl && <p>Page: {item.pageUrl}</p>}
                 {item.submitterLocale && <p>Locale: {item.submitterLocale}</p>}
                 {item.userAgent && <p>User agent: {item.userAgent}</p>}
+              </div>
+            )}
+
+            {(item.triageCategory || item.triageSeverity || item.recommendedAction || item.triageStatus || item.triagedAt) && (
+              <div
+                style={{
+                  marginBottom: "0.8rem",
+                  padding: "0.7rem 0.8rem",
+                  borderRadius: "0.55rem",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.025)",
+                }}
+              >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", marginBottom: item.triagedAt ? "0.45rem" : 0 }}>
+                  {item.triageCategory && (
+                    <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: "rgba(201,162,39,0.12)", color: "var(--gold)", border: "1px solid rgba(201,162,39,0.2)" }}>
+                      triage: {formatTriageLabel(item.triageCategory)}
+                    </span>
+                  )}
+                  {item.triageSeverity && (
+                    <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: `${TRIAGE_SEVERITY_COLORS[item.triageSeverity]}15`, color: TRIAGE_SEVERITY_COLORS[item.triageSeverity], border: `1px solid ${TRIAGE_SEVERITY_COLORS[item.triageSeverity]}40` }}>
+                      severity: {formatTriageLabel(item.triageSeverity)}
+                    </span>
+                  )}
+                  {item.recommendedAction && (
+                    <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: `${TRIAGE_ACTION_COLORS[item.recommendedAction]}15`, color: TRIAGE_ACTION_COLORS[item.recommendedAction], border: `1px solid ${TRIAGE_ACTION_COLORS[item.recommendedAction]}40` }}>
+                      action: {formatTriageLabel(item.recommendedAction)}
+                    </span>
+                  )}
+                  {item.triageStatus && (
+                    <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: "rgba(148,163,184,0.14)", color: "#cbd5e1", border: "1px solid rgba(148,163,184,0.24)" }}>
+                      triage status: {formatTriageLabel(item.triageStatus)}
+                    </span>
+                  )}
+                </div>
+                {item.triagedAt && (
+                  <p style={{ fontSize: "0.68rem", color: "rgba(237,232,220,0.38)" }}>
+                    Triaged at: {item.triagedAt.toISOString().slice(0, 16).replace("T", " ")} UTC
+                  </p>
+                )}
               </div>
             )}
 

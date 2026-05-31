@@ -26,6 +26,17 @@ jest.mock("next/navigation", () => ({
 
 import AdminFeedbackPage from "@/app/admin/feedback/page";
 
+function extractText(node: unknown): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join(" ");
+  if (typeof node === "object" && "props" in node) {
+    const props = (node as { props?: { children?: unknown } }).props;
+    return extractText(props?.children);
+  }
+  return "";
+}
+
 describe("AdminFeedbackPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -70,5 +81,50 @@ describe("AdminFeedbackPage", () => {
     expect(mockFindMany.mock.calls[0][0].select.pageUrl).toBe(true);
     expect(mockFindMany.mock.calls[1][0].select.authState).toBeUndefined();
     expect(mockFindMany.mock.calls[1][0].select.pageContext).toBe(true);
+    expect(mockFindMany.mock.calls[1][0].select.triageCategory).toBeUndefined();
+  });
+
+  it("requests triage fields in the full query and renders persisted triage metadata when present", async () => {
+    mockRequireAdminSession.mockResolvedValue("admin@example.com");
+    mockFindMany.mockResolvedValue([
+      {
+        id: "fb_triaged_1",
+        userId: "user_1",
+        category: "BUG",
+        status: "OPEN",
+        authState: "AUTHENTICATED",
+        submitterEmail: "user@example.com",
+        submitterLocale: "en",
+        pageUrl: "/prompt-guide",
+        userAgent: "jest-agent",
+        pageContext: "/prompt-guide",
+        message: "Billing page fails to load after payment.",
+        adminNotes: null,
+        triageCategory: "BILLING",
+        triageSeverity: "HIGH",
+        recommendedAction: "ESCALATE_TO_ADMIN",
+        triageStatus: "TRIAGED",
+        triagedAt: new Date("2026-05-31T05:00:00.000Z"),
+        createdAt: new Date("2026-05-31T04:59:00.000Z"),
+        user: { email: "user@example.com", displayName: "Seeker", role: "USER" },
+      },
+    ]);
+    mockCount.mockResolvedValue(1);
+    mockGroupBy.mockResolvedValue([{ status: "OPEN", _count: { _all: 1 } }]);
+
+    const page = await AdminFeedbackPage({ searchParams: Promise.resolve({}) });
+    const text = extractText(page).replace(/\s+/g, " ").trim();
+
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    expect(mockFindMany.mock.calls[0][0].select.triageCategory).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.triageSeverity).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.recommendedAction).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.triageStatus).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.triagedAt).toBe(true);
+    expect(text).toContain("triage: billing");
+    expect(text).toContain("severity: high");
+    expect(text).toContain("action: escalate to admin");
+    expect(text).toContain("triage status: triaged");
+    expect(text).toContain("Triaged at: 2026-05-31 05:00 UTC");
   });
 });
