@@ -2,11 +2,64 @@ export const dynamic = "force-dynamic";
 
 import { AgentRunStatus, FeedbackStatus } from "@prisma/client";
 
+import { classifySupportTicket, type SupportTicketCategory } from "@/lib/cron/support-ticket-classifier";
+import {
+  classifySupportTicketSeverity,
+  type SupportTicketSeverity,
+} from "@/lib/cron/support-ticket-severity";
+import {
+  classifySupportTicketRecommendedAction,
+  type SupportTicketRecommendedAction,
+} from "@/lib/cron/support-ticket-action";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 
 const AGENT_NAME = "support-triage";
-const TASK_TYPE = "SUPPORT_TRIAGE_SKELETON";
+const TASK_TYPE = "SUPPORT_TRIAGE_ANALYSIS";
+const SAMPLE_RESULT_LIMIT = 5;
+
+type CategoryCounts = Record<SupportTicketCategory, number>;
+type SeverityCounts = Record<SupportTicketSeverity, number>;
+type ActionCounts = Record<SupportTicketRecommendedAction, number>;
+
+type AnalysisResult = {
+  id: string;
+  category: SupportTicketCategory;
+  severity: SupportTicketSeverity;
+  recommendedAction: SupportTicketRecommendedAction;
+};
+
+function createCategoryCounts(): CategoryCounts {
+  return {
+    BUG: 0,
+    ACCOUNT: 0,
+    BILLING: 0,
+    CONTENT: 0,
+    I18N: 0,
+    UX: 0,
+    SPAM: 0,
+    OTHER: 0,
+  };
+}
+
+function createSeverityCounts(): SeverityCounts {
+  return {
+    LOW: 0,
+    MEDIUM: 0,
+    HIGH: 0,
+    CRITICAL: 0,
+  };
+}
+
+function createActionCounts(): ActionCounts {
+  return {
+    AUTO_REPLY_DRAFT: 0,
+    CREATE_CODING_TASK: 0,
+    ESCALATE_TO_ADMIN: 0,
+    MARK_SPAM: 0,
+    MONITOR: 0,
+  };
+}
 
 export async function POST(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
@@ -27,15 +80,47 @@ export async function POST(request: Request): Promise<Response> {
       startedAt,
       input: {
         triggerDate: startedAt.toISOString(),
-        implementation: "skeleton",
+        implementation: "dry-run-analysis",
       },
     },
   });
 
   try {
-    const openFeedbackCount = await db.feedbackItem.count({
+    const openFeedbackItems = await db.feedbackItem.findMany({
       where: { status: FeedbackStatus.OPEN },
+      select: {
+        id: true,
+        message: true,
+      },
+      orderBy: { createdAt: "asc" },
     });
+    const openFeedbackCount = openFeedbackItems.length;
+    const categoryCounts = createCategoryCounts();
+    const severityCounts = createSeverityCounts();
+    const actionCounts = createActionCounts();
+
+    const analysisResults = openFeedbackItems.map((item): AnalysisResult => {
+      const category = classifySupportTicket(item.message);
+      const severity = classifySupportTicketSeverity(item.message, category);
+      const recommendedAction = classifySupportTicketRecommendedAction(
+        item.message,
+        category,
+        severity
+      );
+
+      categoryCounts[category]++;
+      severityCounts[severity]++;
+      actionCounts[recommendedAction]++;
+
+      return {
+        id: item.id,
+        category,
+        severity,
+        recommendedAction,
+      };
+    });
+    const analyzedCount = analysisResults.length;
+    const sampleResults = analysisResults.slice(0, SAMPLE_RESULT_LIMIT);
 
     const completedAt = new Date();
     await db.agentRun.update({
@@ -46,7 +131,11 @@ export async function POST(request: Request): Promise<Response> {
         durationMs: completedAt.getTime() - startedAt.getTime(),
         output: {
           openFeedbackCount,
-          classified: 0,
+          analyzedCount,
+          categoryCounts,
+          severityCounts,
+          actionCounts,
+          sampleResults,
           repliesDrafted: 0,
           repliesSent: 0,
           codingTasksCreated: 0,
@@ -58,6 +147,11 @@ export async function POST(request: Request): Promise<Response> {
       ok: true,
       agentName: AGENT_NAME,
       openFeedbackCount,
+      analyzedCount,
+      categoryCounts,
+      severityCounts,
+      actionCounts,
+      sampleResults,
       startedAt: startedAt.toISOString(),
       completedAt: completedAt.toISOString(),
       status: AgentRunStatus.SUCCESS,
