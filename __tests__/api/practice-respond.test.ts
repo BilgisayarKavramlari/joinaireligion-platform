@@ -25,9 +25,13 @@ import { NextRequest } from "next/server";
 const mockFindUniqueMessage = jest.fn();
 const mockFindUniqueResponse = jest.fn();
 const mockCreateResponse = jest.fn();
+const mockFindUniqueUser = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
+    user: {
+      findUnique: (...args: unknown[]) => mockFindUniqueUser(...args),
+    },
     practiceMessage: {
       findUnique: (...args: unknown[]) => mockFindUniqueMessage(...args),
     },
@@ -65,6 +69,23 @@ function makeMessage(ownerId = USER_ID) {
   return { id: MESSAGE_ID, userId: ownerId };
 }
 
+function makeAccessUser(overrides: Partial<{
+  id: string;
+  email: string;
+  role: string;
+  emailVerifiedAt: Date | null;
+  onboardingDone: boolean;
+}> = {}) {
+  return {
+    id: USER_ID,
+    email: "seeker@example.com",
+    role: "USER",
+    emailVerifiedAt: new Date("2026-05-30T00:00:00.000Z"),
+    onboardingDone: true,
+    ...overrides,
+  };
+}
+
 function makeExistingResponse() {
   return { id: RESPONSE_ID };
 }
@@ -94,8 +115,9 @@ const VALID_BODY = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // Default: authenticated, message exists with correct owner, no existing response
+  // Default: authenticated, verified, onboarded user with a valid first response path
   mockGetSession.mockReturnValue(makeSession());
+  mockFindUniqueUser.mockResolvedValue(makeAccessUser());
   mockFindUniqueMessage.mockResolvedValue(makeMessage());
   mockFindUniqueResponse.mockResolvedValue(null); // no prior response
   mockCreateResponse.mockResolvedValue(makeCreatedResponse());
@@ -117,6 +139,15 @@ describe("Authentication", () => {
     await POST(makeRequest(VALID_BODY));
     expect(mockFindUniqueMessage).not.toHaveBeenCalled();
     expect(mockCreateResponse).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when onboarding is still required", async () => {
+    mockFindUniqueUser.mockResolvedValue(
+      makeAccessUser({ onboardingDone: false })
+    );
+
+    const res = await POST(makeRequest(VALID_BODY));
+    expect(res.status).toBe(403);
   });
 });
 
