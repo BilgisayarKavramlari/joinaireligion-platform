@@ -1,0 +1,455 @@
+import { AgentRunStatus, DeliveryStatus, FeedbackStatus, GenerationStatus } from "@prisma/client";
+import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+
+export type AutonomyLevel = 0 | 1 | 2 | 3 | 4;
+export type AgentLifecycle = "IMPLEMENTED" | "PLANNED";
+export type AgentRegistryStatus = "ACTIVE" | "IDLE" | "INACTIVE" | "FAILED" | "BLOCKED";
+export type AgentExecutionMode =
+  | "LIVE"
+  | "LOG_ONLY"
+  | "DRAFT_ONLY"
+  | "REPORT_ONLY"
+  | "SAFE_REPAIR"
+  | "INACTIVE";
+
+type AgentScheduleKind = "daily_utc" | "hourly" | "interval_hours" | "manual";
+
+interface AgentSchedule {
+  kind: AgentScheduleKind;
+  label: string;
+  cron?: string;
+  hour?: number;
+  minute?: number;
+  intervalHours?: number;
+}
+
+export interface AutonomousDecisionLogContract {
+  version: "2026-05-30";
+  requiresRoutineHumanApproval: false;
+  requiredFields: string[];
+  notes: string[];
+}
+
+export interface AgentPolicyBoundary {
+  autonomyLevel: AutonomyLevel;
+  allowedActions: string[];
+  forbiddenActions: string[];
+  escalationConditions: string[];
+  defaultSafeBoundaries: string[];
+  decisionLog: AutonomousDecisionLogContract;
+}
+
+export interface AgentDefinition {
+  agentName: string;
+  title: string;
+  description: string;
+  lifecycle: AgentLifecycle;
+  mode: AgentExecutionMode;
+  schedule: AgentSchedule;
+  backlogLabel: string;
+  policy: AgentPolicyBoundary;
+}
+
+export interface AgentRunSummary {
+  id: string;
+  taskType: string;
+  status: AgentRunStatus;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+}
+
+export interface AgentRegistrySnapshot {
+  agentName: string;
+  title: string;
+  description: string;
+  lifecycle: AgentLifecycle;
+  mode: AgentExecutionMode;
+  autonomyLevel: AutonomyLevel;
+  status: AgentRegistryStatus;
+  statusReason: string;
+  backlogCount: number | null;
+  backlogLabel: string;
+  lastRunAt: string | null;
+  nextScheduledRunAt: string | null;
+  latestAgentRun: AgentRunSummary | null;
+  policy: AgentPolicyBoundary;
+}
+
+export const DECISION_LOG_CONTRACT: AutonomousDecisionLogContract = {
+  version: "2026-05-30",
+  requiresRoutineHumanApproval: false,
+  requiredFields: [
+    "agentName",
+    "action",
+    "autonomyLevel",
+    "allowedByPolicy",
+    "policyRule",
+    "riskLevel",
+    "escalated",
+    "inputSummary",
+    "outputSummary",
+    "occurredAt",
+  ],
+  notes: [
+    "Routine actions inside policy must not require per-action approval.",
+    "Escalate only for abnormal, forbidden, risky, or out-of-policy cases.",
+    "Persist the decision contract in AgentRun output and related audit trails.",
+  ],
+};
+
+export const AUTONOMY_LEVELS: Record<AutonomyLevel, { label: string; description: string }> = {
+  0: { label: "Observe Only", description: "Read-only monitoring and reporting." },
+  1: { label: "Draft Only", description: "Drafts, classification, and internal task creation." },
+  2: { label: "Safe Internal Execution", description: "Reversible internal actions inside policy boundaries." },
+  3: { label: "Bounded External Execution", description: "Explicitly approved external actions within hard guardrails." },
+  4: { label: "Strategic Autonomy", description: "Cross-agent orchestration inside owner-defined caps." },
+};
+
+export const AGENT_DEFINITIONS: AgentDefinition[] = [
+  {
+    agentName: "practice-generator",
+    title: "Practice Generator",
+    description: "Builds scheduled practice messages for eligible users.",
+    lifecycle: "IMPLEMENTED",
+    mode: "LIVE",
+    schedule: { kind: "daily_utc", label: "Daily at 06:00 UTC", cron: "0 6 * * *", hour: 6, minute: 0 },
+    backlogLabel: "messages awaiting generation",
+    policy: {
+      autonomyLevel: 2,
+      allowedActions: ["create practice drafts", "write PracticeMessage records", "log AgentRun output"],
+      forbiddenActions: ["change autonomy boundaries", "modify billing", "change secrets"],
+      escalationConditions: ["generation error rate spikes", "prompt output is empty", "content risk breaches configured thresholds"],
+      defaultSafeBoundaries: ["no per-action approvals", "internal writes only", "no secret or billing mutation"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "practice-email-sender",
+    title: "Practice Email Sender",
+    description: "Processes queued practice deliveries using the configured email mode.",
+    lifecycle: "IMPLEMENTED",
+    mode: env.EMAIL_SENDING_ENABLED === "true" ? "LIVE" : "LOG_ONLY",
+    schedule: { kind: "daily_utc", label: "Daily at 07:00 UTC", cron: "0 7 * * *", hour: 7, minute: 0 },
+    backlogLabel: "queued practice emails",
+    policy: {
+      autonomyLevel: 2,
+      allowedActions: ["deliver queued practice emails in configured mode", "log intended emails when live sending is disabled"],
+      forbiddenActions: ["enable live email automatically", "change email policy", "contact users outside queued practice delivery"],
+      escalationConditions: ["delivery failures spike", "provider returns auth errors", "high bounce or complaint rate"],
+      defaultSafeBoundaries: ["respect EMAIL_SENDING_ENABLED", "no policy override", "always write AgentRun output"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "response-scorer",
+    title: "Response Scorer",
+    description: "Scores incoming practice responses and records XP-related output.",
+    lifecycle: "IMPLEMENTED",
+    mode: "LIVE",
+    schedule: { kind: "hourly", label: "Hourly at :30", cron: "30 * * * *", minute: 30 },
+    backlogLabel: "unscored responses",
+    policy: {
+      autonomyLevel: 2,
+      allowedActions: ["score responses", "write feedback summaries", "record XP outcomes"],
+      forbiddenActions: ["change payout or billing records", "change autonomy rules", "destroy response history"],
+      escalationConditions: ["duplicate scoring risk", "score output is empty", "batch failures repeat"],
+      defaultSafeBoundaries: ["internal writes only", "no routine owner approvals", "persist scoring logs"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "autonomy-repair",
+    title: "Autonomy Repair",
+    description: "Applies safe, idempotent repairs for known operational drift.",
+    lifecycle: "IMPLEMENTED",
+    mode: "SAFE_REPAIR",
+    schedule: { kind: "daily_utc", label: "Daily at 07:35 UTC", cron: "35 7 * * *", hour: 7, minute: 35 },
+    backlogLabel: "repairable health findings",
+    policy: {
+      autonomyLevel: 2,
+      allowedActions: ["run safe data repairs", "requeue eligible work", "create follow-up logs"],
+      forbiddenActions: ["destructive database cleanup", "secret mutation", "unsafe production writes"],
+      escalationConditions: ["repair requires schema change", "manual audit is needed", "fix would be irreversible"],
+      defaultSafeBoundaries: ["idempotent operations only", "no routine approval", "log each repair action"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "support-triage",
+    title: "Support Triage",
+    description: "Classifies and routes support tickets inside policy-based autonomy boundaries.",
+    lifecycle: "PLANNED",
+    mode: "INACTIVE",
+    schedule: { kind: "interval_hours", label: "Every 2 hours", cron: "0 */2 * * *", intervalHours: 2, minute: 0 },
+    backlogLabel: "open support tickets",
+    policy: {
+      autonomyLevel: 1,
+      allowedActions: ["classify tickets", "draft replies", "assign severity and ownership", "escalate abnormal cases"],
+      forbiddenActions: ["send real support email by default", "promise refunds", "bypass privacy boundaries"],
+      escalationConditions: ["legal, safety, abuse, refund, or auth issues", "confidence below threshold", "duplicate surge"],
+      defaultSafeBoundaries: ["draft or internal-only actions until enabled", "no routine owner approvals", "log every triage decision"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "seo-kulliyat-draft",
+    title: "SEO / Kulliyat Content",
+    description: "Builds draft-only SEO and külliyat content packages for review queues.",
+    lifecycle: "PLANNED",
+    mode: "DRAFT_ONLY",
+    schedule: { kind: "daily_utc", label: "Daily at 09:00 UTC", cron: "0 9 * * *", hour: 9, minute: 0 },
+    backlogLabel: "draft content backlog",
+    policy: {
+      autonomyLevel: 1,
+      allowedActions: ["research topics", "draft content", "organize content queue", "flag risks"],
+      forbiddenActions: ["publish content", "cross forbidden doctrinal or legal boundaries", "make unverifiable claims"],
+      escalationConditions: ["topic risk threshold exceeded", "forbidden topic detected", "queue freshness breach"],
+      defaultSafeBoundaries: ["draft-only", "no routine approval requests", "full decision logging"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "social-listener-draft",
+    title: "Social Listener",
+    description: "Monitors approved inputs and prepares draft social content only.",
+    lifecycle: "PLANNED",
+    mode: "DRAFT_ONLY",
+    schedule: { kind: "interval_hours", label: "Every 6 hours", cron: "0 */6 * * *", intervalHours: 6, minute: 0 },
+    backlogLabel: "draft social queue",
+    policy: {
+      autonomyLevel: 1,
+      allowedActions: ["monitor approved sources", "draft posts", "summarize trends", "flag reputation risk"],
+      forbiddenActions: ["publish or reply publicly", "engage on sensitive topics", "change brand policy"],
+      escalationConditions: ["reputation risk spike", "adversarial topic detected", "abnormal mention volume"],
+      defaultSafeBoundaries: ["listening and drafts only", "no routine owner approvals", "log each draft decision"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "ads-reporting",
+    title: "Ads Reporting",
+    description: "Produces reporting and recommendation snapshots without changing spend.",
+    lifecycle: "PLANNED",
+    mode: "REPORT_ONLY",
+    schedule: { kind: "daily_utc", label: "Daily at 10:00 UTC", cron: "0 10 * * *", hour: 10, minute: 0 },
+    backlogLabel: "ads reporting queue",
+    policy: {
+      autonomyLevel: 1,
+      allowedActions: ["compile ad performance reports", "draft recommendations", "flag anomalies"],
+      forbiddenActions: ["spend money", "launch campaigns", "change targeting or budget"],
+      escalationConditions: ["financial risk threshold exceeded", "data anomaly detected", "policy boundary breach"],
+      defaultSafeBoundaries: ["report-only", "no budget mutation", "log all recommendations"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "cfo-reporting",
+    title: "CFO Reporting",
+    description: "Prepares finance and operations reporting without mutating financial records.",
+    lifecycle: "PLANNED",
+    mode: "REPORT_ONLY",
+    schedule: { kind: "daily_utc", label: "Daily at 11:00 UTC", cron: "0 11 * * *", hour: 11, minute: 0 },
+    backlogLabel: "finance reporting queue",
+    policy: {
+      autonomyLevel: 1,
+      allowedActions: ["compile operating snapshots", "draft recommendations", "surface anomalies"],
+      forbiddenActions: ["mutate billing", "move money", "change payout records"],
+      escalationConditions: ["financial risk threshold exceeded", "unexpected revenue anomaly", "billing inconsistency"],
+      defaultSafeBoundaries: ["report-only", "no routine approval requests", "log every recommendation"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
+    agentName: "revenue-orchestrator",
+    title: "Revenue Orchestrator",
+    description: "Coordinates planned growth agents inside future owner-defined budget and risk caps.",
+    lifecycle: "PLANNED",
+    mode: "INACTIVE",
+    schedule: { kind: "manual", label: "Manual until downstream agents exist" },
+    backlogLabel: "orchestration opportunities",
+    policy: {
+      autonomyLevel: 2,
+      allowedActions: ["summarize cross-agent opportunities", "create internal follow-up tasks", "recommend sequencing"],
+      forbiddenActions: ["override agent policy", "spend money", "publish externally"],
+      escalationConditions: ["strategy requires external action", "budget boundary would be crossed", "policy conflict exists"],
+      defaultSafeBoundaries: ["internal coordination only", "no routine approval requests", "log orchestration decisions"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+];
+
+type LatestRunRecord = Record<string, AgentRunSummary | null>;
+type BacklogRecord = Record<string, number | null>;
+
+function toIso(value: Date | null | undefined): string | null {
+  return value ? value.toISOString() : null;
+}
+
+function getNextScheduledRun(schedule: AgentSchedule, now: Date): string | null {
+  if (schedule.kind === "manual") return null;
+
+  const next = new Date(now);
+
+  if (schedule.kind === "hourly") {
+    next.setUTCMinutes(schedule.minute ?? 0, 0, 0);
+    if (next <= now) next.setUTCHours(next.getUTCHours() + 1);
+    return next.toISOString();
+  }
+
+  if (schedule.kind === "interval_hours") {
+    const interval = schedule.intervalHours ?? 1;
+    next.setUTCMinutes(schedule.minute ?? 0, 0, 0);
+    const hoursSinceBlock = next.getUTCHours() % interval;
+    next.setUTCHours(next.getUTCHours() - hoursSinceBlock);
+    if (next <= now) next.setUTCHours(next.getUTCHours() + interval);
+    while (next <= now) next.setUTCHours(next.getUTCHours() + interval);
+    return next.toISOString();
+  }
+
+  next.setUTCHours(schedule.hour ?? 0, schedule.minute ?? 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString();
+}
+
+function isRunFresh(latestRun: AgentRunSummary | null, schedule: AgentSchedule, now: Date): boolean {
+  if (!latestRun) return false;
+
+  const startedAt = new Date(latestRun.startedAt).getTime();
+  const ageMs = now.getTime() - startedAt;
+
+  switch (schedule.kind) {
+    case "hourly":
+      return ageMs <= 2 * 60 * 60 * 1000;
+    case "interval_hours":
+      return ageMs <= ((schedule.intervalHours ?? 1) + 1) * 60 * 60 * 1000;
+    case "daily_utc":
+      return ageMs <= 36 * 60 * 60 * 1000;
+    case "manual":
+      return latestRun.status === AgentRunStatus.SUCCESS;
+  }
+}
+
+function buildStatus(definition: AgentDefinition, latestRun: AgentRunSummary | null, backlogCount: number | null, now: Date) {
+  if (definition.lifecycle === "PLANNED") {
+    return {
+      status: "INACTIVE" as const,
+      statusReason: "Planned only. Execution is not enabled in Phase 1.",
+    };
+  }
+
+  if (latestRun?.status === AgentRunStatus.FAILED) {
+    return {
+      status: "FAILED" as const,
+      statusReason: latestRun.errorMessage || "Latest AgentRun failed.",
+    };
+  }
+
+  if (definition.mode === "INACTIVE") {
+    return {
+      status: "BLOCKED" as const,
+      statusReason: "Execution mode is intentionally inactive.",
+    };
+  }
+
+  if (isRunFresh(latestRun, definition.schedule, now)) {
+    return {
+      status: "ACTIVE" as const,
+      statusReason: backlogCount && backlogCount > 0 ? "Agent is scheduled and has pending backlog." : "Agent is scheduled and healthy.",
+    };
+  }
+
+  return {
+    status: "IDLE" as const,
+    statusReason: latestRun ? "No recent run inside the expected schedule window." : "No AgentRun recorded yet.",
+  };
+}
+
+async function fetchLatestRuns(): Promise<LatestRunRecord> {
+  const runs = await Promise.all(
+    AGENT_DEFINITIONS.map(async (definition) => {
+      const latestRun = await db.agentRun.findFirst({
+        where: { agentName: definition.agentName },
+        orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          taskType: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          durationMs: true,
+          errorMessage: true,
+        },
+      });
+
+      return [
+        definition.agentName,
+        latestRun
+          ? {
+              id: latestRun.id,
+              taskType: latestRun.taskType,
+              status: latestRun.status,
+              startedAt: latestRun.startedAt.toISOString(),
+              completedAt: toIso(latestRun.completedAt),
+              durationMs: latestRun.durationMs,
+              errorMessage: latestRun.errorMessage,
+            }
+          : null,
+      ] as const;
+    })
+  );
+
+  return Object.fromEntries(runs);
+}
+
+async function fetchBacklogs(): Promise<BacklogRecord> {
+  const [pendingGenerations, queuedEmails, unscoredResponses, openFeedback] = await Promise.all([
+    db.practiceMessage.count({ where: { generationStatus: GenerationStatus.PENDING } }),
+    db.practiceMessage.count({ where: { deliveryStatus: DeliveryStatus.QUEUED } }),
+    db.practiceResponse.count({ where: { score: null } }),
+    db.feedbackItem.count({ where: { status: FeedbackStatus.OPEN } }),
+  ]);
+
+  return {
+    "practice-generator": pendingGenerations,
+    "practice-email-sender": queuedEmails,
+    "response-scorer": unscoredResponses,
+    "autonomy-repair": null,
+    "support-triage": openFeedback,
+    "seo-kulliyat-draft": null,
+    "social-listener-draft": null,
+    "ads-reporting": null,
+    "cfo-reporting": null,
+    "revenue-orchestrator": null,
+  };
+}
+
+export async function getAgentRegistrySnapshot(): Promise<AgentRegistrySnapshot[]> {
+  const now = new Date();
+  const [latestRuns, backlogs] = await Promise.all([fetchLatestRuns(), fetchBacklogs()]);
+
+  return AGENT_DEFINITIONS.map((definition) => {
+    const latestRun = latestRuns[definition.agentName] ?? null;
+    const backlogCount = backlogs[definition.agentName] ?? null;
+    const { status, statusReason } = buildStatus(definition, latestRun, backlogCount, now);
+
+    return {
+      agentName: definition.agentName,
+      title: definition.title,
+      description: definition.description,
+      lifecycle: definition.lifecycle,
+      mode: definition.mode,
+      autonomyLevel: definition.policy.autonomyLevel,
+      status,
+      statusReason,
+      backlogCount,
+      backlogLabel: definition.backlogLabel,
+      lastRunAt: latestRun?.startedAt ?? null,
+      nextScheduledRunAt: getNextScheduledRun(definition.schedule, now),
+      latestAgentRun: latestRun,
+      policy: definition.policy,
+    };
+  });
+}
