@@ -492,6 +492,9 @@ model AgentRun {
   triagedFeedbackItems FeedbackItem[] @relation("FeedbackCurrentTriageRun")
   supportTriageDecisions SupportTriageDecision[] @relation("SupportTriageRun")
   supportReplies    SupportReply[]    @relation("SupportReplyAgentRun")
+  ideaAssessments   IdeaAssessment[]  @relation("IdeaAssessmentRun")
+  taskExecutions    TaskExecution[]   @relation("EngineeringTaskExecutionRun")
+  decisionLogs      DecisionLog[]     @relation("DecisionLogRun")
 
   @@index([agentName, status, createdAt])
   @@index([taskType, createdAt])
@@ -646,6 +649,108 @@ enum SupportReplyStatus {
   ARCHIVED
 }
 
+enum IdeaSourceType {
+  ADMIN_IDEA
+  SUPPORT
+  QA
+  GROWTH
+  SOCIAL
+  PRODUCT_NOTE
+}
+
+enum IdeaRecordStatus {
+  NEW
+  TRIAGED
+  PM_REVIEWED
+  CTO_REVIEWED
+  ACCEPTED
+  REJECTED
+  ESCALATED
+  BACKLOGGED
+  DONE
+}
+
+enum BacklogItemStatus {
+  PROPOSED
+  READY_FOR_DECOMPOSITION
+  READY_FOR_IMPLEMENTATION
+  IN_PROGRESS
+  BLOCKED
+  QA_REVIEW
+  READY_FOR_RELEASE
+  RELEASED
+  CANCELLED
+}
+
+enum BacklogPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EngineeringTaskStatus {
+  DRAFT
+  READY
+  LOCKED
+  IN_PROGRESS
+  CODE_REVIEW
+  QA_REVIEW
+  DONE
+  BLOCKED
+  CANCELLED
+}
+
+enum EngineeringTaskLockStatus {
+  UNLOCKED
+  LOCKED
+  HANDOFF_REQUIRED
+  EXPIRED
+}
+
+enum TaskExecutionStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  ABANDONED
+  HANDOFF_REQUIRED
+}
+
+enum DecisionEntityType {
+  IDEA
+  BACKLOG_ITEM
+  ENGINEERING_TASK
+  TASK_EXECUTION
+  RELEASE
+  ADMIN_QUESTION
+  FEEDBACK_ITEM
+  SUPPORT_REPLY
+}
+
+enum AdminQuestionType {
+  LEGAL
+  SECURITY
+  PAYMENT
+  REPUTATION
+  POLICY
+  AMBIGUOUS
+}
+
+enum AdminQuestionStatus {
+  OPEN
+  ANSWERED
+  ARCHIVED
+}
+
+enum ReleaseRecordStatus {
+  PLANNED
+  READY
+  DEPLOYING
+  RELEASED
+  FAILED
+  ROLLED_BACK
+}
+
 /// User-submitted feedback items (bugs, translations, content issues, etc.)
 /// Visible in admin and surfaced to the autonomy system for task generation.
 model FeedbackItem {
@@ -728,4 +833,174 @@ model SupportReply {
   @@index([feedbackItemId, createdAt])
   @@index([status, visibility, createdAt])
   @@index([agentRunId, createdAt])
+}
+
+model IdeaRecord {
+  id             String           @id @default(cuid())
+  sourceType     IdeaSourceType
+  sourceRef      String?
+  title          String
+  summary        String?
+  rawPayloadJson Json?
+  reporterType   String?
+  status         IdeaRecordStatus @default(NEW)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  assessments    IdeaAssessment[]
+  backlogItems   BacklogItem[]
+  adminQuestions AdminQuestion[]
+
+  @@index([status, createdAt])
+  @@index([sourceType, createdAt])
+}
+
+model IdeaAssessment {
+  id               String      @id @default(cuid())
+  ideaId           String
+  agentName        String
+  assessmentType   String
+  decision         String?
+  rationaleSummary String?
+  rationaleJson    Json?
+  scoreValue       Int?
+  createdAt        DateTime    @default(now())
+  agentRunId       String?
+  idea             IdeaRecord  @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  agentRun         AgentRun?   @relation("IdeaAssessmentRun", fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([ideaId, createdAt])
+  @@index([agentName, createdAt])
+  @@index([agentRunId, createdAt])
+}
+
+model BacklogItem {
+  id               String            @id @default(cuid())
+  ideaId           String?
+  title            String
+  summary          String?
+  status           BacklogItemStatus @default(PROPOSED)
+  priority         BacklogPriority?
+  userImpact       String?
+  revenueImpact    String?
+  riskLevel        String?
+  targetReleaseId  String?
+  ownerAgent       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  idea             IdeaRecord?       @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  targetRelease    ReleaseRecord?    @relation(fields: [targetReleaseId], references: [id], onDelete: SetNull)
+  engineeringTasks EngineeringTask[]
+
+  @@index([status, createdAt])
+  @@index([priority, createdAt])
+  @@index([ideaId, createdAt])
+  @@index([targetReleaseId, createdAt])
+}
+
+model EngineeringTask {
+  id                     String                    @id @default(cuid())
+  backlogItemId          String?
+  parentTaskId           String?
+  title                  String
+  description            String?
+  phase                  String?
+  status                 EngineeringTaskStatus     @default(DRAFT)
+  assignedAgent          String?
+  lockStatus             EngineeringTaskLockStatus @default(UNLOCKED)
+  lockOwner              String?
+  lockExpiresAt          DateTime?
+  handoffReason          String?
+  acceptanceCriteriaJson Json?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  backlogItem            BacklogItem?              @relation(fields: [backlogItemId], references: [id], onDelete: SetNull)
+  parentTask             EngineeringTask?          @relation("EngineeringTaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks             EngineeringTask[]         @relation("EngineeringTaskHierarchy")
+  executions             TaskExecution[]
+  adminQuestions         AdminQuestion[]
+
+  @@index([status, createdAt])
+  @@index([lockStatus, lockExpiresAt])
+  @@index([assignedAgent, createdAt])
+  @@index([backlogItemId, createdAt])
+}
+
+model TaskExecution {
+  id                String              @id @default(cuid())
+  engineeringTaskId String
+  agentName         String
+  agentRunId        String?
+  startedAt         DateTime            @default(now())
+  completedAt       DateTime?
+  resultStatus      TaskExecutionStatus @default(STARTED)
+  commitSha         String?
+  branchName        String?
+  prUrl             String?
+  ciStatus          String?
+  deployStatus      String?
+  releaseId         String?
+  notesSummary      String?
+  engineeringTask   EngineeringTask     @relation(fields: [engineeringTaskId], references: [id], onDelete: Cascade)
+  agentRun          AgentRun?           @relation("EngineeringTaskExecutionRun", fields: [agentRunId], references: [id], onDelete: SetNull)
+  release           ReleaseRecord?      @relation(fields: [releaseId], references: [id], onDelete: SetNull)
+
+  @@index([engineeringTaskId, startedAt])
+  @@index([agentRunId, startedAt])
+  @@index([releaseId, startedAt])
+  @@index([resultStatus, startedAt])
+}
+
+model DecisionLog {
+  id               String             @id @default(cuid())
+  entityType       DecisionEntityType
+  entityId         String
+  decisionMaker    String
+  decisionKind     String
+  decision         String?
+  rationaleSummary String?
+  rationaleJson    Json?
+  createdAt        DateTime           @default(now())
+  agentRunId       String?
+  agentRun         AgentRun?          @relation("DecisionLogRun", fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([decisionMaker, createdAt])
+  @@index([agentRunId, createdAt])
+}
+
+model AdminQuestion {
+  id                String              @id @default(cuid())
+  ideaId            String?
+  engineeringTaskId String?
+  questionType      AdminQuestionType
+  question          String
+  status            AdminQuestionStatus @default(OPEN)
+  answer            String?
+  createdAt         DateTime            @default(now())
+  answeredAt        DateTime?
+  idea              IdeaRecord?         @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  engineeringTask   EngineeringTask?    @relation(fields: [engineeringTaskId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([questionType, createdAt])
+  @@index([ideaId, createdAt])
+  @@index([engineeringTaskId, createdAt])
+}
+
+model ReleaseRecord {
+  id             String              @id @default(cuid())
+  version        String
+  title          String?
+  status         ReleaseRecordStatus @default(PLANNED)
+  commitRange    String?
+  releaseNotes   String?
+  deployedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  backlogItems   BacklogItem[]
+  taskExecutions TaskExecution[]
+
+  @@unique([version])
+  @@index([status, createdAt])
+  @@index([deployedAt])
 }
