@@ -69,10 +69,11 @@ describe("AdminIdeasPage", () => {
     mockIdeaFindMany.mockResolvedValue([
       {
         id: "idea_1",
-        sourceType: "ADMIN_IDEA",
+        sourceType: "SUPPORT",
+        sourceRef: "fb_3",
         title: "Improve lesson completion nudges",
         summary: "Add clearer recovery prompts after failed attempts.",
-        reporterType: "ADMIN",
+        reporterType: "SUPPORT_AGENT",
         status: "NEW",
         createdAt: new Date("2026-05-31T15:00:00.000Z"),
         updatedAt: new Date("2026-05-31T15:30:00.000Z"),
@@ -93,7 +94,8 @@ describe("AdminIdeasPage", () => {
     expect(text).toContain("Submit Admin Idea");
     expect(text).toContain("Improve lesson completion nudges");
     expect(text).toContain("Add clearer recovery prompts after failed attempts.");
-    expect(text).toContain("Reporter: ADMIN");
+    expect(text).toContain("Reporter: SUPPORT_AGENT");
+    expect(text).toContain("Support ticket: fb_3");
     expect(text).toContain("Assessments: 1");
     expect(text).toContain("new (1)");
   });

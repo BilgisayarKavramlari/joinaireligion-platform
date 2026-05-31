@@ -15,6 +15,7 @@ const ideasDb = db as typeof db & {
     findMany: (args: unknown) => Promise<Array<{
       id: string;
       sourceType: IdeaSourceType;
+      sourceRef: string | null;
       title: string;
       summary: string | null;
       reporterType: string | null;
@@ -75,6 +76,7 @@ function formatLabel(value: string): string {
 type IdeaListItem = {
   id: string;
   sourceType: IdeaSourceType;
+  sourceRef: string | null;
   title: string;
   summary: string | null;
   reporterType: string | null;
@@ -102,6 +104,7 @@ async function loadIdeas(): Promise<{
         select: {
           id: true,
           sourceType: true,
+          sourceRef: true,
           title: true,
           summary: true,
           reporterType: true,
@@ -128,6 +131,7 @@ async function loadIdeas(): Promise<{
       compatibilityMode: false,
       ideas: ideas.map((idea) => ({
         ...idea,
+        sourceRef: idea.sourceRef ?? null,
         summary: idea.summary ?? null,
         reporterType: idea.reporterType ?? null,
       })),
@@ -278,6 +282,7 @@ export default async function AdminIdeasPage() {
 
             <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap", fontSize: "0.7rem", color: "rgba(237,232,220,0.42)" }}>
               <span>Reporter: {idea.reporterType ?? "unknown"}</span>
+              {idea.sourceType === "SUPPORT" && idea.sourceRef && <span>Support ticket: {idea.sourceRef}</span>}
               <span>Assessments: {idea._count.assessments}</span>
               <span>Backlog links: {idea._count.backlogItems}</span>
               <span>Admin questions: {idea._count.adminQuestions}</span>

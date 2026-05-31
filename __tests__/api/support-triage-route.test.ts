@@ -7,6 +7,9 @@ const mockFeedbackItemUpdate = jest.fn();
 const mockSupportTriageDecisionCreate = jest.fn();
 const mockSupportReplyFindFirst = jest.fn();
 const mockSupportReplyCreate = jest.fn();
+const mockIdeaRecordFindFirst = jest.fn();
+const mockIdeaRecordCreate = jest.fn();
+const mockEngineeringTaskCreate = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
@@ -24,6 +27,13 @@ jest.mock("@/lib/db", () => ({
     supportReply: {
       findFirst: (...args: unknown[]) => mockSupportReplyFindFirst(...args),
       create: (...args: unknown[]) => mockSupportReplyCreate(...args),
+    },
+    ideaRecord: {
+      findFirst: (...args: unknown[]) => mockIdeaRecordFindFirst(...args),
+      create: (...args: unknown[]) => mockIdeaRecordCreate(...args),
+    },
+    engineeringTask: {
+      create: (...args: unknown[]) => mockEngineeringTaskCreate(...args),
     },
   },
 }));
@@ -53,12 +63,17 @@ describe("POST /api/cron/support-triage", () => {
     mockSupportTriageDecisionCreate.mockReset();
     mockSupportReplyFindFirst.mockReset();
     mockSupportReplyCreate.mockReset();
+    mockIdeaRecordFindFirst.mockReset();
+    mockIdeaRecordCreate.mockReset();
+    mockEngineeringTaskCreate.mockReset();
 
     mockAgentRunCreate.mockResolvedValue({ id: "run_support_001" });
     mockAgentRunUpdate.mockResolvedValue({});
     mockFeedbackItemUpdate.mockResolvedValue({});
     mockSupportReplyFindFirst.mockResolvedValue(null);
     mockSupportReplyCreate.mockResolvedValue({ id: "reply_001" });
+    mockIdeaRecordFindFirst.mockResolvedValue(null);
+    mockIdeaRecordCreate.mockResolvedValue({ id: "idea_001" });
     mockFeedbackItemFindMany.mockResolvedValue([
       { id: "fb_1", message: "I was charged twice and need a refund." },
       { id: "fb_2", message: "The onboarding is still in English." },
@@ -135,6 +150,7 @@ describe("POST /api/cron/support-triage", () => {
           ]),
           repliesDrafted: 0,
           repliesSent: 0,
+          ideasCreated: 1,
           codingTasksCreated: 0,
         }),
       }),
@@ -152,6 +168,7 @@ describe("POST /api/cron/support-triage", () => {
       recommendedAction: "ESCALATE_TO_ADMIN",
     });
     expect(JSON.stringify(body.sampleResults)).not.toContain("charged twice");
+    expect(mockEngineeringTaskCreate).not.toHaveBeenCalled();
   });
 
   it("creates one SupportTriageDecision per analyzed item and updates current-state triage fields without changing FeedbackItem.status", async () => {
@@ -239,6 +256,50 @@ describe("POST /api/cron/support-triage", () => {
         }),
       }),
     });
+  });
+
+  it("creates IdeaRecord for eligible support feedback and avoids duplicate active idea records", async () => {
+    await POST(makeRequest("test-cron-secret"));
+
+    expect(mockIdeaRecordFindFirst).toHaveBeenCalledWith({
+      where: {
+        sourceType: "SUPPORT",
+        sourceRef: "fb_3",
+        status: {
+          notIn: ["REJECTED", "DONE"],
+        },
+      },
+      select: { id: true },
+    });
+    expect(mockIdeaRecordCreate).toHaveBeenCalledWith({
+      data: {
+        sourceType: "SUPPORT",
+        sourceRef: "fb_3",
+        title: "Support ticket: bug issue (fb_3)",
+        summary:
+          "Created from support ticket fb_3 after deterministic triage. Category: BUG. Severity: HIGH. Recommended action: CREATE_CODING_TASK.",
+        reporterType: "SUPPORT_AGENT",
+        status: "NEW",
+      },
+    });
+
+    mockIdeaRecordFindFirst.mockResolvedValueOnce({ id: "idea_existing_1" });
+    mockIdeaRecordCreate.mockClear();
+
+    await POST(makeRequest("test-cron-secret"));
+
+    expect(mockIdeaRecordCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not create IdeaRecord for ineligible support feedback and never creates EngineeringTask", async () => {
+    await POST(makeRequest("test-cron-secret"));
+
+    const createdIdeaRefs = mockIdeaRecordCreate.mock.calls.map((call) => call[0].data.sourceRef);
+    expect(createdIdeaRefs).toEqual(["fb_3"]);
+    expect(createdIdeaRefs).not.toContain("fb_1");
+    expect(createdIdeaRefs).not.toContain("fb_2");
+    expect(createdIdeaRefs).not.toContain("fb_4");
+    expect(mockEngineeringTaskCreate).not.toHaveBeenCalled();
   });
 
   it("does not create drafts for high-risk feedback and leaves FeedbackItem.status unchanged", async () => {

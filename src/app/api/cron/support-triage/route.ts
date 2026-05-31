@@ -43,6 +43,18 @@ type AnalysisResult = {
   recommendedAction: SupportTicketRecommendedAction;
 };
 
+function shouldCreateSupportIdeaRecord(result: AnalysisResult): boolean {
+  return result.recommendedAction === "CREATE_CODING_TASK";
+}
+
+function createSupportIdeaTitle(result: AnalysisResult): string {
+  return `Support ticket: ${result.category.toLowerCase()} issue (${result.id})`;
+}
+
+function createSupportIdeaSummary(result: AnalysisResult): string {
+  return `Created from support ticket ${result.id} after deterministic triage. Category: ${result.category}. Severity: ${result.severity}. Recommended action: ${result.recommendedAction}.`;
+}
+
 function createCategoryCounts(): CategoryCounts {
   return {
     BUG: 0,
@@ -146,6 +158,7 @@ export async function POST(request: Request): Promise<Response> {
     const severityCounts = createSeverityCounts();
     const actionCounts = createActionCounts();
     let repliesDrafted = 0;
+    let ideasCreated = 0;
 
     const analysisResults = openFeedbackItems.map((item): AnalysisResult => {
       const category = classifySupportTicket(item.message);
@@ -239,6 +252,33 @@ export async function POST(request: Request): Promise<Response> {
           repliesDrafted += 1;
         }
       }
+
+      if (shouldCreateSupportIdeaRecord(result)) {
+        const existingActiveIdea = await db.ideaRecord.findFirst({
+          where: {
+            sourceType: "SUPPORT",
+            sourceRef: result.id,
+            status: {
+              notIn: ["REJECTED", "DONE"],
+            },
+          },
+          select: { id: true },
+        });
+
+        if (!existingActiveIdea) {
+          await db.ideaRecord.create({
+            data: {
+              sourceType: "SUPPORT",
+              sourceRef: result.id,
+              title: createSupportIdeaTitle(result),
+              summary: createSupportIdeaSummary(result),
+              reporterType: "SUPPORT_AGENT",
+              status: "NEW",
+            },
+          });
+          ideasCreated += 1;
+        }
+      }
     }
 
     const completedAt = new Date();
@@ -257,6 +297,7 @@ export async function POST(request: Request): Promise<Response> {
           sampleResults,
           repliesDrafted,
           repliesSent: 0,
+          ideasCreated,
           codingTasksCreated: 0,
         },
       },
