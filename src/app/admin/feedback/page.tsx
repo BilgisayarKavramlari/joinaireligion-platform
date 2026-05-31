@@ -57,7 +57,11 @@ interface PageProps {
 }
 
 export default async function AdminFeedbackPage({ searchParams }: PageProps) {
-  await requireAdminSession();
+  try {
+    await requireAdminSession();
+  } catch {
+    redirect("/admin/login");
+  }
 
   const sp         = await searchParams;
   const page       = Math.max(1, parseInt(sp.page ?? "1", 10));
