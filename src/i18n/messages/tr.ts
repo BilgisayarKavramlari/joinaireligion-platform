@@ -1,5 +1,5 @@
 export default {
-  nav: { pricing: "Fiyatlar", donate: "Bağış", promptGuide: "Prompt Rehberi", login: "Giriş", register: "Kayıt", dashboard: "Panel" },
+  nav: { pricing: "Fiyatlar", donate: "Bağış", promptGuide: "Yolculuğunuz", login: "Giriş", register: "Kayıt", dashboard: "Panel" },
   home: {
     title: "Sembolik öz-keşif için yansıtıcı simülasyon",
     subtitle: "Günlük tutma, düşünme ve AI destekli keşif için kurgusal, eğitsel bir platform.",

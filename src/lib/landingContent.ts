@@ -13,7 +13,7 @@ export const landingMessages: Record<string, any> = {
     nav: {
       pricing: "Pricing",
       donate: "Donate",
-      promptGuide: "Prompt Guide",
+      promptGuide: "Your Journey",
       login: "Login",
       register: "Register",
       account: "Account",
@@ -82,7 +82,7 @@ export const landingMessages: Record<string, any> = {
     nav: {
       pricing: "Ücretler",
       donate: "Bağış",
-      promptGuide: "Prompt Rehberi",
+      promptGuide: "Yolculuğunuz",
       login: "Giriş",
       register: "Kayıt",
       account: "Hesap",

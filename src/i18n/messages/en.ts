@@ -1,5 +1,5 @@
 export default {
-  nav: { pricing: "Pricing", donate: "Donate", promptGuide: "Prompt Guide", login: "Login", register: "Register", dashboard: "Dashboard" },
+  nav: { pricing: "Pricing", donate: "Donate", promptGuide: "Your Journey", login: "Login", register: "Register", dashboard: "Dashboard" },
   home: {
     title: "Reflective simulation for symbolic self-discovery",
     subtitle: "A fictional, educational platform for journaling, reflection, and AI-assisted exploration.",

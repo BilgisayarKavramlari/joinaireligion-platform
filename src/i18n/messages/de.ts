@@ -1,5 +1,5 @@
 export default {
-  nav: { pricing: "Preise", donate: "Spenden", promptGuide: "Prompt-Leitfaden", login: "Anmelden", register: "Registrieren", dashboard: "Dashboard" },
+  nav: { pricing: "Preise", donate: "Spenden", promptGuide: "Deine Reise", login: "Anmelden", register: "Registrieren", dashboard: "Dashboard" },
   home: {
     title: "Reflektive Simulation zur symbolischen Selbsterkundung",
     subtitle: "Fiktive Lernplattform für Journaling, Reflexion und KI-gestützte Erkundung.",

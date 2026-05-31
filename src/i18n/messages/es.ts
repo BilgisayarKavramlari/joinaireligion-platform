@@ -1,5 +1,5 @@
 export default {
-  nav: { pricing: "Precios", donate: "Donar", promptGuide: "Guía de prompts", login: "Iniciar sesión", register: "Registrarse", dashboard: "Panel" },
+  nav: { pricing: "Precios", donate: "Donar", promptGuide: "Tu viaje", login: "Iniciar sesión", register: "Registrarse", dashboard: "Panel" },
   home: {
     title: "Simulación reflexiva para autodescubrimiento simbólico",
     subtitle: "Plataforma ficticia y educativa para diario, reflexión y exploración asistida por IA.",
