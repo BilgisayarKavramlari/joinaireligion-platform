@@ -60,6 +60,16 @@ const AUTH_STATE_COLORS: Record<FeedbackAuthState, string> = {
 };
 
 const FEEDBACK_USER_SELECT = { email: true, displayName: true, role: true } as const;
+const SUPPORT_REPLY_SELECT = {
+  id: true,
+  authorType: true,
+  visibility: true,
+  status: true,
+  body: true,
+  rationaleSummary: true,
+  agentRunId: true,
+  createdAt: true,
+} as const;
 
 const FEEDBACK_FULL_SELECT = {
   id: true,
@@ -79,6 +89,10 @@ const FEEDBACK_FULL_SELECT = {
   recommendedAction: true,
   triageStatus: true,
   triagedAt: true,
+  supportReplies: {
+    orderBy: { createdAt: "desc" as const },
+    select: SUPPORT_REPLY_SELECT,
+  },
   createdAt: true,
   user: { select: FEEDBACK_USER_SELECT },
 } as const;
@@ -94,6 +108,10 @@ const FEEDBACK_LEGACY_SELECT = {
   createdAt: true,
   user: { select: FEEDBACK_USER_SELECT },
 } as const;
+
+type SupportReplyAuthorType = "ADMIN" | "SUPPORT_AGENT" | "SYSTEM";
+type SupportReplyVisibility = "ADMIN_ONLY" | "USER_VISIBLE";
+type SupportReplyStatus = "DRAFT" | "APPROVED" | "SENT" | "ARCHIVED";
 
 type FeedbackListItem = {
   id: string;
@@ -113,6 +131,16 @@ type FeedbackListItem = {
   recommendedAction: SupportTriageRecommendedAction | null;
   triageStatus: SupportTriageStatus | null;
   triagedAt: Date | null;
+  supportReplies: Array<{
+    id: string;
+    authorType: SupportReplyAuthorType;
+    visibility: SupportReplyVisibility;
+    status: SupportReplyStatus;
+    body: string;
+    rationaleSummary: string | null;
+    agentRunId: string | null;
+    createdAt: Date;
+  }>;
   createdAt: Date;
   user: {
     email: string;
@@ -141,21 +169,39 @@ async function loadFeedbackItems(args: {
 
     return {
       compatibilityMode: false,
-      items: items.map((item) => ({
-        ...item,
-        authState: item.authState ?? (item.userId ? FeedbackAuthState.AUTHENTICATED : FeedbackAuthState.ANONYMOUS),
-        submitterEmail: item.submitterEmail ?? null,
-        submitterLocale: item.submitterLocale ?? null,
-        pageUrl: item.pageUrl ?? item.pageContext ?? null,
-        userAgent: item.userAgent ?? null,
-        pageContext: item.pageContext ?? null,
-        adminNotes: item.adminNotes ?? null,
-        triageCategory: item.triageCategory ?? null,
-        triageSeverity: item.triageSeverity ?? null,
-        recommendedAction: item.recommendedAction ?? null,
-        triageStatus: item.triageStatus ?? null,
-        triagedAt: item.triagedAt ?? null,
-      })),
+      items: items.map((item) => {
+        const supportReplies = (item.supportReplies ?? []) as Array<{
+          id: string;
+          authorType: SupportReplyAuthorType;
+          visibility: SupportReplyVisibility;
+          status: SupportReplyStatus;
+          body: string;
+          rationaleSummary: string | null;
+          agentRunId: string | null;
+          createdAt: Date;
+        }>;
+
+        return {
+          ...item,
+          authState: item.authState ?? (item.userId ? FeedbackAuthState.AUTHENTICATED : FeedbackAuthState.ANONYMOUS),
+          submitterEmail: item.submitterEmail ?? null,
+          submitterLocale: item.submitterLocale ?? null,
+          pageUrl: item.pageUrl ?? item.pageContext ?? null,
+          userAgent: item.userAgent ?? null,
+          pageContext: item.pageContext ?? null,
+          adminNotes: item.adminNotes ?? null,
+          triageCategory: item.triageCategory ?? null,
+          triageSeverity: item.triageSeverity ?? null,
+          recommendedAction: item.recommendedAction ?? null,
+          triageStatus: item.triageStatus ?? null,
+          triagedAt: item.triagedAt ?? null,
+          supportReplies: supportReplies.map((reply) => ({
+            ...reply,
+            rationaleSummary: reply.rationaleSummary ?? null,
+            agentRunId: reply.agentRunId ?? null,
+          })),
+        };
+      }),
     };
   } catch (error) {
     console.warn("admin_feedback_legacy_query_fallback", error);
@@ -181,6 +227,7 @@ async function loadFeedbackItems(args: {
         recommendedAction: null,
         triageStatus: null,
         triagedAt: null,
+        supportReplies: [],
       })),
     };
   }
@@ -202,6 +249,10 @@ const TRIAGE_ACTION_COLORS: Record<SupportTriageRecommendedAction, string> = {
 };
 
 function formatTriageLabel(value: string): string {
+  return value.replaceAll("_", " ").toLowerCase();
+}
+
+function formatReplyLabel(value: string): string {
   return value.replaceAll("_", " ").toLowerCase();
 }
 
@@ -413,6 +464,59 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
               <p style={{ fontSize: "0.75rem", color: "rgba(201,162,39,0.6)", marginBottom: "0.8rem", padding: "0.5rem 0.7rem", background: "rgba(201,162,39,0.05)", borderRadius: "0.4rem", border: "1px solid rgba(201,162,39,0.15)" }}>
                 Admin notes: {item.adminNotes}
               </p>
+            )}
+
+            {item.supportReplies.length > 0 && (
+              <div
+                style={{
+                  marginBottom: "0.8rem",
+                  padding: "0.7rem 0.8rem",
+                  borderRadius: "0.55rem",
+                  border: "1px solid rgba(20,184,166,0.18)",
+                  background: "rgba(20,184,166,0.04)",
+                }}
+              >
+                <p style={{ fontSize: "0.72rem", color: "#8ee3d4", marginBottom: "0.55rem", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Support Replies
+                </p>
+                <div style={{ display: "grid", gap: "0.65rem" }}>
+                  {item.supportReplies.map((reply) => (
+                    <div
+                      key={reply.id}
+                      style={{
+                        padding: "0.65rem 0.75rem",
+                        borderRadius: "0.5rem",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: "rgba(255,255,255,0.025)",
+                      }}
+                    >
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", marginBottom: "0.45rem", alignItems: "center" }}>
+                        <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: "rgba(20,184,166,0.12)", color: "#8ee3d4", border: "1px solid rgba(20,184,166,0.25)" }}>
+                          author: {formatReplyLabel(reply.authorType)}
+                        </span>
+                        <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: "rgba(148,163,184,0.14)", color: "#cbd5e1", border: "1px solid rgba(148,163,184,0.24)" }}>
+                          visibility: {formatReplyLabel(reply.visibility)}
+                        </span>
+                        <span style={{ padding: "0.18rem 0.55rem", borderRadius: "999px", fontSize: "0.66rem", background: "rgba(201,162,39,0.12)", color: "var(--gold)", border: "1px solid rgba(201,162,39,0.2)" }}>
+                          status: {formatReplyLabel(reply.status)}
+                        </span>
+                        <span style={{ fontSize: "0.66rem", color: "rgba(237,232,220,0.36)", marginLeft: "auto" }}>
+                          {reply.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC
+                        </span>
+                      </div>
+                      <p style={{ fontSize: "0.8rem", color: "rgba(237,232,220,0.82)", lineHeight: 1.55, marginBottom: reply.rationaleSummary || reply.agentRunId ? "0.4rem" : 0 }}>
+                        {reply.body}
+                      </p>
+                      {(reply.rationaleSummary || reply.agentRunId) && (
+                        <div style={{ display: "grid", gap: "0.2rem", fontSize: "0.68rem", color: "rgba(237,232,220,0.4)" }}>
+                          {reply.rationaleSummary && <p>Rationale: {reply.rationaleSummary}</p>}
+                          {reply.agentRunId && <p>Agent run: {reply.agentRunId}</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Status update form */}

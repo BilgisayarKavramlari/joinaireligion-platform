@@ -491,6 +491,7 @@ model AgentRun {
   scoredResponses   PracticeResponse[] @relation("ScoringRun")
   triagedFeedbackItems FeedbackItem[] @relation("FeedbackCurrentTriageRun")
   supportTriageDecisions SupportTriageDecision[] @relation("SupportTriageRun")
+  supportReplies    SupportReply[]    @relation("SupportReplyAgentRun")
 
   @@index([agentName, status, createdAt])
   @@index([taskType, createdAt])
@@ -627,6 +628,24 @@ enum SupportTriageStatus {
   REPLY_DRAFTED
 }
 
+enum SupportReplyAuthorType {
+  ADMIN
+  SUPPORT_AGENT
+  SYSTEM
+}
+
+enum SupportReplyVisibility {
+  ADMIN_ONLY
+  USER_VISIBLE
+}
+
+enum SupportReplyStatus {
+  DRAFT
+  APPROVED
+  SENT
+  ARCHIVED
+}
+
 /// User-submitted feedback items (bugs, translations, content issues, etc.)
 /// Visible in admin and surfaced to the autonomy system for task generation.
 model FeedbackItem {
@@ -659,6 +678,7 @@ model FeedbackItem {
   triageRun      AgentRun?         @relation("FeedbackCurrentTriageRun", fields: [triageRunId], references: [id], onDelete: SetNull)
   latestTriageDecision SupportTriageDecision? @relation("FeedbackLatestTriageDecision", fields: [latestTriageDecisionId], references: [id], onDelete: SetNull)
   triageDecisions SupportTriageDecision[] @relation("FeedbackDecisionHistory")
+  supportReplies SupportReply[]
 
   @@index([status, category, createdAt])
   @@index([userId, createdAt])
@@ -683,8 +703,29 @@ model SupportTriageDecision {
   feedbackItem      FeedbackItem                    @relation("FeedbackDecisionHistory", fields: [feedbackItemId], references: [id], onDelete: Cascade)
   agentRun          AgentRun                        @relation("SupportTriageRun", fields: [agentRunId], references: [id], onDelete: Cascade)
   latestForFeedback FeedbackItem[]                  @relation("FeedbackLatestTriageDecision")
+  replyDraft        SupportReply?                   @relation("SupportReplyDraftDecision", fields: [replyDraftId], references: [id], onDelete: SetNull)
 
   @@index([feedbackItemId, createdAt])
   @@index([agentRunId, createdAt])
   @@index([recommendedAction, severity, createdAt])
+}
+
+model SupportReply {
+  id               String                 @id @default(cuid())
+  feedbackItemId   String
+  authorType       SupportReplyAuthorType
+  visibility       SupportReplyVisibility @default(ADMIN_ONLY)
+  status           SupportReplyStatus     @default(DRAFT)
+  body             String
+  rationaleSummary String?
+  agentRunId       String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  feedbackItem     FeedbackItem           @relation(fields: [feedbackItemId], references: [id], onDelete: Cascade)
+  agentRun         AgentRun?              @relation("SupportReplyAgentRun", fields: [agentRunId], references: [id], onDelete: SetNull)
+  triageDecisions  SupportTriageDecision[] @relation("SupportReplyDraftDecision")
+
+  @@index([feedbackItemId, createdAt])
+  @@index([status, visibility, createdAt])
+  @@index([agentRunId, createdAt])
 }

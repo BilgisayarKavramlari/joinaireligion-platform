@@ -82,9 +82,10 @@ describe("AdminFeedbackPage", () => {
     expect(mockFindMany.mock.calls[1][0].select.authState).toBeUndefined();
     expect(mockFindMany.mock.calls[1][0].select.pageContext).toBe(true);
     expect(mockFindMany.mock.calls[1][0].select.triageCategory).toBeUndefined();
+    expect(mockFindMany.mock.calls[1][0].select.supportReplies).toBeUndefined();
   });
 
-  it("requests triage fields in the full query and renders persisted triage metadata when present", async () => {
+  it("requests triage and reply fields in the full query and renders persisted support metadata when present", async () => {
     mockRequireAdminSession.mockResolvedValue("admin@example.com");
     mockFindMany.mockResolvedValue([
       {
@@ -105,6 +106,18 @@ describe("AdminFeedbackPage", () => {
         recommendedAction: "ESCALATE_TO_ADMIN",
         triageStatus: "TRIAGED",
         triagedAt: new Date("2026-05-31T05:00:00.000Z"),
+        supportReplies: [
+          {
+            id: "reply_1",
+            authorType: "SUPPORT_AGENT",
+            visibility: "ADMIN_ONLY",
+            status: "DRAFT",
+            body: "We can help investigate your billing issue before sending anything to the user.",
+            rationaleSummary: "Hold for admin review until billing risk is confirmed.",
+            agentRunId: "run_support_1",
+            createdAt: new Date("2026-05-31T05:02:00.000Z"),
+          },
+        ],
         createdAt: new Date("2026-05-31T04:59:00.000Z"),
         user: { email: "user@example.com", displayName: "Seeker", role: "USER" },
       },
@@ -121,10 +134,56 @@ describe("AdminFeedbackPage", () => {
     expect(mockFindMany.mock.calls[0][0].select.recommendedAction).toBe(true);
     expect(mockFindMany.mock.calls[0][0].select.triageStatus).toBe(true);
     expect(mockFindMany.mock.calls[0][0].select.triagedAt).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.supportReplies.select.authorType).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.supportReplies.select.visibility).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.supportReplies.select.status).toBe(true);
+    expect(mockFindMany.mock.calls[0][0].select.supportReplies.select.body).toBe(true);
     expect(text).toContain("triage: billing");
     expect(text).toContain("severity: high");
     expect(text).toContain("action: escalate to admin");
     expect(text).toContain("triage status: triaged");
     expect(text).toContain("Triaged at: 2026-05-31 05:00 UTC");
+    expect(text).toContain("Support Replies");
+    expect(text).toContain("author: support agent");
+    expect(text).toContain("visibility: admin only");
+    expect(text).toContain("status: draft");
+    expect(text).toContain("We can help investigate your billing issue before sending anything to the user.");
+    expect(text).toContain("Rationale: Hold for admin review until billing risk is confirmed.");
+    expect(text).toContain("Agent run: run_support_1");
+  });
+
+  it("does not render a support replies section when no replies exist", async () => {
+    mockRequireAdminSession.mockResolvedValue("admin@example.com");
+    mockFindMany.mockResolvedValue([
+      {
+        id: "fb_open_1",
+        userId: null,
+        category: "CONTENT",
+        status: "OPEN",
+        authState: "ANONYMOUS",
+        submitterEmail: null,
+        submitterLocale: "en",
+        pageUrl: "/prompt-guide",
+        userAgent: "jest-agent",
+        pageContext: "/prompt-guide",
+        message: "A paragraph typo still appears on the lesson page.",
+        adminNotes: null,
+        triageCategory: null,
+        triageSeverity: null,
+        recommendedAction: null,
+        triageStatus: null,
+        triagedAt: null,
+        supportReplies: [],
+        createdAt: new Date("2026-05-31T06:00:00.000Z"),
+        user: null,
+      },
+    ]);
+    mockCount.mockResolvedValue(1);
+    mockGroupBy.mockResolvedValue([{ status: "OPEN", _count: { _all: 1 } }]);
+
+    const page = await AdminFeedbackPage({ searchParams: Promise.resolve({}) });
+    const text = extractText(page).replace(/\s+/g, " ").trim();
+
+    expect(text).not.toContain("Support Replies");
   });
 });
