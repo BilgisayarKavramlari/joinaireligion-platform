@@ -1,7 +1,7 @@
 # Phase 1 Task 1 Report - Agent Registry And Policy Foundation
 
 Date: 2026-05-30
-Status: Implemented locally, verified, ready to commit and deploy
+Status: Implemented locally, verified, committed, pushed, production observation incomplete due deploy instability
 
 ## Scope Completed
 
@@ -50,3 +50,16 @@ Status: Implemented locally, verified, ready to commit and deploy
 - `/admin/agents` should render the registry table
 - existing implemented agents should appear with latest `AgentRun` data where present
 - planned agents should appear as inactive with policy metadata attached
+
+## Deployment Observation
+
+- Commit pushed: `0c54c62` (`Add agent registry and policy foundation`)
+- `origin/main` updated successfully
+- Production observation window:
+  - `https://joinaireligion.com/api/health` briefly recovered to `200`
+  - `https://joinaireligion.com/admin/agents` returned `404` during one probe
+  - latest probes for `/api/health`, `/admin`, `/admin/autonomy`, and `/api/admin/agents` returned `502`
+- Conclusion at observation time:
+  - GitHub-triggered deploy was started by the push
+  - `/admin/agents` was not confirmed live in production
+  - existing agents could not be confirmed on production because the app was unstable and the authenticated admin registry endpoint was not reachable
