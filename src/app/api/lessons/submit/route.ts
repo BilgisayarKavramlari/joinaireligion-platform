@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
-import { cookies } from "next/headers";
 import { env } from "@/lib/env";
+import { enforceLearningAccess } from "@/lib/access";
 
 // Passing thresholds by level
 function passingScore(level: number): number {
@@ -53,11 +52,10 @@ Return ONLY valid JSON in this exact format:
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const access = await enforceLearningAccess();
+    if (!access.ok) return access.response;
 
-    const userId = session.userId;
+    const userId = access.user.id;
     const { lessonId, promptText } = await req.json() as { lessonId: string; promptText: string };
 
     if (!lessonId || !promptText?.trim())

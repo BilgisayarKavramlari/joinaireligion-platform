@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/auth";
 import { sendFirstLessonEmail } from "@/lib/email";
 import { cookies } from "next/headers";
+import { REQUIRED_ONBOARDING_QUESTION_KEYS } from "@/lib/i18n/onboarding-questions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,18 @@ export async function POST(req: NextRequest) {
     const { answers } = await req.json() as { answers: Record<string, string> };
     if (!answers || typeof answers !== "object")
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+
+    const missingRequiredKeys = REQUIRED_ONBOARDING_QUESTION_KEYS.filter((key) => {
+      if (key === "safety_acknowledgement") return answers[key] !== "accepted";
+      return !answers[key]?.trim();
+    });
+
+    if (missingRequiredKeys.length > 0) {
+      return NextResponse.json(
+        { error: "Missing required onboarding answers.", missingKeys: missingRequiredKeys },
+        { status: 400 }
+      );
+    }
 
     const userId = session.userId;
 

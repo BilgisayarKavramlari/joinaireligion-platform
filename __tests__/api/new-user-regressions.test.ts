@@ -45,7 +45,7 @@ const mockQueryRaw      = jest.fn();
 const mockAgentRun      = { findFirst: jest.fn() };
 const mockPracticeMsg   = { count: jest.fn() };
 const mockPracticeRes   = { count: jest.fn() };
-const mockUser          = { count: jest.fn() };
+const mockUser          = { count: jest.fn(), findUnique: jest.fn() };
 const mockJourneyState  = { count: jest.fn() };
 const mockOnboardingAnswer = { groupBy: jest.fn() };
 
@@ -175,6 +175,13 @@ describe("Fix 1 — Onboarding localization", () => {
 describe("Fix 2 — First lesson integrity (self-healing)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUser.findUnique.mockResolvedValue({
+      id: "user-test-123",
+      email: "user@test.com",
+      role: "USER",
+      emailVerifiedAt: new Date("2026-05-30T00:00:00.000Z"),
+      onboardingDone: true,
+    });
   });
 
   it("creates step1 template inline when not in DB and returns a lesson", async () => {
@@ -342,10 +349,17 @@ describe("Health — feedback_actionable signal", () => {
     mockAgentRun.findFirst.mockResolvedValue(null);
     mockPracticeMsg.count.mockResolvedValue(0);
     mockPracticeRes.count.mockResolvedValue(0);
-    mockUser.count.mockResolvedValue(5);
+    mockUser.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.onboardingDone === false) return 0;
+      return 5;
+    });
     mockJourneyState.count.mockResolvedValue(5);
     mockOnboardingAnswer.groupBy.mockResolvedValue([]);
-    mockFeedbackItem.count.mockResolvedValue(feedbackCount);
+    mockFeedbackItem.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.authState === "AUTHENTICATED" && where?.userId === null) return 0;
+      if (where?.authState === "AUTHENTICATED") return 0;
+      return feedbackCount;
+    });
   }
 
   it("returns feedback_actionable OK when fewer than 5 open BUG/TRANSLATION items", async () => {

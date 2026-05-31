@@ -341,6 +341,59 @@ async function checkFeedbackBacklog(findings: Finding[]): Promise<void> {
       : `${actionableCount} unresolved BUG/TRANSLATION feedback item(s). No action required.`,
     value: actionableCount,
   });
+
+  const [authenticatedAnonymousCount, authenticatedTotal] = await Promise.all([
+    db.feedbackItem.count({
+      where: {
+        authState: "AUTHENTICATED",
+        userId: null,
+      },
+    }),
+    db.feedbackItem.count({
+      where: {
+        authState: "AUTHENTICATED",
+      },
+    }),
+  ]);
+
+  const anonymousRate = authenticatedTotal > 0
+    ? authenticatedAnonymousCount / authenticatedTotal
+    : 0;
+
+  findings.push({
+    key: "feedback_authenticated_anonymous_rate",
+    level: authenticatedAnonymousCount >= 3 || anonymousRate >= 0.2 ? "warning" : "ok",
+    message:
+      authenticatedAnonymousCount >= 3 || anonymousRate >= 0.2
+        ? `${authenticatedAnonymousCount} authenticated feedback item(s) are missing user linkage (${Math.round(anonymousRate * 100)}% of authenticated submissions).`
+        : "Authenticated feedback submissions are linking to users within the expected range.",
+    value: authenticatedAnonymousCount,
+  });
+}
+
+async function checkOnboardingAccessIntegrity(findings: Finding[]): Promise<void> {
+  const usersBypassedOnboarding = await db.user.count({
+    where: {
+      emailVerifiedAt: { not: null },
+      onboardingDone: false,
+      role: { notIn: ["ADMIN", "SUPER_ADMIN"] },
+      OR: [
+        { userLessons: { some: {} } },
+        { practiceResponses: { some: {} } },
+        { practiceMessages: { some: {} } },
+      ],
+    },
+  });
+
+  findings.push({
+    key: "verified_not_onboarded_with_activity",
+    level: usersBypassedOnboarding > 0 ? "warning" : "ok",
+    message:
+      usersBypassedOnboarding > 0
+        ? `${usersBypassedOnboarding} verified user(s) have lesson or practice activity despite onboarding not being complete.`
+        : "No verified non-onboarded users were found with lesson or practice activity.",
+    value: usersBypassedOnboarding,
+  });
 }
 
 function checkConfig(findings: Finding[]): void {
@@ -435,6 +488,16 @@ function buildRecommendations(findings: Finding[]): {
           "Prompt users without onboarding answers to complete the onboarding flow at /onboarding."
         );
         break;
+      case "feedback_authenticated_anonymous_rate":
+        recommendedActions.push(
+          "Investigate authenticated feedback submissions that were stored without user linkage."
+        );
+        break;
+      case "verified_not_onboarded_with_activity":
+        recommendedActions.push(
+          "Audit the onboarding access guard for verified users who reached lessons or practice before onboarding completion."
+        );
+        break;
       case "config_openai_mode":
         requiresHumanApproval.push("Set OPENAI_API_KEY in the production environment to enable AI-generated practices.");
         break;
@@ -463,6 +526,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       checkXpIntegrity(findings),
       checkUserData(findings),
       checkFeedbackBacklog(findings),
+      checkOnboardingAccessIntegrity(findings),
     ]);
   }
   checkConfig(findings);

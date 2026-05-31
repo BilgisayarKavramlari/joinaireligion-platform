@@ -60,6 +60,8 @@ export function FeedbackButton() {
           category,
           message: message.trim(),
           pageContext: typeof window !== "undefined" ? window.location.pathname : undefined,
+          pageUrl: typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined,
+          locale: typeof navigator !== "undefined" ? navigator.language : undefined,
         }),
       });
       if (!res.ok) {

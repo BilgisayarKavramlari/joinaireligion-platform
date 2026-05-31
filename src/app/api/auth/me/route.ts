@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/auth";
+import { canBypassOnboarding, requiresCompletedOnboarding } from "@/lib/access";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,6 +38,8 @@ export async function GET(request: NextRequest) {
         xpTotal:        user.xpTotal,
         daysActive:     user.daysActive,
         onboardingDone: user.onboardingDone,
+        canBypassOnboarding: canBypassOnboarding(user.role),
+        requiresOnboarding: requiresCompletedOnboarding(user),
         unsubscribedAt: user.unsubscribedAt,
         preferredLocale: user.preferredLocale,
         subscription:   user.subscription

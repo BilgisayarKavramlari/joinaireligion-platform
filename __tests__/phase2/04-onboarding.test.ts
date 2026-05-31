@@ -88,6 +88,10 @@ const completeAnswers = {
   community:              "Nice to have occasionally",
   meaning_channel:        "Through direct silence or awareness",
   question:               "What is the nature of consciousness?",
+  intent:                 "Reflection — I want to turn inward and examine my life",
+  practice_style:         "Journaling — I process through writing and self-reflection",
+  sensitivity_boundaries: "No boundaries — I am open to all content",
+  email_cadence_consent:  "Weekly — I prefer one thoughtful practice each week",
   safety_acknowledgement: "accepted",
 };
 

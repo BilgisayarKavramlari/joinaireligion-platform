@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SacredPage, SacredCard, XPBar, StatBox } from "@/components/ui/SacredPage";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LEVEL_XP_THRESHOLDS } from "@/lib/journey-types";
@@ -44,13 +45,32 @@ type UserData = {
 
 export default function AccountPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.user) setUser(d.user); });
-  }, []);
+      .then((d) => {
+        if (!d?.user) {
+          router.push("/login");
+          return;
+        }
+        if (d.user.requiresOnboarding) {
+          router.push("/onboarding");
+          return;
+        }
+        setUser(d.user);
+      });
+  }, [router]);
+
+  if (!user) {
+    return (
+      <SacredPage maxWidth={900}>
+        <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>{t.common.loading}</div>
+      </SacredPage>
+    );
+  }
 
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Seeker";
   const tier        = user?.subscription?.status === "active" ? (user.subscription.plan || "Seeker") : "Free";

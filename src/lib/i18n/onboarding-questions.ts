@@ -36,6 +36,27 @@ export interface QuestionDef {
   options?: SelectOption[];
 }
 
+export const REQUIRED_ONBOARDING_QUESTION_KEYS = [
+  "tradition",
+  "relationship",
+  "draw",
+  "preferred_language",
+  "conflict",
+  "higher_power",
+  "practice",
+  "obstacle",
+  "awakening",
+  "silence",
+  "community",
+  "meaning_channel",
+  "question",
+  "intent",
+  "practice_style",
+  "sensitivity_boundaries",
+  "email_cadence_consent",
+  "safety_acknowledgement",
+] as const;
+
 // ─── Stable option values (English, saved to DB) ──────────────────────────────
 
 const OPTIONS = {

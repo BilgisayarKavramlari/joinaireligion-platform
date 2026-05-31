@@ -16,9 +16,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
 import { env } from "@/lib/env";
-import { cookies } from "next/headers";
+import { enforceLearningAccess } from "@/lib/access";
 
 const MAX_STEPS_PER_LEVEL = 12;
 
@@ -29,11 +28,10 @@ const LEVEL_LABELS = [
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const access = await enforceLearningAccess();
+    if (!access.ok) return access.response;
 
-    const userId = session.userId;
+    const userId = access.user.id;
     const { afterStepNumber } = await req.json() as { afterStepNumber?: number };
     const nextStep = (afterStepNumber ?? 0) + 1;
 

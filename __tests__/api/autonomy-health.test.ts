@@ -91,13 +91,20 @@ function setupHappyPathMocks() {
   mockPracticeMsg.count.mockResolvedValue(0);
   mockPracticeRes.count.mockResolvedValue(0);
   // Users: all have state and onboarding
-  mockUser.count.mockResolvedValue(5);
+  mockUser.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+    if (where?.onboardingDone === false) return 0;
+    return 5;
+  });
   mockJourneyState.count.mockResolvedValue(5);
   mockOnboardingAnswer.groupBy.mockResolvedValue(
     Array.from({ length: 5 }, (_, i) => ({ userId: `u${i}` }))
   );
   // Feedback: no actionable items
-  mockFeedbackItem.count.mockResolvedValue(0);
+  mockFeedbackItem.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+    if (where?.authState === "AUTHENTICATED" && where?.userId === null) return 0;
+    if (where?.authState === "AUTHENTICATED") return 0;
+    return 0;
+  });
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -151,10 +158,17 @@ describe("GET /api/admin/autonomy/health", () => {
     });
     mockPracticeMsg.count.mockResolvedValue(0);
     mockPracticeRes.count.mockResolvedValue(0);
-    mockUser.count.mockResolvedValue(2);
+    mockUser.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.onboardingDone === false) return 0;
+      return 2;
+    });
     mockJourneyState.count.mockResolvedValue(2);
     mockOnboardingAnswer.groupBy.mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]);
-    mockFeedbackItem.count.mockResolvedValue(0);
+    mockFeedbackItem.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.authState === "AUTHENTICATED" && where?.userId === null) return 0;
+      if (where?.authState === "AUTHENTICATED") return 0;
+      return 0;
+    });
 
     const { status, body } = await callHealth();
 
@@ -177,10 +191,17 @@ describe("GET /api/admin/autonomy/health", () => {
     });
     mockPracticeMsg.count.mockResolvedValue(0);
     mockPracticeRes.count.mockResolvedValue(0);
-    mockUser.count.mockResolvedValue(1);
+    mockUser.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.onboardingDone === false) return 0;
+      return 1;
+    });
     mockJourneyState.count.mockResolvedValue(1);
     mockOnboardingAnswer.groupBy.mockResolvedValue([{ userId: "u1" }]);
-    mockFeedbackItem.count.mockResolvedValue(0);
+    mockFeedbackItem.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.authState === "AUTHENTICATED" && where?.userId === null) return 0;
+      if (where?.authState === "AUTHENTICATED") return 0;
+      return 0;
+    });
 
     const { body } = await callHealth();
 
@@ -199,10 +220,17 @@ describe("GET /api/admin/autonomy/health", () => {
     });
     mockPracticeMsg.count.mockResolvedValue(0);
     mockPracticeRes.count.mockResolvedValue(0);
-    mockUser.count.mockResolvedValue(2);
+    mockUser.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.onboardingDone === false) return 0;
+      return 2;
+    });
     mockJourneyState.count.mockResolvedValue(2);
     mockOnboardingAnswer.groupBy.mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]);
-    mockFeedbackItem.count.mockResolvedValue(0);
+    mockFeedbackItem.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.authState === "AUTHENTICATED" && where?.userId === null) return 0;
+      if (where?.authState === "AUTHENTICATED") return 0;
+      return 0;
+    });
 
     const { status, body } = await callHealth();
 
@@ -219,7 +247,10 @@ describe("GET /api/admin/autonomy/health", () => {
   it("users without UserJourneyState → WARNING finding + safeAutoFixActions", async () => {
     setupHappyPathMocks();
     // Override: 5 users but only 3 have journey state
-    mockUser.count.mockResolvedValue(5);
+    mockUser.count.mockImplementation(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+      if (where?.onboardingDone === false) return 0;
+      return 5;
+    });
     mockJourneyState.count.mockResolvedValue(3);
 
     const { body } = await callHealth();

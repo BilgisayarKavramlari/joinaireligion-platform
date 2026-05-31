@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/auth";
-import { FeedbackCategory } from "@prisma/client";
+import { FeedbackAuthState, FeedbackCategory } from "@prisma/client";
 
 const VALID_CATEGORIES = Object.values(FeedbackCategory);
 
@@ -25,6 +25,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       category?: string;
       message?: string;
       pageContext?: string;
+      pageUrl?: string;
+      locale?: string;
     };
 
     // Validate category
@@ -49,13 +51,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const cookieStore = await cookies();
     const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
     const userId = session?.userId ?? null;
+    const authState = userId ? FeedbackAuthState.AUTHENTICATED : FeedbackAuthState.ANONYMOUS;
+    const locale = (body.locale ?? request.headers.get("accept-language")?.split(",")[0]?.split("-")[0] ?? "").slice(0, 16) || null;
+    const pageUrl = (body.pageUrl ?? body.pageContext ?? "").slice(0, 500) || null;
+    const userAgent = request.headers.get("user-agent")?.slice(0, 500) ?? null;
 
     const item = await db.feedbackItem.create({
       data: {
         userId,
         category,
         message,
-        pageContext: (body.pageContext ?? "").slice(0, 500) || null,
+        authState,
+        submitterEmail: session?.email?.slice(0, 320) ?? null,
+        submitterLocale: locale,
+        pageUrl,
+        pageContext: pageUrl,
+        userAgent,
       },
     });
 

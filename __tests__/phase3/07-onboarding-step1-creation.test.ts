@@ -72,7 +72,19 @@ const fullAnswers = {
   relationship:           "Curious but not yet committed",
   preferred_language:     "tr",
   draw:                   "Seeking inner peace.",
-  practice:               "Daily meditation",
+  conflict:               "Seek solitude and reflect",
+  higher_power:           "A quiet universal presence.",
+  practice:               "Daily meditation or contemplation",
+  obstacle:               "Restlessness.",
+  awakening:              "Learning to remain awake to the present moment.",
+  silence:                "Somewhat comfortable",
+  community:              "Nice to have occasionally",
+  meaning_channel:        "Through direct silence or awareness",
+  question:               "What is truly essential?",
+  intent:                 "Reflection — I want to turn inward and examine my life",
+  practice_style:         "Journaling — I process through writing and self-reflection",
+  sensitivity_boundaries: "No boundaries — I am open to all content",
+  email_cadence_consent:  "Weekly — I prefer one thoughtful practice each week",
   safety_acknowledgement: "accepted",
 };
 
@@ -163,16 +175,12 @@ describe("POST /api/onboarding/save (Phase 3 — eager Step 1 creation)", () => 
     expect(localeCall[0].data.preferredLocale).toBe("tr");
   });
 
-  it("skips locale update when preferred_language is missing", async () => {
+  it("returns 400 when preferred_language is missing", async () => {
     const noLang = { ...fullAnswers };
     delete (noLang as Partial<typeof fullAnswers>).preferred_language;
     const req = authRequest({ answers: noLang });
-    await POST(req as any);
-    const allCalls = (mockDb.user.update as jest.Mock).mock.calls;
-    const localeCall = allCalls.find((c: { data?: { preferredLocale?: string } }[]) =>
-      c[0]?.data?.preferredLocale,
-    );
-    expect(localeCall).toBeUndefined();
+    const res = await POST(req as any);
+    expect(res.status).toBe(400);
   });
 
   // ─── Existing Phase 2 tests still pass ───────────────────────────────────────

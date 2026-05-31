@@ -27,19 +27,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
+import { enforceLearningAccess } from "@/lib/access";
 
 const MAX_RESPONSE_LENGTH = 3000;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // ── Auth ────────────────────────────────────────────────────────────────────
-  const cookieStore = await cookies();
-  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await enforceLearningAccess();
+  if (!access.ok) return access.response;
 
   // ── Parse body ──────────────────────────────────────────────────────────────
   let body: unknown;
@@ -87,7 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Practice message not found" }, { status: 404 });
   }
 
-  if (message.userId !== session.userId) {
+  if (message.userId !== access.user.id) {
     return NextResponse.json(
       { error: "You do not have permission to respond to this message" },
       { status: 403 }
@@ -98,7 +93,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const existing = await db.practiceResponse.findUnique({
     where: {
       userId_practiceMessageId: {
-        userId: session.userId,
+        userId: access.user.id,
         practiceMessageId: messageId,
       },
     },
@@ -117,7 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Scoring is handled by a separate agent run.
   const response = await db.practiceResponse.create({
     data: {
-      userId: session.userId,
+      userId: access.user.id,
       practiceMessageId: messageId,
       responseText: trimmed,
       score: null,

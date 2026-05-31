@@ -56,8 +56,18 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
 
   useEffect(() => {
     fetch(`/api/lessons/${id}`)
-      .then((r) => r.ok ? r.json() : null)
+      .then(async (r) => {
+        if (r.status === 403) {
+          const blocked = await r.json().catch(() => null);
+          if (blocked?.next) {
+            router.push(blocked.next);
+            return null;
+          }
+        }
+        return r.ok ? r.json() : null;
+      })
       .then((d) => {
+        if (d === undefined) return;
         if (!d) { router.push("/lessons"); return; }
         setLesson(d);
         if (d.lastAttempt) setResult(d.lastAttempt);

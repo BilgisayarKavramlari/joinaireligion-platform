@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
-import { cookies } from "next/headers";
 import { STEP1_LESSON } from "@/lib/lesson-defaults";
+import { enforceLearningAccess } from "@/lib/access";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const access = await enforceLearningAccess();
+    if (!access.ok) return access.response;
 
-    const userId = session.userId;
+    const userId = access.user.id;
 
     // Get user's existing UserLessons with lesson data
     const userLessons = await db.userLesson.findMany({

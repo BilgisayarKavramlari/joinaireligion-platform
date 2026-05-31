@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin";
 import { db } from "@/lib/db";
-import { FeedbackCategory, FeedbackStatus } from "@prisma/client";
+import { FeedbackAuthState, FeedbackCategory, FeedbackStatus } from "@prisma/client";
 
 // ─── Status update action ──────────────────────────────────────────────────────
 
@@ -45,6 +45,11 @@ const STATUS_COLORS: Record<FeedbackStatus, string> = {
   WONT_FIX:    "#6b7280",
 };
 
+const AUTH_STATE_COLORS: Record<FeedbackAuthState, string> = {
+  AUTHENTICATED: "#14b8a6",
+  ANONYMOUS: "#94a3b8",
+};
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 interface PageProps {
@@ -68,7 +73,7 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
   const [items, total] = await Promise.all([
     db.feedbackItem.findMany({
       where,
-      include: { user: { select: { email: true, displayName: true } } },
+      include: { user: { select: { email: true, displayName: true, role: true } } },
       orderBy: { createdAt: "desc" },
       skip:  (page - 1) * pageSize,
       take:  pageSize,
@@ -170,19 +175,40 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
               </span>
               <span style={{ fontSize: "0.68rem", color: "rgba(237,232,220,0.3)", marginLeft: "auto" }}>
                 {item.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC
-                {item.user?.email ? ` · ${item.user.displayName ?? item.user.email}` : " · anonymous"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.7rem" }}>
+              <span style={{
+                padding:      "0.2rem 0.6rem",
+                borderRadius: "0.3rem",
+                fontSize:     "0.68rem",
+                background:   `${AUTH_STATE_COLORS[item.authState]}15`,
+                color:        AUTH_STATE_COLORS[item.authState],
+                border:       `1px solid ${AUTH_STATE_COLORS[item.authState]}40`,
+              }}>
+                {item.authState === "AUTHENTICATED" ? "authenticated session" : "anonymous session"}
+              </span>
+              <span style={{ fontSize: "0.72rem", color: "rgba(237,232,220,0.55)" }}>
+                {item.user?.email
+                  ? `Linked user: ${item.user.displayName ?? item.user.email}${item.user.role !== "USER" ? ` · ${item.user.role}` : ""}`
+                  : item.submitterEmail
+                  ? `Submitted as: ${item.submitterEmail}`
+                  : "No linked user"}
               </span>
             </div>
 
             {/* Message */}
-            <p style={{ fontSize: "0.84rem", color: "rgba(237,232,220,0.8)", lineHeight: 1.6, marginBottom: item.pageContext ? "0.4rem" : "0.8rem" }}>
+            <p style={{ fontSize: "0.84rem", color: "rgba(237,232,220,0.8)", lineHeight: 1.6, marginBottom: item.pageUrl || item.submitterLocale || item.userAgent ? "0.4rem" : "0.8rem" }}>
               {item.message}
             </p>
 
-            {item.pageContext && (
-              <p style={{ fontSize: "0.68rem", color: "rgba(237,232,220,0.3)", marginBottom: "0.8rem" }}>
-                Page: {item.pageContext}
-              </p>
+            {(item.pageUrl || item.submitterLocale || item.userAgent) && (
+              <div style={{ fontSize: "0.68rem", color: "rgba(237,232,220,0.3)", marginBottom: "0.8rem", display: "grid", gap: "0.2rem" }}>
+                {item.pageUrl && <p>Page: {item.pageUrl}</p>}
+                {item.submitterLocale && <p>Locale: {item.submitterLocale}</p>}
+                {item.userAgent && <p>User agent: {item.userAgent}</p>}
+              </div>
             )}
 
             {item.adminNotes && (

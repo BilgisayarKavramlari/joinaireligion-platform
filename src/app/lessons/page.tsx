@@ -44,15 +44,26 @@ export default function LessonsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/auth/me").then((r) => r.ok ? r.json() : null),
-      fetch("/api/lessons").then((r) => r.ok ? r.json() : null),
-    ]).then(([me, ls]) => {
-      if (!me?.user) { router.push("/login"); return; }
-      setUser({ currentLevel: me.user.currentLevel, xpTotal: me.user.xpTotal, displayName: me.user.displayName });
-      setLessons(ls?.lessons || []);
-      setLoading(false);
-    });
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then(async (me) => {
+        if (!me?.user) { router.push("/login"); return; }
+        if (me.user.requiresOnboarding) { router.push("/onboarding"); return; }
+
+        const lessonsResponse = await fetch("/api/lessons");
+        if (lessonsResponse.status === 403) {
+          const blocked = await lessonsResponse.json().catch(() => null);
+          if (blocked?.next) {
+            router.push(blocked.next);
+            return;
+          }
+        }
+
+        const ls = lessonsResponse.ok ? await lessonsResponse.json() : null;
+        setUser({ currentLevel: me.user.currentLevel, xpTotal: me.user.xpTotal, displayName: me.user.displayName });
+        setLessons(ls?.lessons || []);
+        setLoading(false);
+      });
   }, [router]);
 
   if (loading) return (

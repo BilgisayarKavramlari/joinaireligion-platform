@@ -170,6 +170,11 @@ export default function PracticePage({
           return;
         }
         if (res.status === 403) {
+          const blocked = await res.json().catch(() => null);
+          if (blocked?.code === "ONBOARDING_REQUIRED" && blocked?.next) {
+            window.location.href = blocked.next;
+            return;
+          }
           setState({ status: "forbidden" });
           return;
         }

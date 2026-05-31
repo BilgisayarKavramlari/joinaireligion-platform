@@ -586,24 +586,35 @@ enum FeedbackStatus {
   WONT_FIX
 }
 
+enum FeedbackAuthState {
+  AUTHENTICATED
+  ANONYMOUS
+}
+
 /// User-submitted feedback items (bugs, translations, content issues, etc.)
 /// Visible in admin and surfaced to the autonomy system for task generation.
 model FeedbackItem {
-  id          String           @id @default(cuid())
+  id             String            @id @default(cuid())
   /// Null when submitted anonymously (not yet implemented) or user is deleted.
-  userId      String?
-  category    FeedbackCategory
-  status      FeedbackStatus   @default(OPEN)
+  userId         String?
+  category       FeedbackCategory
+  status         FeedbackStatus    @default(OPEN)
+  authState      FeedbackAuthState @default(ANONYMOUS)
+  submitterEmail String?
+  submitterLocale String?
+  pageUrl        String?
+  userAgent      String?
   /// The URL or page path the user was on when submitting feedback.
   pageContext  String?
   /// Free-text message from the user.
-  message     String
+  message        String
   /// Admin-written notes or resolution summary.
-  adminNotes  String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  adminNotes     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([status, category, createdAt])
   @@index([userId, createdAt])
+  @@index([authState, createdAt])
 }

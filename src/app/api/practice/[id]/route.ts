@@ -12,20 +12,15 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
+import { enforceLearningAccess } from "@/lib/access";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  // ── Auth ────────────────────────────────────────────────────────────────────
-  const cookieStore = await cookies();
-  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await enforceLearningAccess();
+  if (!access.ok) return access.response;
 
   const { id } = await params;
 
@@ -53,7 +48,7 @@ export async function GET(
   }
 
   // ── Ownership ───────────────────────────────────────────────────────────────
-  if (message.userId !== session.userId) {
+  if (message.userId !== access.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -61,7 +56,7 @@ export async function GET(
   const existingResponse = await db.practiceResponse.findUnique({
     where: {
       userId_practiceMessageId: {
-        userId: session.userId,
+        userId: access.user.id,
         practiceMessageId: id,
       },
     },

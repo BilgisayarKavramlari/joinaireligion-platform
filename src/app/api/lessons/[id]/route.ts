@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { enforceLearningAccess } from "@/lib/access";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const access = await enforceLearningAccess();
+    if (!access.ok) return access.response;
 
-    const userId = session.userId;
+    const userId = access.user.id;
 
     const lesson = await db.lesson.findUnique({ where: { id } });
     if (!lesson) return NextResponse.json({ error: "Not found" }, { status: 404 });
