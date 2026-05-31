@@ -3,6 +3,9 @@ export const dynamic = "force-dynamic";
 import {
   AgentRunStatus,
   FeedbackStatus,
+  SupportReplyAuthorType,
+  SupportReplyStatus,
+  SupportReplyVisibility,
   SupportTriageStatus,
 } from "@prisma/client";
 
@@ -21,6 +24,12 @@ import { env } from "@/lib/env";
 const AGENT_NAME = "support-triage";
 const TASK_TYPE = "SUPPORT_TRIAGE_ANALYSIS";
 const SAMPLE_RESULT_LIMIT = 5;
+const HIGH_RISK_REPLY_PATTERNS = [
+  /\b(?:refund|chargeback|charged twice|billing|payment|invoice)\b/i,
+  /\b(?:hack|hacked|breach|compromised|unauthorized access|security|privacy)\b/i,
+  /\b(?:lawsuit|legal|policy|compliance|gdpr|delete my data|delete my account)\b/i,
+  /\b(?:press|public review|reputation|scam|fraud)\b/i,
+];
 
 type CategoryCounts = Record<SupportTicketCategory, number>;
 type SeverityCounts = Record<SupportTicketSeverity, number>;
@@ -28,6 +37,7 @@ type ActionCounts = Record<SupportTicketRecommendedAction, number>;
 
 type AnalysisResult = {
   id: string;
+  message: string;
   category: SupportTicketCategory;
   severity: SupportTicketSeverity;
   recommendedAction: SupportTicketRecommendedAction;
@@ -63,6 +73,39 @@ function createActionCounts(): ActionCounts {
     MARK_SPAM: 0,
     MONITOR: 0,
   };
+}
+
+function isHighRiskForReplyDraft(
+  message: string,
+  category: SupportTicketCategory,
+  severity: SupportTicketSeverity
+): boolean {
+  if (severity === "CRITICAL") return true;
+  if (category === "BILLING" || category === "ACCOUNT" || category === "SPAM" || category === "OTHER") {
+    return true;
+  }
+  return HIGH_RISK_REPLY_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+function shouldCreateAdminOnlyDraft(result: AnalysisResult): boolean {
+  if (result.recommendedAction !== "AUTO_REPLY_DRAFT") return false;
+  if (isHighRiskForReplyDraft(result.message, result.category, result.severity)) return false;
+  return true;
+}
+
+function createDeterministicReplyDraftBody(result: AnalysisResult): string {
+  const topic =
+    result.category === "I18N"
+      ? "the translation issue"
+      : result.category === "CONTENT"
+      ? "the content issue"
+      : result.category === "UX"
+      ? "the navigation or experience issue"
+      : result.category === "BUG"
+      ? "the technical issue"
+      : "your message";
+
+  return `Thank you for reaching out. We have received ${topic} you reported, and our team is reviewing it carefully. We will share an update here once we have a confirmed next step.`;
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -102,6 +145,7 @@ export async function POST(request: Request): Promise<Response> {
     const categoryCounts = createCategoryCounts();
     const severityCounts = createSeverityCounts();
     const actionCounts = createActionCounts();
+    let repliesDrafted = 0;
 
     const analysisResults = openFeedbackItems.map((item): AnalysisResult => {
       const category = classifySupportTicket(item.message);
@@ -118,13 +162,21 @@ export async function POST(request: Request): Promise<Response> {
 
       return {
         id: item.id,
+        message: item.message,
         category,
         severity,
         recommendedAction,
       };
     });
     const analyzedCount = analysisResults.length;
-    const sampleResults = analysisResults.slice(0, SAMPLE_RESULT_LIMIT);
+    const sampleResults = analysisResults
+      .slice(0, SAMPLE_RESULT_LIMIT)
+      .map(({ id, category, severity, recommendedAction }) => ({
+        id,
+        category,
+        severity,
+        recommendedAction,
+      }));
 
     for (const result of analysisResults) {
       const decision = await db.supportTriageDecision.create({
@@ -159,6 +211,34 @@ export async function POST(request: Request): Promise<Response> {
           latestTriageDecisionId: decision.id,
         },
       });
+
+      if (shouldCreateAdminOnlyDraft(result)) {
+        const existingDraft = await db.supportReply.findFirst({
+          where: {
+            feedbackItemId: result.id,
+            authorType: SupportReplyAuthorType.SUPPORT_AGENT,
+            visibility: SupportReplyVisibility.ADMIN_ONLY,
+            status: SupportReplyStatus.DRAFT,
+          },
+          select: { id: true },
+        });
+
+        if (!existingDraft) {
+          await db.supportReply.create({
+            data: {
+              feedbackItemId: result.id,
+              authorType: SupportReplyAuthorType.SUPPORT_AGENT,
+              visibility: SupportReplyVisibility.ADMIN_ONLY,
+              status: SupportReplyStatus.DRAFT,
+              body: createDeterministicReplyDraftBody(result),
+              rationaleSummary:
+                "Deterministic low-risk support draft created for admin review before any user-visible response.",
+              agentRunId: agentRun.id,
+            },
+          });
+          repliesDrafted += 1;
+        }
+      }
     }
 
     const completedAt = new Date();
@@ -175,7 +255,7 @@ export async function POST(request: Request): Promise<Response> {
           severityCounts,
           actionCounts,
           sampleResults,
-          repliesDrafted: 0,
+          repliesDrafted,
           repliesSent: 0,
           codingTasksCreated: 0,
         },

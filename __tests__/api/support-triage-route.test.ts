@@ -5,6 +5,8 @@ const mockAgentRunUpdate = jest.fn();
 const mockFeedbackItemFindMany = jest.fn();
 const mockFeedbackItemUpdate = jest.fn();
 const mockSupportTriageDecisionCreate = jest.fn();
+const mockSupportReplyFindFirst = jest.fn();
+const mockSupportReplyCreate = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
@@ -18,6 +20,10 @@ jest.mock("@/lib/db", () => ({
     },
     supportTriageDecision: {
       create: (...args: unknown[]) => mockSupportTriageDecisionCreate(...args),
+    },
+    supportReply: {
+      findFirst: (...args: unknown[]) => mockSupportReplyFindFirst(...args),
+      create: (...args: unknown[]) => mockSupportReplyCreate(...args),
     },
   },
 }));
@@ -45,10 +51,14 @@ describe("POST /api/cron/support-triage", () => {
     mockFeedbackItemFindMany.mockReset();
     mockFeedbackItemUpdate.mockReset();
     mockSupportTriageDecisionCreate.mockReset();
+    mockSupportReplyFindFirst.mockReset();
+    mockSupportReplyCreate.mockReset();
 
     mockAgentRunCreate.mockResolvedValue({ id: "run_support_001" });
     mockAgentRunUpdate.mockResolvedValue({});
     mockFeedbackItemUpdate.mockResolvedValue({});
+    mockSupportReplyFindFirst.mockResolvedValue(null);
+    mockSupportReplyCreate.mockResolvedValue({ id: "reply_001" });
     mockFeedbackItemFindMany.mockResolvedValue([
       { id: "fb_1", message: "I was charged twice and need a refund." },
       { id: "fb_2", message: "The onboarding is still in English." },
@@ -134,6 +144,7 @@ describe("POST /api/cron/support-triage", () => {
     expect(body.openFeedbackCount).toBe(4);
     expect(body.analyzedCount).toBe(4);
     expect(body.sampleResults).toHaveLength(4);
+    expect(mockSupportReplyCreate).not.toHaveBeenCalled();
     expect(body.sampleResults[0]).toEqual({
       id: "fb_1",
       category: "BILLING",
@@ -179,6 +190,67 @@ describe("POST /api/cron/support-triage", () => {
       })
     );
     expect(updateCall.data).not.toHaveProperty("status");
+  });
+
+  it("creates one ADMIN_ONLY DRAFT reply for eligible low-risk feedback", async () => {
+    mockFeedbackItemFindMany.mockResolvedValueOnce([
+      { id: "fb_low_risk", message: "The navigation is confusing on the lesson page." },
+    ]);
+
+    await POST(makeRequest("test-cron-secret"));
+
+    expect(mockSupportReplyFindFirst).toHaveBeenCalledWith({
+      where: {
+        feedbackItemId: "fb_low_risk",
+        authorType: "SUPPORT_AGENT",
+        visibility: "ADMIN_ONLY",
+        status: "DRAFT",
+      },
+      select: { id: true },
+    });
+    expect(mockSupportReplyCreate).toHaveBeenCalledWith({
+      data: {
+        feedbackItemId: "fb_low_risk",
+        authorType: "SUPPORT_AGENT",
+        visibility: "ADMIN_ONLY",
+        status: "DRAFT",
+        body: "Thank you for reaching out. We have received the navigation or experience issue you reported, and our team is reviewing it carefully. We will share an update here once we have a confirmed next step.",
+        rationaleSummary:
+          "Deterministic low-risk support draft created for admin review before any user-visible response.",
+        agentRunId: "run_support_001",
+      },
+    });
+  });
+
+  it("does not create a duplicate active draft when one already exists", async () => {
+    mockFeedbackItemFindMany.mockResolvedValueOnce([
+      { id: "fb_low_risk", message: "The navigation is confusing on the lesson page." },
+    ]);
+    mockSupportReplyFindFirst.mockResolvedValueOnce({ id: "reply_existing_1" });
+
+    await POST(makeRequest("test-cron-secret"));
+
+    expect(mockSupportReplyCreate).not.toHaveBeenCalled();
+    expect(mockAgentRunUpdate).toHaveBeenCalledWith({
+      where: { id: "run_support_001" },
+      data: expect.objectContaining({
+        output: expect.objectContaining({
+          repliesDrafted: 0,
+        }),
+      }),
+    });
+  });
+
+  it("does not create drafts for high-risk feedback and leaves FeedbackItem.status unchanged", async () => {
+    await POST(makeRequest("test-cron-secret"));
+
+    const replyCreateFeedbackIds = mockSupportReplyCreate.mock.calls.map((call) => call[0].data.feedbackItemId);
+    expect(replyCreateFeedbackIds).not.toContain("fb_1");
+    expect(replyCreateFeedbackIds).not.toContain("fb_3");
+    expect(replyCreateFeedbackIds).not.toContain("fb_4");
+    for (const call of mockFeedbackItemUpdate.mock.calls) {
+      expect(call[0].data).not.toHaveProperty("status");
+    }
   });
 
   it("reads only OPEN feedback items and limits sample results to safe ids plus classifications", async () => {
