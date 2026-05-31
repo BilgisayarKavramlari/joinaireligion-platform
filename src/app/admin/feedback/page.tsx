@@ -9,6 +9,7 @@
 
 export const dynamic = "force-dynamic";
 
+import React from "react";
 import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin";
 import { db } from "@/lib/db";
@@ -50,6 +51,113 @@ const AUTH_STATE_COLORS: Record<FeedbackAuthState, string> = {
   ANONYMOUS: "#94a3b8",
 };
 
+const FEEDBACK_USER_SELECT = { email: true, displayName: true, role: true } as const;
+
+const FEEDBACK_FULL_SELECT = {
+  id: true,
+  userId: true,
+  category: true,
+  status: true,
+  authState: true,
+  submitterEmail: true,
+  submitterLocale: true,
+  pageUrl: true,
+  userAgent: true,
+  pageContext: true,
+  message: true,
+  adminNotes: true,
+  createdAt: true,
+  user: { select: FEEDBACK_USER_SELECT },
+} as const;
+
+const FEEDBACK_LEGACY_SELECT = {
+  id: true,
+  userId: true,
+  category: true,
+  status: true,
+  pageContext: true,
+  message: true,
+  adminNotes: true,
+  createdAt: true,
+  user: { select: FEEDBACK_USER_SELECT },
+} as const;
+
+type FeedbackListItem = {
+  id: string;
+  userId: string | null;
+  category: FeedbackCategory;
+  status: FeedbackStatus;
+  authState: FeedbackAuthState;
+  submitterEmail: string | null;
+  submitterLocale: string | null;
+  pageUrl: string | null;
+  userAgent: string | null;
+  pageContext: string | null;
+  message: string;
+  adminNotes: string | null;
+  createdAt: Date;
+  user: {
+    email: string;
+    displayName: string | null;
+    role: string;
+  } | null;
+};
+
+async function loadFeedbackItems(args: {
+  where: Record<string, unknown>;
+  page: number;
+  pageSize: number;
+}): Promise<{ items: FeedbackListItem[]; compatibilityMode: boolean }> {
+  const queryArgs = {
+    where: args.where,
+    orderBy: { createdAt: "desc" as const },
+    skip: (args.page - 1) * args.pageSize,
+    take: args.pageSize,
+  };
+
+  try {
+    const items = await db.feedbackItem.findMany({
+      ...queryArgs,
+      select: FEEDBACK_FULL_SELECT,
+    });
+
+    return {
+      compatibilityMode: false,
+      items: items.map((item) => ({
+        ...item,
+        authState: item.authState ?? (item.userId ? FeedbackAuthState.AUTHENTICATED : FeedbackAuthState.ANONYMOUS),
+        submitterEmail: item.submitterEmail ?? null,
+        submitterLocale: item.submitterLocale ?? null,
+        pageUrl: item.pageUrl ?? item.pageContext ?? null,
+        userAgent: item.userAgent ?? null,
+        pageContext: item.pageContext ?? null,
+        adminNotes: item.adminNotes ?? null,
+      })),
+    };
+  } catch (error) {
+    console.warn("admin_feedback_legacy_query_fallback", error);
+
+    const legacyItems = await db.feedbackItem.findMany({
+      ...queryArgs,
+      select: FEEDBACK_LEGACY_SELECT,
+    });
+
+    return {
+      compatibilityMode: true,
+      items: legacyItems.map((item) => ({
+        ...item,
+        authState: item.userId ? FeedbackAuthState.AUTHENTICATED : FeedbackAuthState.ANONYMOUS,
+        submitterEmail: item.user?.email ?? null,
+        submitterLocale: null,
+        pageUrl: item.pageContext ?? null,
+        userAgent: null,
+        pageContext: item.pageContext ?? null,
+        adminNotes: item.adminNotes ?? null,
+      })),
+    };
+  }
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 interface PageProps {
@@ -74,14 +182,8 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
     ...(filterStat ? { status:   filterStat  } : {}),
   };
 
-  const [items, total] = await Promise.all([
-    db.feedbackItem.findMany({
-      where,
-      include: { user: { select: { email: true, displayName: true, role: true } } },
-      orderBy: { createdAt: "desc" },
-      skip:  (page - 1) * pageSize,
-      take:  pageSize,
-    }),
+  const [{ items, compatibilityMode }, total] = await Promise.all([
+    loadFeedbackItems({ where, page, pageSize }),
     db.feedbackItem.count({ where }),
   ]);
 
@@ -108,6 +210,11 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
         <p style={{ fontSize: "0.82rem", color: "rgba(237,232,220,0.45)" }}>
           {total} total submissions
         </p>
+        {compatibilityMode && (
+          <p style={{ marginTop: "0.6rem", fontSize: "0.72rem", color: "#f0d47a" }}>
+            Compatibility mode active: rendering feedback with legacy-safe fields while newer metadata columns are unavailable.
+          </p>
+        )}
       </div>
 
       {/* Status summary tabs */}

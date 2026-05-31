@@ -6,18 +6,22 @@ Production blocker follow-up for `/admin/feedback` returning `500` after Task 2 
 
 ## Root Cause
 
-The `/admin/feedback` page did not match the auth-handling pattern already used by other admin surfaces like `/admin`, `/admin/agents`, `/admin/autonomy`, and `/admin/lessons`.
+Two small production-safe risks were identified in `/admin/feedback`:
+
+1. The page did not match the auth-handling pattern already used by other admin surfaces like `/admin`, `/admin/agents`, `/admin/autonomy`, and `/admin/lessons`.
+2. The page queried the new Task 2 feedback metadata fields directly, which could still fail if production were temporarily serving an older feedback table shape during rollout.
 
 - `requireAdminSession()` threw on missing or non-admin session
 - `/admin/feedback` did not catch that error and redirect
-- unauthenticated requests therefore surfaced as a server error instead of a protected-route redirect
+- the page also assumed the new metadata columns were queryable immediately
 
-This was not caused by the new feedback ownership fields themselves. The added ownership/metadata fields are nullable/optional where needed and remain compatible with existing feedback rows in code.
+The new feedback ownership fields themselves are still compatible with existing feedback rows because they were added as nullable/optional in code. The compatibility risk is query-time schema drift during rollout, not old row contents.
 
 ## Fix
 
 - wrapped `requireAdminSession()` in `/admin/feedback` with the same redirect-to-`/admin/login` behavior used by the other admin pages
-- added a focused regression test to ensure anonymous visits redirect instead of throwing a `500`
+- added a legacy-safe query fallback so the page can still render older feedback rows when the newer metadata columns are temporarily unavailable
+- added focused regression tests for anonymous redirect and legacy-column fallback behavior
 
 ## Verification
 
@@ -41,4 +45,4 @@ Observed after pushing commit `1f750be` to `main`:
 - `https://joinaireligion.com/admin/agents` returned `307` to `/admin/login`
 - `https://joinaireligion.com/admin/feedback` still returned `500`
 
-That means the code fix is committed and pushed, but the public production surface had not yet reflected the expected redirect behavior at observation time. The remaining blocker is now deployment-state verification or a separate production-only issue beyond the anonymous auth redirect path.
+That meant the first code fix was committed and pushed, but the public production surface had not yet reflected the expected redirect behavior at observation time. A compatibility fallback was then added for the second plausible production-only failure mode: querying newer feedback metadata columns before the production table shape fully matched.
