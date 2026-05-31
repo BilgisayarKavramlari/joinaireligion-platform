@@ -32,3 +32,13 @@ This was not caused by the new feedback ownership fields themselves. The added o
 - `/admin/feedback` should redirect to `/admin/login` when unauthenticated, or render normally for an authenticated admin session
 - logged-in feedback ownership code remains intact
 - onboarding guard code remains intact
+
+## Post-Push Observation
+
+Observed after pushing commit `1f750be` to `main`:
+
+- `https://joinaireligion.com/api/health` returned `200`
+- `https://joinaireligion.com/admin/agents` returned `307` to `/admin/login`
+- `https://joinaireligion.com/admin/feedback` still returned `500`
+
+That means the code fix is committed and pushed, but the public production surface had not yet reflected the expected redirect behavior at observation time. The remaining blocker is now deployment-state verification or a separate production-only issue beyond the anonymous auth redirect path.
