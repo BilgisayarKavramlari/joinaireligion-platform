@@ -150,6 +150,7 @@ describe("AdminFeedbackPage", () => {
     expect(text).toContain("We can help investigate your billing issue before sending anything to the user.");
     expect(text).toContain("Rationale: Hold for admin review until billing risk is confirmed.");
     expect(text).toContain("Agent run: run_support_1");
+    expect(text).toContain("Publish to user");
   });
 
   it("does not render a support replies section when no replies exist", async () => {

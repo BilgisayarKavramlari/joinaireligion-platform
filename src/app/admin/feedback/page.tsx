@@ -295,6 +295,7 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
   ) as Partial<Record<FeedbackStatus, number>>;
 
   const totalPages = Math.ceil(total / pageSize);
+  const returnTo = `/admin/feedback?page=${page}${filterCat ? `&category=${filterCat}` : ""}${filterStat ? `&status=${filterStat}` : ""}`;
 
   return (
     <div style={{ padding: "2rem", maxWidth: 1100, margin: "0 auto" }}>
@@ -512,6 +513,29 @@ export default async function AdminFeedbackPage({ searchParams }: PageProps) {
                           {reply.rationaleSummary && <p>Rationale: {reply.rationaleSummary}</p>}
                           {reply.agentRunId && <p>Agent run: {reply.agentRunId}</p>}
                         </div>
+                      )}
+                      {reply.visibility === "ADMIN_ONLY" && reply.status === "DRAFT" && (
+                        <form
+                          method="post"
+                          action={`/api/admin/support-replies/${reply.id}/approve`}
+                          style={{ marginTop: "0.55rem", display: "flex", justifyContent: "flex-end" }}
+                        >
+                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <button
+                            type="submit"
+                            style={{
+                              padding: "0.35rem 0.85rem",
+                              borderRadius: "0.45rem",
+                              border: "1px solid rgba(20,184,166,0.32)",
+                              background: "rgba(20,184,166,0.1)",
+                              color: "#8ee3d4",
+                              fontSize: "0.72rem",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Publish to user
+                          </button>
+                        </form>
                       )}
                     </div>
                   ))}
