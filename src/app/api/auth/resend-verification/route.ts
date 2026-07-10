@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createVerification } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const { email } = await request.json();
-  const user = email ? await db.user.findUnique({ where: { email } }) : null;
-  if (!user) return NextResponse.json({ ok: true });
-  if (user.emailVerifiedAt) return NextResponse.json({ ok: true, alreadyVerified: true });
-  const token = await createVerification(email);
-  const emailResult = await sendVerificationEmail(email, token, user.id);
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const ipLimit = checkRateLimit(`auth:resend:ip:${getClientIp(request)}`, { limit: 6, windowMs: 60 * 60_000 });
+  const emailLimit = checkRateLimit(`auth:resend:email:${normalizedEmail}`, { limit: 3, windowMs: 60 * 60_000 });
+  if (!ipLimit.allowed || !emailLimit.allowed) return rateLimitResponse(Math.max(ipLimit.retryAfter, emailLimit.retryAfter));
+  const user = normalizedEmail ? await db.user.findUnique({ where: { email: normalizedEmail } }) : null;
+  if (!user || user.emailVerifiedAt) return NextResponse.json({ ok: true });
+  const token = await createVerification(normalizedEmail);
+  const emailResult = await sendVerificationEmail(normalizedEmail, token, user.id);
   return NextResponse.json({ ok: true, emailDelivery: emailResult });
 }

@@ -11,6 +11,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 768m
+    cpus: "1.00"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
     restart: unless-stopped
 
   db:
@@ -19,7 +28,7 @@ services:
     environment:
       POSTGRES_DB: joinaireligion
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

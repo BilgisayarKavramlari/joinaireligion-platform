@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { clearSessionCookies, revokeCurrentSession } from "@/lib/auth";
 
-export async function POST() {
-  // Session cookie temizleme — auth sistemi tamamlanınca buraya gelecek.
+export async function POST(request: NextRequest) {
+  await revokeCurrentSession(request);
   const response = NextResponse.json({ ok: true });
-  response.cookies.delete("session");
+  clearSessionCookies(response);
   return response;
 }

@@ -1,13 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { setSessionCookie } from "@/lib/auth";
+import { hashToken, startSession } from "@/lib/auth";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const limit = checkRateLimit(`auth:verify:ip:${getClientIp(request)}`, { limit: 20, windowMs: 60 * 60_000 });
+    if (!limit.allowed) return rateLimitResponse(limit.retryAfter);
     const { token } = await request.json();
     if (!token) return NextResponse.json({ error: "Missing token." }, { status: 400 });
 
-    const rec = await db.emailVerificationToken.findUnique({ where: { token } });
+    const rec = await db.emailVerificationToken.findUnique({ where: { token: hashToken(String(token)) } });
     if (!rec || rec.usedAt || rec.expiresAt < new Date())
       return NextResponse.json({ error: "Invalid or expired token." }, { status: 400 });
 
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
       onboardingDone: user.onboardingDone,
       next: user.onboardingDone ? "/account" : "/onboarding",
     });
-    setSessionCookie(response, { userId: user.id, email: user.email, role: user.role });
+    await startSession(response, user.id);
     return response;
   } catch (error) {
     console.error("verify_email_error", error);

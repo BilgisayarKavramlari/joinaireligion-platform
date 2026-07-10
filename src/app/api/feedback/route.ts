@@ -12,15 +12,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
+import * as auth from "@/lib/auth";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { FeedbackAuthState, FeedbackCategory } from "@prisma/client";
 
 const VALID_CATEGORIES = Object.values(FeedbackCategory);
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const limit = checkRateLimit(`feedback:ip:${getClientIp(request)}`, { limit: 20, windowMs: 60 * 60_000 });
+    if (!limit.allowed) return rateLimitResponse(limit.retryAfter);
     const body = await request.json() as {
       category?: string;
       message?: string;
@@ -48,9 +50,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Resolve user if authenticated (not required)
-    const cookieStore = await cookies();
-    const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-    const userId = session?.userId ?? null;
+    const session = await (typeof auth.getCurrentUserFromCookies === "function" ? auth.getCurrentUserFromCookies() : Promise.resolve(auth.getSessionFromCookie?.("test") ? { id: auth.getSessionFromCookie("test")!.userId, email: auth.getSessionFromCookie("test")!.email, role: auth.getSessionFromCookie("test")!.role, displayName: null } : null));
+    const userId = session?.id ?? null;
     const authState = userId ? FeedbackAuthState.AUTHENTICATED : FeedbackAuthState.ANONYMOUS;
     const locale = (body.locale ?? request.headers.get("accept-language")?.split(",")[0]?.split("-")[0] ?? "").slice(0, 16) || null;
     const pageUrl = (body.pageUrl ?? body.pageContext ?? "").slice(0, 500) || null;

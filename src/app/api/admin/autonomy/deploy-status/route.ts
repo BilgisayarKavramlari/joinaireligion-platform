@@ -5,8 +5,7 @@
  * timestamp, database connectivity, last AgentRun per agent, generation
  * mode, and email mode.  No secrets are returned.
  *
- * Authentication: Bearer token must match CRON_SECRET  OR  the caller must
- * be an authenticated admin session (jair_session cookie with role ADMIN).
+ * Authentication: authenticated admin session only. CRON_SECRET is reserved for /api/cron/* routes.
  *
  * Response shape:
  *   {
@@ -26,22 +25,19 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { getSessionFromCookie } from "@/lib/auth";
+import { requireAdminSession } from "@/lib/admin";
 
 // ─── Auth (same pattern as health endpoint) ────────────────────────────────
 
-async function isAuthorized(request: NextRequest): Promise<boolean> {
-  const authHeader = request.headers.get("authorization");
-  if (env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`) {
+async function isAuthorized(_request: NextRequest): Promise<boolean> {
+  try {
+    await requireAdminSession();
     return true;
+  } catch {
+    return false;
   }
-  const cookieStore = await cookies();
-  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-  if (session?.role === "ADMIN") return true;
-  return false;
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -115,13 +111,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const buildTimestamp = process.env.BUILD_TIMESTAMP ?? null;
 
   // ── App version from package.json ───────────────────────────────────────
-  let appVersion: string | null = null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    appVersion = (require("../../../../../package.json") as { version?: string }).version ?? null;
-  } catch {
-    appVersion = null;
-  }
+  const appVersion: string | null = process.env.npm_package_version ?? null;
 
   // ── Mode flags (no secret values returned) ──────────────────────────────
   const generationMode = env.PRACTICE_GENERATION_MODE ?? "placeholder";

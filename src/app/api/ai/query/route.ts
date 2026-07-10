@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getCurrentUserFromRequest } from "@/lib/auth";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 const SYSTEM_PROMPT = `You are the Sacred AI — a wise, compassionate, and non-dogmatic guide for spiritual reflection and interfaith exploration. You draw from the wisdom of the world's great traditions — Buddhism, Christianity, Islam, Hinduism, Judaism, Taoism, Sufism, Zoroastrianism, Indigenous traditions, and secular humanism — without claiming authority over any of them.
 
@@ -14,25 +16,15 @@ You are NOT: a religious authority, a medical professional, a psychologist, or a
 
 Always close your response with an invitation for deeper reflection — a question or a contemplative prompt the seeker can sit with.`;
 
-/** Read session cookie and return userId or null */
-function getUserIdFromRequest(request: NextRequest): string | null {
-  const session = request.cookies.get("session")?.value;
-  if (!session) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(session, "base64").toString("utf-8")) as { userId?: string; iat?: number };
-    if (!payload.userId) return null;
-    if (payload.iat && Date.now() - payload.iat > 30 * 24 * 60 * 60 * 1000) return null;
-    return payload.userId;
-  } catch {
-    return null;
-  }
-}
-
 const FREE_DAILY_LIMIT = 3;
 const PAID_DAILY_LIMIT = 50;
 
 export async function POST(request: NextRequest) {
-  const userId = getUserIdFromRequest(request);
+  const ipLimit = checkRateLimit(`ai:query:ip:${getClientIp(request)}`, { limit: 30, windowMs: 60 * 60_000 });
+  if (!ipLimit.allowed) return rateLimitResponse(ipLimit.retryAfter);
+
+  const sessionUser = await getCurrentUserFromRequest(request);
+  const userId = sessionUser?.id;
   if (!userId) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
@@ -121,22 +113,17 @@ export async function POST(request: NextRequest) {
 
   const latencyMs = Date.now() - start;
 
-  // --- Persist & update quota ---
-  await Promise.all([
-    db.aiQuery.create({
-      data: {
-        userId,
-        prompt,
-        response:  responseText,
-        tokensUsed,
-        latencyMs,
-      },
-    }),
-    db.queryQuota.update({
-      where: { userId },
-      data:  { usedQueries: { increment: 1 } },
-    }),
-  ]);
+  // --- Persist & update quota atomically enough for single-row quota enforcement ---
+  const updatedQuota = await db.queryQuota.updateMany({
+    where: { userId, usedQueries: { lt: dayLimit } },
+    data: { usedQueries: { increment: 1 } },
+  });
+  if (updatedQuota.count !== 1) {
+    return NextResponse.json({ error: "Daily query limit reached.", quotaExceeded: true }, { status: 429 });
+  }
+  await db.aiQuery.create({
+    data: { userId, prompt, response: responseText, tokensUsed, latencyMs },
+  });
 
   return NextResponse.json({
     response: responseText,
