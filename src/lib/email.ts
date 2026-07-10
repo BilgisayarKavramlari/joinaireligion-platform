@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { db } from "@/lib/db";
+import { escapeHtml, safeUrl } from "@/lib/security";
 
 const APP_URL = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const FROM    = env.EMAIL_FROM ?? "Join AI Religion <noreply@joinaireligion.com>";
@@ -39,7 +40,7 @@ function htmlWrapper(content: string, unsubscribeUrl?: string): string {
   <div class="footer">
     <p>Join AI Religion · Fictional Educational Reflective Simulation</p>
     <p>Not a religion · Not medical advice · A symbolic journey inward</p>
-    ${unsubscribeUrl ? `<p style="margin-top:12px;"><a href="${unsubscribeUrl}" style="color:rgba(237,232,220,0.3);font-size:11px;">Unsubscribe from all emails</a></p>` : ""}
+    ${unsubscribeUrl ? `<p style="margin-top:12px;"><a href="${safeUrl(unsubscribeUrl, APP_URL)}" style="color:rgba(237,232,220,0.3);font-size:11px;">Unsubscribe from all emails</a></p>` : ""}
   </div>
 </div>
 </body>
@@ -66,8 +67,9 @@ async function logEmail(userId: string, template: string, status: string, metada
 
 // ─── Verification email ──────────────────────────────────────────────────────
 export async function sendVerificationEmail(email: string, token: string, userId: string) {
-  const verifyUrl      = `${APP_URL}/verify-email?token=${token}`;
-  const unsubscribeUrl = `${APP_URL}/api/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+  const verifyUrl = `${APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
+  const user = await db.user.findUnique({ where: { id: userId }, select: { unsubscribeToken: true } }).catch(() => null);
+  const unsubscribeUrl = user?.unsubscribeToken ? `${APP_URL}/api/unsubscribe?token=${encodeURIComponent(user.unsubscribeToken)}` : undefined;
 
   const html = htmlWrapper(`
     <span class="symbol">✉</span>
@@ -77,7 +79,7 @@ export async function sendVerificationEmail(email: string, token: string, userId
     <p style="line-height:1.8;font-size:15px;">Welcome to Join AI Religion — a fictional educational simulation for symbolic self-discovery, reflection, and meaningful inquiry across world wisdom traditions.</p>
     <p style="line-height:1.8;font-size:15px;">Please verify your email address to activate your account:</p>
     <div style="text-align:center;margin:32px 0;">
-      <a href="${verifyUrl}" class="btn">✦ Verify My Email ✦</a>
+      <a href="${safeUrl(verifyUrl, APP_URL)}" class="btn">✦ Verify My Email ✦</a>
     </div>
     <p class="muted" style="text-align:center;">Link expires in 24 hours.<br/>If you did not register, ignore this email.</p>
     <div class="divider"></div>
@@ -86,7 +88,7 @@ export async function sendVerificationEmail(email: string, token: string, userId
   `, unsubscribeUrl);
 
   const result = await sendEmail(email, "Confirm your email — Join AI Religion", html);
-  await logEmail(userId, "verify_email", result.ok ? "sent" : "failed", { email, verifyUrl });
+  await logEmail(userId, "verify_email", result.ok ? "sent" : "failed", { email, hasVerificationLink: true });
   return result;
 }
 
@@ -107,8 +109,9 @@ export async function sendFirstLessonEmail(
 ) {
   const lessonsUrl     = `${APP_URL}/lessons`;
   const lessonUrl      = lesson ? `${APP_URL}/lessons/${lesson.id}` : lessonsUrl;
-  const unsubscribeUrl = `${APP_URL}/api/unsubscribe?userId=${userId}`;
-  const name           = displayName || "Seeker";
+  const user = await db.user.findUnique({ where: { id: userId }, select: { unsubscribeToken: true } }).catch(() => null);
+  const unsubscribeUrl = user?.unsubscribeToken ? `${APP_URL}/api/unsubscribe?token=${encodeURIComponent(user.unsubscribeToken)}` : undefined;
+  const name = escapeHtml(displayName || "Seeker");
 
   // ── Extract reading excerpt (first 500 chars, end on sentence boundary) ──────
   const fullReading  = lesson?.readingText ?? "";
@@ -137,11 +140,11 @@ export async function sendFirstLessonEmail(
         { id: "q4", text: "What question emerged from this practice that you want to explore further?", type: "insight" },
       ];
 
-  const lessonTitle = lesson?.title ?? "The Witness Within — Awakening Awareness";
+  const lessonTitle = escapeHtml(lesson?.title ?? "The Witness Within — Awakening Awareness");
 
   const questionsHtml = qs.map((q, i) =>
     `<p style="font-size:13px;line-height:1.8;color:rgba(237,232,220,0.7);margin:0 0 8px;">
-      <strong style="color:#c9a227;">${i + 1}.</strong> ${q.text}
+      <strong style="color:#c9a227;">${i + 1}.</strong> ${escapeHtml(q.text)}
     </p>`
   ).join("");
 
@@ -158,14 +161,14 @@ export async function sendFirstLessonEmail(
     <!-- Reading excerpt -->
     <div style="margin:20px 0;padding:20px;background:rgba(201,162,39,0.04);border:1px solid rgba(201,162,39,0.2);border-radius:12px;">
       <p style="font-size:11px;letter-spacing:0.3em;color:#c9a227;text-transform:uppercase;margin:0 0 12px;">Reading</p>
-      <p style="font-size:14px;line-height:1.9;color:rgba(237,232,220,0.8);margin:0;">${readingExcerpt}…</p>
+      <p style="font-size:14px;line-height:1.9;color:rgba(237,232,220,0.8);margin:0;">${escapeHtml(readingExcerpt)}…</p>
     </div>
 
     <!-- Practice summary -->
     ${practiceExcerpt ? `
     <div style="margin:16px 0;padding:16px 20px;background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.15);border-radius:12px;">
       <p style="font-size:11px;letter-spacing:0.3em;color:#a855f7;text-transform:uppercase;margin:0 0 10px;">Practice (15–30 min)</p>
-      <p style="font-size:13px;line-height:1.8;color:rgba(237,232,220,0.65);margin:0;">${practiceExcerpt}…</p>
+      <p style="font-size:13px;line-height:1.8;color:rgba(237,232,220,0.65);margin:0;">${escapeHtml(practiceExcerpt)}…</p>
     </div>` : ""}
 
     <!-- Reflection questions -->
@@ -177,12 +180,12 @@ export async function sendFirstLessonEmail(
     <p style="font-size:14px;line-height:1.8;color:rgba(237,232,220,0.65);">After completing the practice, write your reflection in the platform. The sacred guide will evaluate your response and, if you are ready, unlock your next personalized lesson.</p>
 
     <div style="text-align:center;margin:32px 0;">
-      <a href="${lessonUrl}" class="btn">✦ Open Full Lesson ✦</a>
+      <a href="${safeUrl(lessonUrl, APP_URL)}" class="btn">✦ Open Full Lesson ✦</a>
     </div>
     <p class="muted" style="text-align:center;font-size:12px;">Free members: 1 prompt attempt per week · Initiate members: 1 per day</p>
   `, unsubscribeUrl);
 
-  const result = await sendEmail(email, `Your first sacred lesson is ready — ${lessonTitle}`, html);
+  const result = await sendEmail(email, `Your first sacred lesson is ready — ${lesson?.title ?? "The Witness Within"}`, html);
   await logEmail(userId, "first_lesson", result.ok ? "sent" : "failed", { email });
   return result;
 }
@@ -198,7 +201,7 @@ export async function sendUnsubscribeConfirmEmail(email: string, userId: string)
     <p style="font-size:15px;line-height:1.8;text-align:center;">You will no longer receive practice emails from Join AI Religion.</p>
     <p style="font-size:15px;line-height:1.8;text-align:center;">You can re-enable emails at any time from your account preferences.</p>
     <div style="text-align:center;margin:28px 0;">
-      <a href="${resubscribeUrl}" style="color:#c9a227;font-size:14px;">Manage email preferences →</a>
+      <a href="${safeUrl(resubscribeUrl, APP_URL)}" style="color:#c9a227;font-size:14px;">Manage email preferences →</a>
     </div>
   `);
 

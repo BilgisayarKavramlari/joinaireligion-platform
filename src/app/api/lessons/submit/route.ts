@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { enforceLearningAccess } from "@/lib/access";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 // Passing thresholds by level
 function passingScore(level: number): number {
@@ -52,7 +53,9 @@ Return ONLY valid JSON in this exact format:
 
 export async function POST(req: NextRequest) {
   try {
-    const access = await enforceLearningAccess();
+    const limit = checkRateLimit(`lessons:submit:ip:${getClientIp(req)}`, { limit: 30, windowMs: 60 * 60_000 });
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfter);
+  const access = await enforceLearningAccess();
     if (!access.ok) return access.response;
 
     const userId = access.user.id;

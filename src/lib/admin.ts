@@ -1,25 +1,24 @@
-import { cookies } from "next/headers";
-import { env } from "@/lib/env";
-import { getSessionFromCookie } from "@/lib/auth";
+import { getCurrentUserFromCookies } from "@/lib/auth";
 
 export function getAdminEmails(): string[] {
-  return (env.ADMIN_EMAILS ?? "admin@example.com")
-    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return (process.env.ADMIN_EMAILS || "admin@example.com")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
 }
 
-export async function requireAdminSession(): Promise<string> {
-  const cookieStore = await cookies();
-  const sessionCookie =
-    cookieStore.get("jair_session")?.value ??
-    cookieStore.get("session")?.value;
-
-  const session = getSessionFromCookie(sessionCookie);
-  if (!session) throw new Error("UNAUTHORIZED");
-  if (!getAdminEmails().includes(session.email.toLowerCase())) throw new Error("FORBIDDEN_ADMIN");
-  return session.email;
+export async function requireAdminSession() {
+  const user = await getCurrentUserFromCookies();
+  if (!user) throw new Error("UNAUTHORIZED");
+  const isDbAdmin = user.role === "ADMIN";
+  const isAllowlisted = getAdminEmails().includes(user.email.toLowerCase());
+  if (!isDbAdmin && !isAllowlisted) throw new Error("FORBIDDEN_ADMIN");
+  return user.email;
 }
 
-export function assertInternalApiKey(request: Request): boolean {
-  const key = request.headers.get("x-internal-agent-key");
-  return Boolean(key && env.INTERNAL_AGENT_API_KEY && key === env.INTERNAL_AGENT_API_KEY);
+
+export function assertInternalApiKey(request: Request) {
+  const configured = process.env.INTERNAL_AGENT_API_KEY;
+  const provided = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-internal-api-key");
+  return Boolean(configured && provided === configured);
 }
