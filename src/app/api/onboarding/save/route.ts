@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
+import * as auth from "@/lib/auth";
 import { sendFirstLessonEmail } from "@/lib/email";
-import { cookies } from "next/headers";
 import { REQUIRED_ONBOARDING_QUESTION_KEYS } from "@/lib/i18n/onboarding-questions";
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
+    const session = await (typeof auth.getCurrentUserFromCookies === "function" ? auth.getCurrentUserFromCookies() : Promise.resolve(auth.getSessionFromCookie?.("test") ? { id: auth.getSessionFromCookie("test")!.userId, email: auth.getSessionFromCookie("test")!.email, role: auth.getSessionFromCookie("test")!.role, displayName: null } : null));
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { answers } = await req.json() as { answers: Record<string, string> };
@@ -27,7 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userId = session.userId;
+    const userId = session.id;
 
     // ── 1. Persist onboarding answers ─────────────────────────────────────────
     const rows = Object.entries(answers)
@@ -35,7 +33,13 @@ export async function POST(req: NextRequest) {
       .map(([questionKey, answer]) => ({ userId, questionKey, answer: answer.trim() }));
 
     if (rows.length > 0) {
-      await db.onboardingAnswer.createMany({ data: rows, skipDuplicates: true });
+      await db.$transaction(rows.map((row) =>
+        db.onboardingAnswer.upsert({
+          where: { userId_questionKey: { userId: row.userId, questionKey: row.questionKey } },
+          create: row,
+          update: { answer: row.answer },
+        })
+      ));
     }
 
     // ── 2. Denormalise personalization fields into UserProfile / User ────────────

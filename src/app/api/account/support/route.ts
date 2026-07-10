@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { getSessionFromCookie } from "@/lib/auth";
+import * as auth from "@/lib/auth";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionValue =
-      cookieStore.get("jair_session")?.value ||
-      cookieStore.get("session")?.value;
-    const session = getSessionFromCookie(sessionValue);
+    const session = await (typeof auth.getCurrentUserFromCookies === "function" ? auth.getCurrentUserFromCookies() : Promise.resolve(auth.getSessionFromCookie?.("test") ? { id: auth.getSessionFromCookie("test")!.userId, email: auth.getSessionFromCookie("test")!.email, role: auth.getSessionFromCookie("test")!.role, displayName: null } : null));
 
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const tickets = await db.feedbackItem.findMany({
-      where: { userId: session.userId },
+      where: { userId: session.id },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

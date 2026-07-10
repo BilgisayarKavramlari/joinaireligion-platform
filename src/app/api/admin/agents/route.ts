@@ -1,20 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { env } from "@/lib/env";
-import { getSessionFromCookie } from "@/lib/auth";
+import { requireAdminSession } from "@/lib/admin";
 import { AUTONOMY_LEVELS, DECISION_LOG_CONTRACT, getAgentRegistrySnapshot } from "@/lib/agents";
 
-async function isAuthorized(request: NextRequest): Promise<boolean> {
-  const authHeader = request.headers.get("authorization");
-  if (env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`) {
+async function isAuthorized(_request: NextRequest): Promise<boolean> {
+  try {
+    await requireAdminSession();
     return true;
+  } catch {
+    return false;
   }
-
-  const cookieStore = await cookies();
-  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-  return session?.role === "ADMIN";
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

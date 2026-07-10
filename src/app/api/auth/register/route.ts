@@ -1,31 +1,36 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createVerification, hashPassword } from "@/lib/auth";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { sendVerificationEmail } from "@/lib/email";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { email, password, displayName, acceptedTerms, emailOptIn } = await request.json();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const ipLimit = checkRateLimit(`auth:register:ip:${getClientIp(request)}`, { limit: 1000, windowMs: 60 * 60_000 });
+    const emailLimit = checkRateLimit(`auth:register:email:${normalizedEmail}`, { limit: 1000, windowMs: 60 * 60_000 });
+    if (!ipLimit.allowed || !emailLimit.allowed) return rateLimitResponse(Math.max(ipLimit.retryAfter, emailLimit.retryAfter));
 
-    if (!email || !emailRegex.test(email))
+    if (!normalizedEmail || !emailRegex.test(normalizedEmail))
       return NextResponse.json({ error: "Please enter a valid email." }, { status: 400 });
-    if (!password || password.length < 8)
-      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    if (!password || password.length < 12)
+      return NextResponse.json({ error: "Password must be at least 12 characters." }, { status: 400 });
     if (!acceptedTerms)
       return NextResponse.json({ error: "You must accept the terms to continue." }, { status: 400 });
 
-    const existing = await db.user.findUnique({ where: { email } });
+    const existing = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existing)
       return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
 
     // Create user with Level 1 defaults
     const user = await db.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         displayName: displayName?.trim() || null,
-        passwordHash: hashPassword(password),
+        passwordHash: await hashPassword(password),
         acceptedTermsAt: new Date(),
         emailOptIn: Boolean(emailOptIn),
         currentLevel: 1,
@@ -56,12 +61,12 @@ export async function POST(request: Request) {
       },
     });
 
-    const token = await createVerification(email);
-    const emailResult = await sendVerificationEmail(email, token, user.id);
+    const token = await createVerification(normalizedEmail);
+    const emailResult = await sendVerificationEmail(normalizedEmail, token, user.id);
 
     return NextResponse.json({
       ok: true,
-      next: `/check-email?email=${encodeURIComponent(email)}`,
+      next: `/check-email?email=${encodeURIComponent(normalizedEmail)}`,
       emailDelivery: emailResult,
     });
   } catch (error) {

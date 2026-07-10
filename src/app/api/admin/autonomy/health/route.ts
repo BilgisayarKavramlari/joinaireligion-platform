@@ -4,8 +4,7 @@
  * Self-auditing system health check.  Returns a structured JSON report
  * describing the operational state of every autonomous subsystem.
  *
- * Authentication: Bearer token must match CRON_SECRET  OR  the caller must be
- * an authenticated admin session (jair_session cookie with role ADMIN).
+ * Authentication: authenticated admin session only. CRON_SECRET is reserved for /api/cron/* routes.
  *
  * Response shape:
  *   {
@@ -24,10 +23,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { getSessionFromCookie } from "@/lib/auth";
+import { requireAdminSession } from "@/lib/admin";
 import {
   AgentRunStatus,
   DeliveryStatus,
@@ -56,17 +54,13 @@ interface HealthReport {
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
-async function isAuthorized(request: NextRequest): Promise<boolean> {
-  // Option 1: Bearer CRON_SECRET
-  const authHeader = request.headers.get("authorization");
-  if (env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`) {
+async function isAuthorized(_request: NextRequest): Promise<boolean> {
+  try {
+    await requireAdminSession();
     return true;
+  } catch {
+    return false;
   }
-  // Option 2: Admin session cookie
-  const cookieStore = await cookies();
-  const session = getSessionFromCookie(cookieStore.get("jair_session")?.value);
-  if (session?.role === "ADMIN") return true;
-  return false;
 }
 
 // ─── Check helpers ────────────────────────────────────────────────────────────
