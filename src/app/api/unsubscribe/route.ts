@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendUnsubscribeConfirmEmail } from "@/lib/email";
+import { hashToken } from "@/lib/auth";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 function html(message: string) {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
   if (!token) return html("If the unsubscribe link is valid, the address has been unsubscribed.");
-  const user = await db.user.findUnique({ where: { unsubscribeToken: token } });
+  const user = await db.user.findUnique({ where: { unsubscribeToken: hashToken(token) } });
   if (user) {
     await db.user.update({ where: { id: user.id }, data: { unsubscribedAt: new Date(), emailOptIn: false } });
     sendUnsubscribeConfirmEmail(user.email, user.id).catch(() => undefined);

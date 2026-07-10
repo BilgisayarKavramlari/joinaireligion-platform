@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     const { email, password, displayName, acceptedTerms, emailOptIn } = await request.json();
     const normalizedEmail = String(email || "").trim().toLowerCase();
-    const ipLimit = checkRateLimit(`auth:register:ip:${getClientIp(request)}`, { limit: 1000, windowMs: 60 * 60_000 });
-    const emailLimit = checkRateLimit(`auth:register:email:${normalizedEmail}`, { limit: 1000, windowMs: 60 * 60_000 });
+    const ipLimit = checkRateLimit(`auth:register:ip:${getClientIp(request)}`, { limit: 5, windowMs: 60 * 60_000 });
+    const emailLimit = checkRateLimit(`auth:register:email:${normalizedEmail}`, { limit: 3, windowMs: 60 * 60_000 });
     if (!ipLimit.allowed || !emailLimit.allowed) return rateLimitResponse(Math.max(ipLimit.retryAfter, emailLimit.retryAfter));
 
     if (!normalizedEmail || !emailRegex.test(normalizedEmail))

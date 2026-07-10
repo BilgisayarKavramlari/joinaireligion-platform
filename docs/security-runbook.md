@@ -7,6 +7,17 @@
 4. Deploy the latest security branch and verify health endpoints.
 5. Send Hostinger a concise remediation summary with commit SHA, dependency audit output, Nginx probe blocks, and Docker hardening state.
 
+## Required production environment variables
+- `DATABASE_URL` with the production DB password.
+- `POSTGRES_PASSWORD` for the Compose-managed Postgres container; never hard-code this in `docker-compose.yml`.
+- `NEXT_PUBLIC_APP_URL`, `ADMIN_EMAILS`, `INTERNAL_AGENT_API_KEY`, `CRON_SECRET`, `OPENAI_API_KEY`, Stripe keys/webhook secret, Resend API key, and `EMAIL_FROM`.
+
+## Abuse-control rate limits
+The in-process limiter currently uses conservative one-hour windows for sensitive auth flows: register 5/IP and 3/email, forgot-password 5/IP and 3/email, resend-verification 6/IP and 3/email, verify-email 20/IP. Keep Nginx auth limits enabled as a second layer.
+
+## Unsubscribe token storage
+`User.unsubscribeToken` now stores a SHA-256 hash of the raw URL token. The raw token is generated only for outbound email links and is not persisted. Existing legacy raw unsubscribe tokens should be rotated by sending fresh email or clearing the field.
+
 ## Secret rotation checklist
 - VPS SSH keys and deploy user authorized keys.
 - GitHub Actions secrets.

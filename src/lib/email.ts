@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { db } from "@/lib/db";
+import { ensureUnsubscribeToken } from "@/lib/auth";
 import { escapeHtml, safeUrl } from "@/lib/security";
 
 const APP_URL = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -68,8 +69,8 @@ async function logEmail(userId: string, template: string, status: string, metada
 // ─── Verification email ──────────────────────────────────────────────────────
 export async function sendVerificationEmail(email: string, token: string, userId: string) {
   const verifyUrl = `${APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
-  const user = await db.user.findUnique({ where: { id: userId }, select: { unsubscribeToken: true } }).catch(() => null);
-  const unsubscribeUrl = user?.unsubscribeToken ? `${APP_URL}/api/unsubscribe?token=${encodeURIComponent(user.unsubscribeToken)}` : undefined;
+  const unsubscribeToken = await ensureUnsubscribeToken(userId).catch(() => null);
+  const unsubscribeUrl = unsubscribeToken ? `${APP_URL}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}` : undefined;
 
   const html = htmlWrapper(`
     <span class="symbol">✉</span>
@@ -109,8 +110,8 @@ export async function sendFirstLessonEmail(
 ) {
   const lessonsUrl     = `${APP_URL}/lessons`;
   const lessonUrl      = lesson ? `${APP_URL}/lessons/${lesson.id}` : lessonsUrl;
-  const user = await db.user.findUnique({ where: { id: userId }, select: { unsubscribeToken: true } }).catch(() => null);
-  const unsubscribeUrl = user?.unsubscribeToken ? `${APP_URL}/api/unsubscribe?token=${encodeURIComponent(user.unsubscribeToken)}` : undefined;
+  const unsubscribeToken = await ensureUnsubscribeToken(userId).catch(() => null);
+  const unsubscribeUrl = unsubscribeToken ? `${APP_URL}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}` : undefined;
   const name = escapeHtml(displayName || "Seeker");
 
   // ── Extract reading excerpt (first 500 chars, end on sentence boundary) ──────

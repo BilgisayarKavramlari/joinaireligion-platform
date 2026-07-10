@@ -20,9 +20,10 @@
     "framer-motion": "^11.18.2",
     "next": "16.2.10",
     "openai": "^6.39.1",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
-    "stripe": "^17.7.0"
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "stripe": "^17.7.0",
+    "sharp": "^0.34.5"
   },
   "prisma": {
     "seed": "node --require jiti/register prisma/seed.ts"

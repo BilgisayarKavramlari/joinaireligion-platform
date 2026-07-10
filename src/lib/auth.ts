@@ -85,6 +85,15 @@ export async function createVerification(email: string) {
   return token;
 }
 
+export async function ensureUnsubscribeToken(userId: string): Promise<string> {
+  const token = createToken();
+  await db.user.update({
+    where: { id: userId },
+    data: { unsubscribeToken: hashToken(token) },
+  });
+  return token;
+}
+
 export async function createSession(userId: string) {
   const token = createToken(SESSION_TOKEN_BYTES);
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);

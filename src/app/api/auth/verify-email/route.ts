@@ -5,7 +5,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit
 
 export async function POST(request: NextRequest) {
   try {
-    const limit = checkRateLimit(`auth:verify:ip:${getClientIp(request)}`, { limit: 1000, windowMs: 60 * 60_000 });
+    const limit = checkRateLimit(`auth:verify:ip:${getClientIp(request)}`, { limit: 20, windowMs: 60 * 60_000 });
     if (!limit.allowed) return rateLimitResponse(limit.retryAfter);
     const { token } = await request.json();
     if (!token) return NextResponse.json({ error: "Missing token." }, { status: 400 });

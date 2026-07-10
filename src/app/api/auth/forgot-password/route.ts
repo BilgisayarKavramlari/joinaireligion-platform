@@ -6,8 +6,8 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit
 export async function POST(request: NextRequest) {
   const { email } = await request.json();
   const normalizedEmail = String(email || "").trim().toLowerCase();
-  const ipLimit = checkRateLimit(`auth:forgot:ip:${getClientIp(request)}`, { limit: 1000, windowMs: 60 * 60_000 });
-  const emailLimit = checkRateLimit(`auth:forgot:email:${normalizedEmail}`, { limit: 1000, windowMs: 60 * 60_000 });
+  const ipLimit = checkRateLimit(`auth:forgot:ip:${getClientIp(request)}`, { limit: 5, windowMs: 60 * 60_000 });
+  const emailLimit = checkRateLimit(`auth:forgot:email:${normalizedEmail}`, { limit: 3, windowMs: 60 * 60_000 });
   if (!ipLimit.allowed || !emailLimit.allowed) return rateLimitResponse(Math.max(ipLimit.retryAfter, emailLimit.retryAfter));
   if (normalizedEmail) {
     const user = await db.user.findUnique({ where: { email: normalizedEmail }, select: { email: true } });

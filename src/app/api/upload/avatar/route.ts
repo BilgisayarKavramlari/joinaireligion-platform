@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { extname, resolve, sep } from "path";
 import { randomUUID } from "crypto";
+import sharp from "sharp";
 import { db } from "@/lib/db";
 import { getCurrentUserFromCookies } from "@/lib/auth";
 
@@ -43,6 +44,12 @@ export async function POST(req: NextRequest) {
     const bytes = Buffer.from(await file.arrayBuffer());
     if (!hasValidMagicBytes(bytes, file.type)) return NextResponse.json({ error: "Invalid image content." }, { status: 400 });
 
+    const image = sharp(bytes, { failOn: "error", limitInputPixels: 16_000_000 });
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height || metadata.width > 4096 || metadata.height > 4096) {
+      return NextResponse.json({ error: "Image dimensions are too large." }, { status: 400 });
+    }
+
     const ext = ALLOWED.get(file.type)!;
     const filename = `${randomUUID()}.${ext}`;
     const uploadRoot = resolve(process.cwd(), "public", "uploads", "avatars");
@@ -52,7 +59,8 @@ export async function POST(req: NextRequest) {
     assertInside(uploadRoot, targetPath);
 
     await mkdir(userDir, { recursive: true });
-    await writeFile(targetPath, bytes, { flag: "wx" });
+    const sanitized = await image.rotate().toFormat(ext === "jpg" ? "jpeg" : ext === "png" ? "png" : "webp", { quality: 85 }).toBuffer();
+    await writeFile(targetPath, sanitized, { flag: "wx" });
 
     const avatarPath = `/uploads/avatars/${encodeURIComponent(session.id)}/${filename}`;
     await db.userProfile.upsert({
