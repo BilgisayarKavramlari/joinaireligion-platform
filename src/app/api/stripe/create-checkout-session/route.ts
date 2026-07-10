@@ -1,11 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { getCurrentUserFromRequest } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { getPriceIdForPlan, getStripeClient, type StripePlan } from "@/lib/stripe";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { plan?: StripePlan; email?: string };
+    const ipLimit = checkRateLimit(`stripe:checkout:ip:${getClientIp(request)}`, { limit: 20, windowMs: 60 * 60_000 });
+    if (!ipLimit.allowed) return rateLimitResponse(ipLimit.retryAfter);
+    const user = await getCurrentUserFromRequest(request);
+    if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    const body = (await request.json()) as { plan?: StripePlan };
     const plan = body.plan;
 
     if (plan !== "seeker" && plan !== "initiate") {
@@ -18,8 +24,9 @@ export async function POST(request: Request) {
       line_items: [{ price: getPriceIdForPlan(plan), quantity: 1 }],
       success_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?status=success`,
       cancel_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?status=cancel`,
-      customer_email: body.email,
-      metadata: { plan },
+      customer_email: user.email,
+      client_reference_id: user.id,
+      metadata: { plan, userId: user.id },
     });
 
     return NextResponse.json({ url: session.url, id: session.id });

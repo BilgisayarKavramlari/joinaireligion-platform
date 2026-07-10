@@ -38,6 +38,7 @@ import {
 } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { renderEmail } from "@/lib/cron/email-renderer";
+import { ensureUnsubscribeToken } from "@/lib/auth";
 import { isSendingEnabled, sendEmail, getFromAddress } from "@/lib/cron/email-provider";
 
 // ─── Delivery mode ─────────────────────────────────────────────────────────────
@@ -188,7 +189,8 @@ export async function POST(request: Request): Promise<Response> {
       continue;
     }
 
-    // Render the final email
+    // Render the final email. Store only a hash at rest; use the raw token only for this outgoing message.
+    const unsubscribeToken = await ensureUnsubscribeToken(msg.userId).catch(() => null);
     const rendered = renderEmail({
       messageId: msg.id,
       subject: msg.subject,
@@ -196,7 +198,7 @@ export async function POST(request: Request): Promise<Response> {
       bodyText: msg.bodyText,
       displayName: msg.user.displayName ?? "Seeker",
       locale: msg.user.preferredEmailLocale ?? "en",
-      unsubscribeToken: msg.user.unsubscribeToken ?? null,
+      unsubscribeToken,
       appUrl,
     });
 

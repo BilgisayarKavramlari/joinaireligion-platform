@@ -14,7 +14,6 @@
 #   VPS_PORT        — SSH port number (default: 22)
 #   VPS_APP_DIR     — Absolute path on VPS (e.g. /opt/apps/joinaireligion)
 #   PRODUCTION_URL  — Full origin without trailing slash (e.g. https://joinaireligion.com)
-#   CRON_SECRET     — Shared secret for autonomy health check (optional but recommended)
 #
 # Secret safety: secrets are referenced with ${{ secrets.NAME }} which GitHub
 # automatically masks in all log output.  Scripts never echo secret values.
@@ -34,7 +33,7 @@ concurrency:
 jobs:
   # ── Job 1: Verify ───────────────────────────────────────────────────────────
   verify:
-    name: Verify (tests + type-check)
+    name: Verify (audit + tests + type-check)
     runs-on: ubuntu-latest
 
     steps:
@@ -49,6 +48,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Security audit (high/critical gate)
+        run: npm run audit:high
 
       # Prisma generate is triggered by @prisma/client postinstall but we run
       # it explicitly so any schema drift surfaces as a build error.
@@ -85,16 +87,12 @@ jobs:
         env:
           APP_DIR:  ${{ secrets.VPS_APP_DIR }}
           PROD_URL: ${{ secrets.PRODUCTION_URL }}
-          # CRON_SECRET is passed only if configured — used for the autonomy
-          # health check after deploy.  Never printed.
-          HAS_CRON_SECRET: ${{ secrets.CRON_SECRET != '' && 'yes' || 'no' }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         with:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key:      ${{ secrets.VPS_SSH_KEY }}
           port:     ${{ secrets.VPS_PORT || 22 }}
-          envs:     APP_DIR,PROD_URL,HAS_CRON_SECRET,CRON_SECRET
+          envs:     APP_DIR,PROD_URL
           script: |
             set -euo pipefail
 
@@ -177,21 +175,9 @@ jobs:
             fi
             echo "✔  Basic health passed (HTTP $HTTP)"
 
-            # Autonomy health check (only when CRON_SECRET is configured)
-            # The CRON_SECRET value is passed via env and never echoed.
-            if [ "${HAS_CRON_SECRET:-no}" = "yes" ] && [ -n "${CRON_SECRET:-}" ]; then
-              AH=$(curl -s -o /dev/null -w "%{http_code}" \
-                --max-time 30 \
-                -H "Authorization: Bearer ${CRON_SECRET}" \
-                "$PROD_URL/api/admin/autonomy/health")
-              if [ "$AH" -ne 200 ]; then
-                echo "⚠  Autonomy health returned HTTP $AH — investigate at /admin/autonomy"
-              else
-                echo "✔  Autonomy health passed (HTTP $AH)"
-              fi
-            else
-              echo "ℹ  CRON_SECRET not configured as GitHub secret — skipping autonomy health check"
-            fi
+            # Admin/autonomy endpoints require an authenticated admin session.
+            # Deploy automation intentionally uses only the public /api/health check
+            # and never sends CRON_SECRET to /api/admin/* routes.
 
             echo "━━━ Deployment complete — ${GIT_SHA} @ ${BUILD_TS} ━━━━━━━━━"
 

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { safeInternalPath } from "@/lib/security";
 import { revalidatePath } from "next/cache";
 import { SupportReplyStatus, SupportReplyVisibility } from "@prisma/client";
 import { requireAdminSession } from "@/lib/admin";
 import { db } from "@/lib/db";
 
 function redirectToFeedback(request: Request, returnTo: string | null) {
-  const destination = returnTo && returnTo.startsWith("/") ? returnTo : "/admin/feedback";
+  const destination = safeInternalPath(returnTo, "/admin/feedback");
+  if (!destination.startsWith("/admin/feedback")) return NextResponse.redirect(new URL("/admin/feedback", request.url), 303);
   return NextResponse.redirect(new URL(destination, request.url), 303);
 }
 

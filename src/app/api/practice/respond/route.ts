@@ -29,10 +29,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { enforceLearningAccess } from "@/lib/access";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 const MAX_RESPONSE_LENGTH = 3000;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const limit = checkRateLimit(`practice:respond:ip:${getClientIp(req)}`, { limit: 30, windowMs: 60 * 60_000 });
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfter);
   const access = await enforceLearningAccess();
   if (!access.ok) return access.response;
 

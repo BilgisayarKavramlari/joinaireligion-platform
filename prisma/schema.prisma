@@ -136,6 +136,7 @@ model User {
   feedbackItems           FeedbackItem[]
   userLessons             UserLesson[]
   lessonAttempts          LessonAttempt[]
+  sessions                Session[]
 
   // ── Journey automation relations ────────────────────────────────────────────
   practiceMessages        PracticeMessage[]
@@ -143,6 +144,19 @@ model User {
   xpLedger                XpLedger[]
   agentRuns               AgentRun[]
   journeyState            UserJourneyState?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  lastSeenAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model EarlyAccessLead {
@@ -180,7 +194,7 @@ model OnboardingAnswer {
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, questionKey])
+  @@unique([userId, questionKey])
 }
 
 model AiQuery {
@@ -572,7 +586,7 @@ model XpLedger {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
-  @@index([source, sourceId])
+  @@unique([source, sourceId])
 }
 
 // ─── Feedback system ──────────────────────────────────────────────────────────
