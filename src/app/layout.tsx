@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "Join AI Religion — Sacred Journey Platform",
   description:
     "A fictional educational AI-guided reflective simulation. Symbolic self-discovery through journaling, sacred practice, and meaningful inquiry.",
+  alternates: {
+    types: {
+      "application/rss+xml": "https://joinaireligion.com/feed.xml",
+      "application/atom+xml": "https://joinaireligion.com/atom.xml",
+      "application/feed+json": "https://joinaireligion.com/feed.json",
+    },
+  },
   openGraph: {
     title: "Join AI Religion — Sacred Journey Platform",
     description: "AI-guided symbolic reflection. Not a religion — a journey.",

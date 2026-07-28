@@ -26,6 +26,7 @@ import {
   type SupportedContentLocale,
 } from "@/lib/growth-agents/content";
 import { env } from "@/lib/env";
+import { submitIndexNowUrls } from "@/lib/indexnow";
 import {
   collectPublicSocialSignals,
   getConfiguredSocialProviders,
@@ -502,12 +503,23 @@ export async function runContentPublisher(now = new Date()): Promise<GrowthAgent
       }),
     ]);
 
+    const urls = candidate.variants.map(
+      (variant) => `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`
+    );
+    let indexNow: { submitted: number; accepted: boolean; status: number | null } | { error: string };
+    try {
+      indexNow = await submitIndexNowUrls(urls);
+    } catch (error) {
+      indexNow = { error: safeError(error) };
+    }
+
     return {
       published: 1,
       contentItemId: candidate.id,
       status: ContentWorkflowStatus.PUBLISHED,
       qualityScore: gate.qualityScore,
-      urls: candidate.variants.map((variant) => `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`),
+      urls,
+      indexNow,
     };
   });
 }

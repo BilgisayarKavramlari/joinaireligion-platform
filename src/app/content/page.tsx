@@ -8,7 +8,14 @@ import { db } from "@/lib/db";
 export const metadata: Metadata = {
   title: "Insights | Join AI Religion",
   description: "Multilingual fictional educational reflections on meaning, attention, values, and responsible AI-guided inquiry.",
-  alternates: { canonical: "https://joinaireligion.com/content" },
+  alternates: {
+    canonical: "https://joinaireligion.com/content",
+    types: {
+      "application/rss+xml": "https://joinaireligion.com/feed.xml",
+      "application/atom+xml": "https://joinaireligion.com/atom.xml",
+      "application/feed+json": "https://joinaireligion.com/feed.json",
+    },
+  },
 };
 
 export default async function ContentIndexPage() {
