@@ -8,9 +8,11 @@ import { db } from "@/lib/db";
 export default async function AdminGrowthPage() {
   try { await requireAdminSession(); } catch { redirect("/admin/login"); }
 
-  const [drafts, ready, recent] = await Promise.all([
+  const [drafts, ready, archived, quarantined, recent] = await Promise.all([
     db.agentArtifact.count({ where: { status: "DRAFT" } }),
     db.agentArtifact.count({ where: { status: "READY" } }),
+    db.agentArtifact.count({ where: { status: "ARCHIVED" } }),
+    db.agentArtifact.count({ where: { status: "QUARANTINED" } }),
     db.agentArtifact.findMany({
       take: 30,
       orderBy: { createdAt: "desc" },
@@ -24,11 +26,11 @@ export default async function AdminGrowthPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center", marginBottom: "1.5rem" }}>
           <div>
             <h1 style={{ fontFamily: "Georgia,serif", color: "#f0d47a", margin: 0 }}>Growth Agent Outputs</h1>
-            <p style={{ color: "rgba(237,232,220,.5)", fontSize: ".8rem" }}>Reports and drafts only. Spend, publication and financial writes are disabled.</p>
+            <p style={{ color: "rgba(237,232,220,.5)", fontSize: ".8rem" }}>Aggregate listening, performance reports and bounded social delivery logs. Advertising spend and financial writes remain disabled.</p>
           </div>
           <Link href="/admin" style={{ color: "#c9a227" }}>Dashboard</Link>
         </div>
-        <p style={{ color: "rgba(237,232,220,.55)" }}>{drafts} draft · {ready} ready report</p>
+        <p style={{ color: "rgba(237,232,220,.55)" }}>{drafts} draft · {ready} ready · {archived} delivered/archive · {quarantined} quarantined</p>
         <div style={{ display: "grid", gap: ".75rem" }}>
           {recent.map((artifact) => (
             <section key={artifact.id} style={{ padding: "1rem", border: "1px solid rgba(201,162,39,.14)", borderRadius: ".7rem", background: "rgba(255,255,255,.02)" }}>

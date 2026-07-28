@@ -100,6 +100,7 @@ export function PublicHeader() {
         {/* Desktop nav */}
         <nav style={{ display: "flex", alignItems: "center", gap: "0.15rem" }} className="header-desktop-nav">
           {[
+            ["Insights", "/content"],
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],
@@ -248,6 +249,7 @@ export function PublicHeader() {
           display: "flex", flexDirection: "column", gap: "0.4rem",
         }}>
           {[
+            ["Insights", "/content"],
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],

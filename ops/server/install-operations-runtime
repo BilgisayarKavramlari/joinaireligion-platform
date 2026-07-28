@@ -81,7 +81,11 @@ timers=(
   joinai-autonomy-repair.timer
   joinai-support-triage.timer
   joinai-seo-kulliyat-draft.timer
+  joinai-content-publisher.timer
+  joinai-content-performance.timer
+  joinai-social-listener.timer
   joinai-social-listener-draft.timer
+  joinai-social-publisher.timer
   joinai-ads-reporting.timer
   joinai-cfo-reporting.timer
   joinai-revenue-orchestrator.timer
@@ -90,4 +94,4 @@ timers=(
 )
 systemctl enable --now "${timers[@]}"
 
-echo "JoinAI operations runtime installed; existing Nginx/TLS configuration was preserved, email remains LOG_ONLY, and growth agents remain draft/report-only."
+echo "JoinAI operations runtime installed; existing Nginx/TLS configuration was preserved, email remains LOG_ONLY, and autonomous content/social timers are enabled within their policy boundaries."

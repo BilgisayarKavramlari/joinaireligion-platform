@@ -20,6 +20,15 @@ export const env = {
   CRON_SECRET: readEnv("CRON_SECRET"),
   EMAIL_SENDING_ENABLED: readEnv("EMAIL_SENDING_ENABLED"), // set to "true" to enable live sending
   PRACTICE_GENERATION_MODE: readEnv("PRACTICE_GENERATION_MODE"), // "openai" to use AI generation; default is placeholder
+  SOCIAL_LISTENING_ENABLED: readEnv("SOCIAL_LISTENING_ENABLED"),
+  SOCIAL_PUBLISHING_ENABLED: readEnv("SOCIAL_PUBLISHING_ENABLED"),
+  MASTODON_BASE_URL: readEnv("MASTODON_BASE_URL"),
+  MASTODON_ACCESS_TOKEN: readEnv("MASTODON_ACCESS_TOKEN"),
+  X_BEARER_TOKEN: readEnv("X_BEARER_TOKEN"),
+  X_USER_ACCESS_TOKEN: readEnv("X_USER_ACCESS_TOKEN"),
+  LINKEDIN_ACCESS_TOKEN: readEnv("LINKEDIN_ACCESS_TOKEN"),
+  LINKEDIN_AUTHOR_URN: readEnv("LINKEDIN_AUTHOR_URN"),
+  LINKEDIN_VERSION: readEnv("LINKEDIN_VERSION"),
 };
 
 export function requireEnv(key: keyof typeof env): string {
