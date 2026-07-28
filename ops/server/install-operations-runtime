@@ -74,9 +74,14 @@ timers=(
   joinai-autonomy-health.timer
   joinai-autonomy-repair.timer
   joinai-support-triage.timer
+  joinai-seo-kulliyat-draft.timer
+  joinai-social-listener-draft.timer
+  joinai-ads-reporting.timer
+  joinai-cfo-reporting.timer
+  joinai-revenue-orchestrator.timer
   joinai-system-health.timer
   joinai-backup.timer
 )
 systemctl enable --now "${timers[@]}"
 
-echo "JoinAI operations runtime installed; email delivery remains LOG_ONLY."
+echo "JoinAI operations runtime installed; email delivery remains LOG_ONLY and growth agents remain draft/report-only."

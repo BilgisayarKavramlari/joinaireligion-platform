@@ -11,6 +11,8 @@ jest.mock("@/lib/db", () => ({
     practiceMessage: { count: jest.fn() },
     practiceResponse: { count: jest.fn() },
     feedbackItem: { count: jest.fn() },
+    contentItem: { count: jest.fn() },
+    agentArtifact: { count: jest.fn() },
   },
 }));
 
@@ -37,7 +39,10 @@ describe("agent registry policy foundation", () => {
     const revenueOrchestrator = AGENT_DEFINITIONS.find((agent) => agent.agentName === "revenue-orchestrator");
 
     expect(adsReporting?.policy.forbiddenActions).toContain("spend money");
-    expect(revenueOrchestrator?.lifecycle).toBe("PLANNED");
+    expect(adsReporting?.lifecycle).toBe("IMPLEMENTED");
+    expect(adsReporting?.mode).toBe("REPORT_ONLY");
+    expect(revenueOrchestrator?.lifecycle).toBe("IMPLEMENTED");
+    expect(revenueOrchestrator?.mode).toBe("REPORT_ONLY");
     expect(DECISION_LOG_CONTRACT.requiredFields).toContain("allowedByPolicy");
   });
 });

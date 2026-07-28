@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI internal revenue recommendations daily
+
+[Timer]
+OnCalendar=*-*-* 11:30:00 UTC
+Persistent=true
+Unit=joinai-agent@revenue-orchestrator.service
+
+[Install]
+WantedBy=timers.target

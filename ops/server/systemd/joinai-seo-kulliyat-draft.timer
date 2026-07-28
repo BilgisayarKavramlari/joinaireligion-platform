@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI multilingual SEO and kulliyat draft generation daily
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 UTC
+Persistent=true
+Unit=joinai-agent@seo-kulliyat-draft.service
+
+[Install]
+WantedBy=timers.target
