@@ -3,14 +3,7 @@
  *
  * Thin provider abstraction for outbound email.
  *
- * Current state:
- *   - Resend is not installed in this project.
- *   - The provider wrapper is ready to accept a Resend (or any other SDK)
- *     integration; the send function is a stub that returns a synthetic
- *     "success" result until the SDK is installed and sending is enabled.
- *
  * Activation:
- *   - Install the Resend SDK: `npm install resend`
  *   - Set RESEND_API_KEY and EMAIL_FROM in .env
  *   - Set EMAIL_SENDING_ENABLED=true in .env
  *   Only then will sendEmail() make actual HTTP calls.
@@ -61,24 +54,6 @@ export function isSendingEnabled(): boolean {
 /**
  * Sends a single email via Resend.
  *
- * Currently a STUB — returns a synthetic success result without making any
- * HTTP calls.  Replace the body with real Resend SDK code once the package
- * is installed:
- *
- * ```ts
- * import { Resend } from "resend";
- * const resend = new Resend(env.RESEND_API_KEY);
- * const { data, error } = await resend.emails.send({
- *   from: input.from,
- *   to:   input.to,
- *   subject: input.subject,
- *   html: input.html,
- *   text: input.text,
- * });
- * if (error) return { ok: false, error: error.message };
- * return { ok: true, providerMsgId: data?.id ?? "unknown" };
- * ```
- *
  * Do NOT remove the isSendingEnabled() gate that wraps callsites; it prevents
  * accidental live sends during local development and test runs.
  */
@@ -94,16 +69,46 @@ export async function sendEmail(
     };
   }
 
-  // ── STUB: replace with real Resend call after `npm install resend` ───────────
-  // When this stub is active the route should never reach here because the
-  // calling code checks isSendingEnabled() first.  This path exists only for
-  // safety in case that guard is accidentally bypassed.
-  void input; // suppress unused-variable warning until real code is added
-  return {
-    ok: false,
-    error:
-      "Resend SDK not installed — set EMAIL_SENDING_ENABLED=true only after running `npm install resend`",
-  };
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+        "User-Agent": "joinaireligion-platform/1.0",
+      },
+      body: JSON.stringify({
+        from: input.from,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+        ...(input.tags
+          ? {
+              tags: Object.entries(input.tags).map(([name, value]) => ({
+                name,
+                value,
+              })),
+            }
+          : {}),
+      }),
+    });
+
+    let payload: { id?: string } = {};
+    try {
+      payload = (await response.json()) as { id?: string };
+    } catch {
+      // Resend can return a non-JSON response during an upstream outage.
+    }
+
+    if (!response.ok) {
+      return { ok: false, error: `resend_error_${response.status}` };
+    }
+
+    return { ok: true, providerMsgId: payload.id ?? "unknown" };
+  } catch {
+    return { ok: false, error: "resend_network_error" };
+  }
 }
 
 // ─── Default from address ──────────────────────────────────────────────────────

@@ -46,15 +46,13 @@ Normal deployments run through the verified GitHub Actions workflow and a restri
 - No deployment secrets are stored in this repository.
 
 
-## Stripe (Test Mode) Setup
+## Stripe production setup
 
-1. In Stripe Dashboard, enable **Test mode**.
-2. Create monthly recurring prices for:
-   - Seeker
-   - Initiate
+1. In Stripe Dashboard, use the existing live monthly prices for Seeker and Initiate. Do not create duplicate products during deployment.
+2. Create a restricted live API key with only the permissions required for Customers, Products, Prices, Subscriptions, Checkout Sessions, and Customer Portal.
 3. Copy values into server `.env`:
-   - `STRIPE_SECRET_KEY` (test secret key)
-   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (test publishable key)
+   - `STRIPE_SECRET_KEY` (restricted live secret key)
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live publishable key)
    - `STRIPE_PRICE_SEEKER_MONTHLY`
    - `STRIPE_PRICE_INITIATE_MONTHLY`
    - `STRIPE_WEBHOOK_SECRET` (from webhook endpoint)
@@ -68,7 +66,7 @@ Normal deployments run through the verified GitHub Actions workflow and a restri
    - `invoice.payment_succeeded`
    - `invoice.payment_failed`
 
-> Keep Stripe keys in test mode until production readiness review is complete.
+Create the live webhook only after the public HTTPS endpoint is healthy. Verify Checkout session creation and expiration without submitting a real card payment.
 
 
 ## PostgreSQL exposure
@@ -83,8 +81,9 @@ Normal deployments run through the verified GitHub Actions workflow and a restri
 
 ## Stripe key policy
 
-- Use test keys during staging and initial validation.
-- Switch to production Stripe keys only after readiness/security review.
+- Store live keys only in the macOS Keychain and VPS-local `.env`; never paste them into chat, logs, or the repository.
+- Prefer a restricted live key over the account-wide standard secret key.
+- Do not make a real charge as part of deployment verification.
 
 ## Admin/Internal API keys
 

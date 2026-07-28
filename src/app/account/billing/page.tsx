@@ -20,7 +20,7 @@ const PLANS = [
     id: "seeker" as Plan,
     name: "Seeker",
     subtitle: "Supporter Donation",
-    price: "$9/mo",
+    price: "$10/mo",
     icon: "🌙",
     color: "rgba(168,85,247,0.08)",
     border: "rgba(168,85,247,0.35)",
@@ -30,7 +30,7 @@ const PLANS = [
     id: "initiate" as Plan,
     name: "Initiate",
     subtitle: "Active Membership",
-    price: "$19/mo",
+    price: "$25/mo",
     icon: "☀️",
     color: "rgba(201,162,39,0.08)",
     border: "rgba(201,162,39,0.4)",
@@ -50,6 +50,7 @@ export default function BillingPage() {
   const { t } = useLanguage();
   const [user,    setUser]    = useState<UserData | null>(null);
   const [loading, setLoading] = useState<Plan | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [error,   setError]   = useState("");
 
   useEffect(() => {
@@ -73,6 +74,24 @@ export default function BillingPage() {
       setError("Network error. Please try again.");
     } finally {
       setLoading(null);
+    }
+  }
+
+  async function onManageSubscription() {
+    setPortalLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/stripe/create-portal-session", { method: "POST" });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        setError(data.error || "Unable to open billing portal.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setPortalLoading(false);
     }
   }
 
@@ -114,15 +133,15 @@ export default function BillingPage() {
             )}
           </div>
           {isActive && (
-            <a
-              href="https://billing.stripe.com/p/login/test_00000000"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={onManageSubscription}
+              disabled={portalLoading}
               className="btn-sacred btn-sacred-ghost"
               style={{ textDecoration: "none", padding: "0.55rem 1.1rem", fontSize: "0.78rem" }}
             >
-              Manage Subscription
-            </a>
+              {portalLoading ? "Opening…" : "Manage Subscription"}
+            </button>
           )}
         </div>
       </SacredCard>
