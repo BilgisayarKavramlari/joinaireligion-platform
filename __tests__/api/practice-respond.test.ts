@@ -50,6 +50,10 @@ jest.mock("next/headers", () => ({
 }));
 jest.mock("@/lib/auth", () => ({
   getSessionFromCookie: () => mockGetSession(),
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 import { POST } from "@/app/api/practice/respond/route";

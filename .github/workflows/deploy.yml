@@ -5,15 +5,16 @@
 # Two sequential jobs:
 #   verify  — install deps, run all unit tests, type-check
 #   deploy  — SSH into VPS, pull code, preserve .env, rebuild the app
-#             container, run prisma db push, verify health endpoints
+#             container, and verify health endpoints
 #
 # Required GitHub Secrets (Settings → Secrets → Actions):
 #   VPS_HOST        — IP address or hostname of the production VPS
-#   VPS_USER        — SSH user (e.g. root or deploy)
+#   VPS_USER        — Restricted SSH user (joinai-deploy)
 #   VPS_SSH_KEY     — Full PEM private key (public half in ~/.ssh/authorized_keys on VPS)
 #   VPS_PORT        — SSH port number (default: 22)
-#   VPS_APP_DIR     — Absolute path on VPS (e.g. /opt/apps/joinaireligion)
-#   PRODUCTION_URL  — Full origin without trailing slash (e.g. https://joinaireligion.com)
+#
+# The VPS exposes one root-owned, allowlisted command to this user:
+#   sudo -n /usr/local/sbin/joinai-deploy
 #
 # Secret safety: secrets are referenced with ${{ secrets.NAME }} which GitHub
 # automatically masks in all log output.  Scripts never echo secret values.
@@ -38,10 +39,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -83,103 +84,15 @@ jobs:
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          APP_DIR:  ${{ secrets.VPS_APP_DIR }}
-          PROD_URL: ${{ secrets.PRODUCTION_URL }}
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key:      ${{ secrets.VPS_SSH_KEY }}
           port:     ${{ secrets.VPS_PORT || 22 }}
-          envs:     APP_DIR,PROD_URL
           script: |
             set -euo pipefail
-
-            # ── [1/6] Enter app directory ──────────────────────────────────────
-            echo "━━━ [1/6] Enter app directory ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            cd "$APP_DIR"
-
-            # ── [2/6] Preserve .env ────────────────────────────────────────────
-            # .env is gitignored so git reset won't touch it, but we back it up
-            # as a belt-and-suspenders measure.  Its contents are never logged.
-            echo "━━━ [2/6] Preserve .env ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            ENV_BACKUP="/tmp/joinaireligion_env_$(date +%s).bak"
-            if [ -f .env ]; then
-              cp .env "$ENV_BACKUP"
-              echo "✔  .env backed up (existence confirmed — contents not logged)"
-            else
-              echo "✗  No .env found in $APP_DIR."
-              echo "   Create one from .env.example before the first deploy."
-              exit 1
-            fi
-
-            # ── [3/6] Pull latest code ─────────────────────────────────────────
-            echo "━━━ [3/6] Pull origin/main ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            git fetch origin main
-            git reset --hard origin/main
-
-            # Write current git SHA and a build timestamp for the deploy-status
-            # endpoint — never write any secret value here.
-            GIT_SHA=$(git rev-parse --short HEAD)
-            BUILD_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            echo "GIT_COMMIT_SHA=${GIT_SHA}" >> .env
-            echo "BUILD_TIMESTAMP=${BUILD_TS}" >> .env
-            echo "✔  git SHA ${GIT_SHA} and build timestamp written to .env"
-
-            # Restore .env after git reset (safety net — already handled by
-            # gitignore, but we always restore to be certain).
-            cp "$ENV_BACKUP" .env
-            # Re-append the new build metadata after restoring
-            grep -v "^GIT_COMMIT_SHA=\|^BUILD_TIMESTAMP=" "$ENV_BACKUP" > /tmp/env_clean.tmp && mv /tmp/env_clean.tmp .env
-            echo "GIT_COMMIT_SHA=${GIT_SHA}" >> .env
-            echo "BUILD_TIMESTAMP=${BUILD_TS}" >> .env
-            echo "✔  .env restored and updated with deploy metadata"
-
-            # ── [4/6] Rebuild app container only ──────────────────────────────
-            # Only rebuilds the 'app' service — does NOT restart postgres or
-            # nginx containers, so there is no database downtime.
-            echo "━━━ [4/6] docker compose up -d --build app ━━━━━━━━━━━━━━━━━━"
-            docker compose up -d --build app
-
-            echo "── Container status ──────────────────────────────────────────"
-            docker compose ps
-
-            # ── [5/7] Run prisma db push ───────────────────────────────────────
-            # Applies any schema changes that are safe (non-destructive).
-            # Uses DATABASE_URL from the container's .env — never logged.
-            echo "━━━ [5/7] prisma db push ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            docker compose exec -u root app npx prisma db push
-            echo "✔  prisma db push complete"
-
-            # ── [6/7] Run prisma db seed ───────────────────────────────────────
-            # Idempotent — safe to run on every deploy. Ensures Step 1 lesson
-            # template exists so new users always receive a non-empty first lesson.
-            echo "━━━ [6/7] prisma db seed ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            docker compose exec -u root app npx prisma db seed || echo "⚠  Seed step returned non-zero — lesson template may already exist (safe)"
-            echo "✔  prisma db seed complete"
-
-            # ── [7/7] Health checks ────────────────────────────────────────────
-            echo "━━━ [6/6] Health checks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "Waiting 20 s for app to become ready…"
-            sleep 20
-
-            # Basic health endpoint
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-              --max-time 30 --retry 4 --retry-delay 5 --retry-connrefused \
-              "$PROD_URL/api/health")
-            if [ "$HTTP" -ne 200 ]; then
-              echo "✗  Basic health FAILED — HTTP $HTTP"
-              docker compose logs --tail=60
-              exit 1
-            fi
-            echo "✔  Basic health passed (HTTP $HTTP)"
-
-            # Admin/autonomy endpoints require an authenticated admin session.
-            # Deploy automation intentionally uses only the public /api/health check
-            # and never sends CRON_SECRET to /api/admin/* routes.
-
-            echo "━━━ Deployment complete — ${GIT_SHA} @ ${BUILD_TS} ━━━━━━━━━"
+            sudo -n /usr/local/sbin/joinai-deploy
 
       # ── Notify on failure ────────────────────────────────────────────────────
       # Uncomment and configure if you want Slack/email alerts on deploy failure.

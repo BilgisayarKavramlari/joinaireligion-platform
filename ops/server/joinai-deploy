@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+readonly APP_DIR="/opt/apps/joinaireligion"
+readonly REPOSITORY_URL="https://github.com/BilgisayarKavramlari/joinaireligion-platform.git"
+readonly BRANCH="main"
+readonly BACKUP_DIR="/var/backups/joinaireligion/config"
+readonly STATE_DIR="/var/lib/joinaireligion"
+readonly HEALTH_URL="http://127.0.0.1:3001/api/health"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "This command must run through the allowlisted sudo rule." >&2
+  exit 1
+fi
+
+exec 9>/run/lock/joinaireligion-deploy.lock
+if ! flock -n 9; then
+  echo "Another deployment is already running." >&2
+  exit 1
+fi
+
+cd "${APP_DIR}"
+test -d .git
+test -f .env
+install -d -m 0700 "${BACKUP_DIR}" "${STATE_DIR}"
+
+readonly PREVIOUS_SHA="$(git rev-parse HEAD)"
+readonly STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+readonly ENV_BACKUP="${BACKUP_DIR}/env-${STAMP}.bak"
+cp --preserve=mode,ownership,timestamps .env "${ENV_BACKUP}"
+chmod 0600 "${ENV_BACKUP}"
+
+rollback_required=0
+rollback() {
+  local exit_code=$?
+  if [[ "${rollback_required}" -eq 1 ]]; then
+    echo "Deployment failed; restoring ${PREVIOUS_SHA:0:12}." >&2
+    git reset --hard "${PREVIOUS_SHA}" >/dev/null
+    cp --preserve=mode,ownership,timestamps "${ENV_BACKUP}" .env
+    docker compose build app >/dev/null 2>&1 || true
+    docker compose up -d --no-deps app >/dev/null 2>&1 || true
+  fi
+  exit "${exit_code}"
+}
+trap rollback ERR
+
+git remote set-url origin "${REPOSITORY_URL}"
+git fetch --prune origin "${BRANCH}"
+readonly TARGET_SHA="$(git rev-parse --verify "origin/${BRANCH}")"
+readonly BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+git reset --hard "${TARGET_SHA}"
+cp --preserve=mode,ownership,timestamps "${ENV_BACKUP}" .env
+rollback_required=1
+export GIT_COMMIT_SHA="${TARGET_SHA:0:12}"
+export BUILD_TIMESTAMP
+
+docker compose build app migrate
+docker compose up -d --wait db
+docker compose --profile tools run --rm migrate migrate status
+docker compose up -d --no-build app
+
+http_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --retry 12 --retry-delay 5 --retry-connrefused --max-time 15 "${HEALTH_URL}")"
+if [[ "${http_code}" != "200" ]]; then
+  docker compose logs --tail=80 app >&2
+  echo "Health check failed with HTTP ${http_code}." >&2
+  false
+fi
+
+printf '%s\n' "${TARGET_SHA}" > "${STATE_DIR}/last-good-sha"
+chmod 0600 "${STATE_DIR}/last-good-sha"
+rollback_required=0
+trap - ERR
+
+find "${BACKUP_DIR}" -type f -name 'env-*.bak' -mtime +30 -delete
+echo "Deployment complete: ${TARGET_SHA:0:12}; health HTTP 200."

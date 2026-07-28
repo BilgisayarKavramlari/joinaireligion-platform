@@ -6,7 +6,6 @@
 set -e
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-GITHUB_TOKEN="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"
 GITHUB_USER="BilgisayarKavramlari"
 REPO="joinaireligion-platform"
 
@@ -27,12 +26,12 @@ echo "  ✓ Stale lock dosyaları temizlendi"
 
 if [ ! -d ".git" ]; then
   git init -b main
-  git remote add origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${REPO}.git"
+  git remote add origin "git@github.com:${GITHUB_USER}/${REPO}.git"
   echo "  ✓ Git init + remote eklendi"
 else
   echo "  ✓ Git dizini mevcut"
-  # Remote URL'i güncelle (token yenilenirse)
-  git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${GITHUB_USER}/${REPO}.git" 2>/dev/null || true
+  # Remote URL'i güvenli SSH adresine sabitle
+  git remote set-url origin "git@github.com:${GITHUB_USER}/${REPO}.git" 2>/dev/null || true
   echo "  ✓ Remote origin güncellendi"
 fi
 

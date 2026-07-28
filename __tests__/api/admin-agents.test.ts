@@ -10,6 +10,7 @@ const mockAgentRun = { findFirst: jest.fn() };
 const mockPracticeMessage = { count: jest.fn() };
 const mockPracticeResponse = { count: jest.fn() };
 const mockFeedbackItem = { count: jest.fn() };
+const mockGetCurrentUser = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
@@ -25,7 +26,7 @@ jest.mock("next/headers", () => ({
 }));
 
 jest.mock("@/lib/auth", () => ({
-  getSessionFromCookie: jest.fn(() => null),
+  getCurrentUserFromCookies: () => mockGetCurrentUser(),
 }));
 
 import { NextRequest } from "next/server";
@@ -41,6 +42,7 @@ function makeRequest(authHeader?: string): NextRequest {
 describe("GET /api/admin/agents", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCurrentUser.mockReturnValue(null);
 
     mockAgentRun.findFirst.mockImplementation(async ({ where }: { where: { agentName: string } }) => {
       if (where.agentName === "practice-generator") {
@@ -79,13 +81,14 @@ describe("GET /api/admin/agents", () => {
     mockFeedbackItem.count.mockResolvedValue(7);
   });
 
-  it("returns 401 without authorization", async () => {
+  it("returns 401 without an admin session", async () => {
     const response = await GET(makeRequest());
     expect(response.status).toBe(401);
   });
 
   it("returns implemented and planned agents with policy metadata", async () => {
-    const response = await GET(makeRequest("Bearer test-cron-secret"));
+    mockGetCurrentUser.mockReturnValue({ id: "admin_1", email: "admin@example.com", role: "ADMIN" });
+    const response = await GET(makeRequest());
     const body = await response.json();
 
     expect(response.status).toBe(200);

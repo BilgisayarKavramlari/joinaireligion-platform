@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Run as root." >&2
+  exit 1
+fi
+
+readonly SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+install -d -m 0700 /var/backups/joinaireligion/config /var/lib/joinaireligion
+install -m 0750 -o root -g root "${SOURCE_DIR}/joinai-deploy" /usr/local/sbin/joinai-deploy
+install -m 0750 -o root -g root "${SOURCE_DIR}/joinai-status" /usr/local/sbin/joinai-status
+
+sudoers_tmp="$(mktemp)"
+trap 'rm -f "${sudoers_tmp}"' EXIT
+printf '%s\n' 'joinai-deploy ALL=(root) NOPASSWD: /usr/local/sbin/joinai-deploy "", /usr/local/sbin/joinai-status ""' > "${sudoers_tmp}"
+visudo -cf "${sudoers_tmp}"
+install -m 0440 -o root -g root "${sudoers_tmp}" /etc/sudoers.d/joinaireligion-deploy
+
+visudo -cf /etc/sudoers.d/joinaireligion-deploy
+echo "Restricted JoinAI deployment commands installed."

@@ -28,6 +28,7 @@ const config = {
     ],
   },
   testMatch: ["**/__tests__/**/*.test.ts"],
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   clearMocks: true,
   resetMocks: false,
   restoreMocks: true,

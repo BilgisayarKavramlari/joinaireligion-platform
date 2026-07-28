@@ -1,6 +1,6 @@
-# Deployment (Manual, VPS)
+# Deployment (GitHub Actions to VPS)
 
-This project intentionally avoids automatic deployment workflows at this stage.
+Normal deployments run through the verified GitHub Actions workflow and a restricted, root-owned VPS wrapper. Database schema changes remain manual and approval-gated.
 
 ## Target
 
@@ -16,17 +16,18 @@ This project intentionally avoids automatic deployment workflows at this stage.
 
 ## Manual Deploy Steps
 
-1. Clone repository on VPS.
+1. Clone the repository on the VPS at the target path.
 2. Copy environment template and set real values locally on server:
    ```bash
    cp .env.example .env
    ```
 3. Review `.env` values (never commit secrets).
-4. Run deployment script:
+4. Install the restricted runtime wrappers once as root:
    ```bash
-   ./scripts/deploy-manual.sh
+   bash ops/server/install-vps-runtime
    ```
-5. Verify containers:
+5. Configure the GitHub Actions SSH secrets, then push an approved commit to `main`.
+6. Verify containers:
    ```bash
    docker compose ps
    docker compose logs -f app
@@ -40,7 +41,8 @@ This project intentionally avoids automatic deployment workflows at this stage.
 
 ## Notes
 
-- No CI/CD deploy workflow is included by design.
+- The automation SSH user is not in the Docker group and has no general sudo access.
+- Normal deployment checks migration status but never applies migrations or seeds.
 - No deployment secrets are stored in this repository.
 
 

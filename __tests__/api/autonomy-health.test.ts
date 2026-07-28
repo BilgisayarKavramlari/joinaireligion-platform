@@ -36,6 +36,7 @@ const mockUser        = { count: jest.fn() };
 const mockJourneyState = { count: jest.fn() };
 const mockOnboardingAnswer = { groupBy: jest.fn() };
 const mockFeedbackItem = { count: jest.fn() };
+const mockGetCurrentUser = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
@@ -57,7 +58,7 @@ jest.mock("next/headers", () => ({
 }));
 
 jest.mock("@/lib/auth", () => ({
-  getSessionFromCookie: jest.fn(() => null),
+  getCurrentUserFromCookies: () => mockGetCurrentUser(),
 }));
 
 // ─── Imports ──────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ function makeRequest(authHeader?: string): NextRequest {
   });
 }
 
-async function callHealth(authHeader = "Bearer test-cron-secret") {
+async function callHealth(authHeader?: string) {
   const req = makeRequest(authHeader);
   const res = await GET(req);
   const body = await res.json();
@@ -112,18 +113,21 @@ function setupHappyPathMocks() {
 describe("GET /api/admin/autonomy/health", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCurrentUser.mockReturnValue({ id: "admin_1", email: "admin@example.com", role: "ADMIN" });
   });
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  it("returns 401 when Authorization header is absent", async () => {
-    const req = makeRequest(); // no header
+  it("returns 401 when the admin session is absent", async () => {
+    mockGetCurrentUser.mockReturnValue(null);
+    const req = makeRequest();
     const res = await GET(req);
     expect(res.status).toBe(401);
   });
 
-  it("returns 401 when Bearer token does not match CRON_SECRET", async () => {
-    const { status } = await callHealth("Bearer wrong-secret");
+  it("returns 401 for an authenticated non-admin", async () => {
+    mockGetCurrentUser.mockReturnValue({ id: "user_1", email: "user@example.com", role: "USER" });
+    const { status } = await callHealth();
     expect(status).toBe(401);
   });
 

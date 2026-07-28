@@ -35,12 +35,16 @@ jest.mock("next/headers", () => ({
 jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   getSessionFromCookie: mockGetSession,
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 jest.mock("@/lib/db", () => ({
   db: {
     onboardingAnswer: {
-      createMany: jest.fn(),
+      upsert: jest.fn(),
     },
     userProfile: {
       upsert: jest.fn(),
@@ -55,6 +59,7 @@ jest.mock("@/lib/db", () => ({
     userLesson: {
       upsert: jest.fn(),
     },
+    $transaction: jest.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
   },
 }));
 
@@ -107,7 +112,7 @@ function authRequest(body: object) {
 
 describe("POST /api/onboarding/save", () => {
   beforeEach(() => {
-    (mockDb.onboardingAnswer.createMany as jest.Mock).mockResolvedValue({ count: 14 });
+    (mockDb.onboardingAnswer.upsert as jest.Mock).mockResolvedValue({});
     (mockDb.userProfile.upsert as jest.Mock).mockResolvedValue({});
     (mockDb.user.update as jest.Mock).mockResolvedValue(updatedUser);
     // Phase 3.A additions — no Step 1 lesson by default (graceful path)
@@ -149,20 +154,18 @@ describe("POST /api/onboarding/save", () => {
     expect(body.ok).toBe(true);
   });
 
-  it("persists all answer rows via OnboardingAnswer.createMany", async () => {
+  it("persists all answer rows via idempotent OnboardingAnswer.upsert calls", async () => {
     const req = authRequest({ answers: completeAnswers });
     await POST(req as any);
-    expect(mockDb.onboardingAnswer.createMany as jest.Mock).toHaveBeenCalled();
-    const call = (mockDb.onboardingAnswer.createMany as jest.Mock).mock.calls[0][0];
-    expect(call.data.length).toBeGreaterThan(0);
-    expect(call.skipDuplicates).toBe(true);
+    expect(mockDb.onboardingAnswer.upsert as jest.Mock).toHaveBeenCalled();
+    expect((mockDb.onboardingAnswer.upsert as jest.Mock).mock.calls.length).toBeGreaterThan(0);
   });
 
   it("stored rows include the required Phase 2 question keys", async () => {
     const req = authRequest({ answers: completeAnswers });
     await POST(req as any);
-    const call = (mockDb.onboardingAnswer.createMany as jest.Mock).mock.calls[0][0];
-    const keys: string[] = call.data.map((r: { questionKey: string }) => r.questionKey);
+    const keys: string[] = (mockDb.onboardingAnswer.upsert as jest.Mock).mock.calls
+      .map((call) => call[0].create.questionKey);
     expect(keys).toContain("tradition");
     expect(keys).toContain("preferred_language");
     expect(keys).toContain("practice");
@@ -194,10 +197,9 @@ describe("POST /api/onboarding/save", () => {
   it("safety_acknowledgement is stored with value 'accepted' when checked", async () => {
     const req = authRequest({ answers: completeAnswers });
     await POST(req as any);
-    const call = (mockDb.onboardingAnswer.createMany as jest.Mock).mock.calls[0][0];
-    const safetyRow = call.data.find(
-      (r: { questionKey: string; answer: string }) => r.questionKey === "safety_acknowledgement",
-    );
+    const safetyRow = (mockDb.onboardingAnswer.upsert as jest.Mock).mock.calls
+      .map((call) => call[0].create)
+      .find((row: { questionKey: string; answer: string }) => row.questionKey === "safety_acknowledgement");
     expect(safetyRow).toBeDefined();
     expect(safetyRow.answer).toBe("accepted");
   });

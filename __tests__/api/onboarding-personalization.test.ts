@@ -16,17 +16,18 @@
 
 // ─── Explicit mock implementations ───────────────────────────────────────────
 
-const mockCreateMany = jest.fn();
+const mockAnswerUpsert = jest.fn();
 const mockUpsert     = jest.fn();
 const mockUpdate     = jest.fn();
 const mockFindFirst  = jest.fn();
 
 jest.mock("@/lib/db", () => ({
   db: {
-    onboardingAnswer: { createMany: mockCreateMany },
+    onboardingAnswer: { upsert: mockAnswerUpsert },
     userProfile:      { upsert: mockUpsert },
     user:             { update: mockUpdate },
     lesson:           { findFirst: mockFindFirst },
+    $transaction: jest.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
   },
 }));
 
@@ -39,21 +40,22 @@ jest.mock("next/headers", () => ({
   cookies: jest.fn(() => ({ get: mockCookiesGet })),
 }));
 
+jest.mock("@/lib/auth", () => ({
+  getCurrentUserFromCookies: async () => mockCookiesGet("__Host-jair_session")
+    ? { id: "u1", email: "a@b.com", role: "USER", displayName: "Seeker" }
+    : null,
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 import { POST } from "@/app/api/onboarding/save/route";
 import { buildJsonRequest, jsonBody } from "../helpers/mockDb";
 
-function sessionCookie() {
-  const payload = { userId: "u1", email: "a@b.com", role: "USER", iat: Date.now() };
-  return { value: Buffer.from(JSON.stringify(payload)).toString("base64") };
-}
-
 function setupMocks() {
   mockCookiesGet.mockImplementation((name: string) =>
-    name === "jair_session" ? sessionCookie() : undefined
+    name === "__Host-jair_session" ? { value: "opaque-session-token" } : undefined
   );
-  mockCreateMany.mockResolvedValue({ count: 8 });
+  mockAnswerUpsert.mockResolvedValue({});
   mockUpsert.mockResolvedValue({ id: "profile1", userId: "u1" });
   mockUpdate.mockResolvedValue({
     id: "u1",
@@ -120,10 +122,8 @@ describe("POST /api/onboarding/save — personalization persistence", () => {
     const res = await POST(req as never);
 
     expect(res.status).toBe(200);
-    expect(mockCreateMany).toHaveBeenCalledTimes(1);
-
-    const { data } = mockCreateMany.mock.calls[0][0] as { data: { questionKey: string }[] };
-    const keys = data.map((row) => row.questionKey);
+    expect(mockAnswerUpsert).toHaveBeenCalled();
+    const keys = mockAnswerUpsert.mock.calls.map((call) => call[0].create.questionKey);
 
     expect(keys).toContain("intent");
     expect(keys).toContain("practice_style");
@@ -203,12 +203,17 @@ describe("POST /api/onboarding/save — personalization persistence", () => {
     expect(onboardingCall![0].data.onboardingDoneAt).toBeInstanceOf(Date);
   });
 
-  it("uses skipDuplicates: true (idempotent re-submission)", async () => {
+  it("uses a unique-key upsert for idempotent re-submission", async () => {
     const req = buildJsonRequest({ answers: FULL_ANSWERS });
     await POST(req as never);
 
-    const call = mockCreateMany.mock.calls[0][0] as { skipDuplicates: boolean };
-    expect(call.skipDuplicates).toBe(true);
+    const call = mockAnswerUpsert.mock.calls[0][0] as {
+      where: { userId_questionKey: { userId: string; questionKey: string } };
+      update: { answer: string };
+    };
+    expect(call.where.userId_questionKey.userId).toBe("u1");
+    expect(call.where.userId_questionKey.questionKey).toBeTruthy();
+    expect(call.update.answer).toBeTruthy();
   });
 
   it("returns ok: true and next: /lessons on success", async () => {

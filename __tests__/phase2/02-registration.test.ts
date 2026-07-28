@@ -49,7 +49,7 @@ const mockEmail = sendVerificationEmail as jest.MockedFunction<typeof sendVerifi
 
 const validBody = {
   email: "seeker@sacred.test",
-  password: "Seeker123",
+  password: "Seeker123456",
   displayName: "Sacred Seeker",
   acceptedTerms: true,
   emailOptIn: false,
