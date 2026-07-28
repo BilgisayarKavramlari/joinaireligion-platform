@@ -28,7 +28,9 @@ import { env } from "@/lib/env";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const TIMEOUT_MS = 30_000;
-const MAX_TOKENS = 800;
+// Multilingual article JSON includes a full body, SEO fields, and FAQ blocks.
+// 800 tokens can truncate otherwise valid Cyrillic and CJK translations.
+const MAX_TOKENS = 2_400;
 
 // ─── Lazy singleton ───────────────────────────────────────────────────────────
 
@@ -106,7 +108,12 @@ export async function callOpenAIJsonWithError(
       ],
     });
 
-    const raw = completion.choices[0]?.message?.content;
+    const choice = completion.choices[0];
+    if (choice?.finish_reason === "length") {
+      return { data: null, error: `OpenAI output exceeded ${MAX_TOKENS} tokens` };
+    }
+
+    const raw = choice?.message?.content;
     if (!raw) {
       return { data: null, error: "OpenAI returned empty content" };
     }
