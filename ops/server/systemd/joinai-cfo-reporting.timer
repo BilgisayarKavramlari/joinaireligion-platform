@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI read-only CFO operating report daily
+
+[Timer]
+OnCalendar=*-*-* 11:00:00 UTC
+Persistent=true
+Unit=joinai-agent@cfo-reporting.service
+
+[Install]
+WantedBy=timers.target

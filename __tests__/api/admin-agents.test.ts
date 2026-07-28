@@ -10,6 +10,8 @@ const mockAgentRun = { findFirst: jest.fn() };
 const mockPracticeMessage = { count: jest.fn() };
 const mockPracticeResponse = { count: jest.fn() };
 const mockFeedbackItem = { count: jest.fn() };
+const mockContentItem = { count: jest.fn() };
+const mockAgentArtifact = { count: jest.fn() };
 const mockGetCurrentUser = jest.fn();
 
 jest.mock("@/lib/db", () => ({
@@ -18,6 +20,8 @@ jest.mock("@/lib/db", () => ({
     practiceMessage: mockPracticeMessage,
     practiceResponse: mockPracticeResponse,
     feedbackItem: mockFeedbackItem,
+    contentItem: mockContentItem,
+    agentArtifact: mockAgentArtifact,
   },
 }));
 
@@ -79,6 +83,8 @@ describe("GET /api/admin/agents", () => {
     });
     mockPracticeResponse.count.mockResolvedValue(2);
     mockFeedbackItem.count.mockResolvedValue(7);
+    mockContentItem.count.mockResolvedValue(4);
+    mockAgentArtifact.count.mockResolvedValue(2);
   });
 
   it("returns 401 without an admin session", async () => {
@@ -86,7 +92,7 @@ describe("GET /api/admin/agents", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns implemented and planned agents with policy metadata", async () => {
+  it("returns implemented agents with policy metadata", async () => {
     mockGetCurrentUser.mockReturnValue({ id: "admin_1", email: "admin@example.com", role: "ADMIN" });
     const response = await GET(makeRequest());
     const body = await response.json();
@@ -106,7 +112,9 @@ describe("GET /api/admin/agents", () => {
     expect(supportTriage.status).toBe("IDLE");
     expect(supportTriage.backlogCount).toBe(7);
     expect(supportTriage.statusReason).toContain("endpoint and cron script");
-    expect(revenueOrchestrator.mode).toBe("INACTIVE");
+    expect(revenueOrchestrator.lifecycle).toBe("IMPLEMENTED");
+    expect(revenueOrchestrator.mode).toBe("REPORT_ONLY");
+    expect(revenueOrchestrator.backlogCount).toBe(2);
     expect(responseScorer.status).toBe("FAILED");
     expect(body.decisionLogContract.requiresRoutineHumanApproval).toBe(false);
   });

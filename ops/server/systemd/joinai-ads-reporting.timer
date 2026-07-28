@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI aggregate ads readiness reporting daily
+
+[Timer]
+OnCalendar=*-*-* 10:00:00 UTC
+Persistent=true
+Unit=joinai-agent@ads-reporting.service
+
+[Install]
+WantedBy=timers.target

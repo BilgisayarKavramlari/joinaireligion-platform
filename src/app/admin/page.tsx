@@ -57,7 +57,7 @@ export default async function AdminDashboard() {
             <h1 style={{ fontFamily: "Georgia,serif", fontSize: "1.8rem", fontWeight: 900, color: "#f0d47a", margin: 0 }}>Sacred Dashboard</h1>
           </div>
           <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-            {[["Users","/admin/users"],["Lessons","/admin/lessons"],["Payments","/admin/subscriptions"],["Activity","/admin/activity"],["Dialogues","/admin/dialogues"],["Feedback","/admin/feedback"],["Ideas","/admin/ideas"],["Backlog","/admin/backlog"],["Autonomy","/admin/autonomy"],["Agents","/admin/agents"]].map(([label,href]) => (
+            {[["Users","/admin/users"],["Lessons","/admin/lessons"],["Payments","/admin/subscriptions"],["Activity","/admin/activity"],["Dialogues","/admin/dialogues"],["Feedback","/admin/feedback"],["Ideas","/admin/ideas"],["Backlog","/admin/backlog"],["Content","/admin/content"],["Growth","/admin/growth"],["Autonomy","/admin/autonomy"],["Agents","/admin/agents"]].map(([label,href]) => (
               <Link key={href as string} href={href as string} style={{ padding: "0.5rem 1rem", borderRadius: "0.5rem", border: "1px solid rgba(201,162,39,0.25)", color: "rgba(237,232,220,0.7)", textDecoration: "none", fontSize: "0.78rem", background: "rgba(255,255,255,0.02)" }}>
                 {label}
               </Link>

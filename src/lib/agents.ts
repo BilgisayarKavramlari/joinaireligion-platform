@@ -1,4 +1,11 @@
-import { AgentRunStatus, DeliveryStatus, FeedbackStatus, GenerationStatus } from "@prisma/client";
+import {
+  AgentArtifactStatus,
+  AgentRunStatus,
+  ContentWorkflowStatus,
+  DeliveryStatus,
+  FeedbackStatus,
+  GenerationStatus,
+} from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 
@@ -198,8 +205,8 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "seo-kulliyat-draft",
     title: "SEO / Kulliyat Content",
-    description: "Builds draft-only SEO and külliyat content packages for review queues.",
-    lifecycle: "PLANNED",
+    description: "Builds multilingual SEO and külliyat drafts, then applies an automatic quality and safety gate.",
+    lifecycle: "IMPLEMENTED",
     mode: "DRAFT_ONLY",
     schedule: { kind: "daily_utc", label: "Daily at 09:00 UTC", cron: "0 9 * * *", hour: 9, minute: 0 },
     backlogLabel: "draft content backlog",
@@ -215,8 +222,8 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "social-listener-draft",
     title: "Social Listener",
-    description: "Monitors approved inputs and prepares draft social content only.",
-    lifecycle: "PLANNED",
+    description: "Prepares multilingual social drafts from safe internal content; external listening and posting remain disabled.",
+    lifecycle: "IMPLEMENTED",
     mode: "DRAFT_ONLY",
     schedule: { kind: "interval_hours", label: "Every 6 hours", cron: "0 */6 * * *", intervalHours: 6, minute: 0 },
     backlogLabel: "draft social queue",
@@ -232,8 +239,8 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "ads-reporting",
     title: "Ads Reporting",
-    description: "Produces reporting and recommendation snapshots without changing spend.",
-    lifecycle: "PLANNED",
+    description: "Produces aggregate acquisition-readiness reports without campaign access or spend authority.",
+    lifecycle: "IMPLEMENTED",
     mode: "REPORT_ONLY",
     schedule: { kind: "daily_utc", label: "Daily at 10:00 UTC", cron: "0 10 * * *", hour: 10, minute: 0 },
     backlogLabel: "ads reporting queue",
@@ -249,8 +256,8 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "cfo-reporting",
     title: "CFO Reporting",
-    description: "Prepares finance and operations reporting without mutating financial records.",
-    lifecycle: "PLANNED",
+    description: "Prepares read-only finance and operations snapshots without mutating billing or ledger records.",
+    lifecycle: "IMPLEMENTED",
     mode: "REPORT_ONLY",
     schedule: { kind: "daily_utc", label: "Daily at 11:00 UTC", cron: "0 11 * * *", hour: 11, minute: 0 },
     backlogLabel: "finance reporting queue",
@@ -266,10 +273,10 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "revenue-orchestrator",
     title: "Revenue Orchestrator",
-    description: "Coordinates planned growth agents inside future owner-defined budget and risk caps.",
-    lifecycle: "PLANNED",
-    mode: "INACTIVE",
-    schedule: { kind: "manual", label: "Manual until downstream agents exist" },
+    description: "Coordinates internal growth reports into ideas and proposed backlog items; external actions and spend remain disabled.",
+    lifecycle: "IMPLEMENTED",
+    mode: "REPORT_ONLY",
+    schedule: { kind: "daily_utc", label: "Daily at 11:30 UTC", cron: "30 11 * * *", hour: 11, minute: 30 },
     backlogLabel: "orchestration opportunities",
     policy: {
       autonomyLevel: 2,
@@ -424,11 +431,26 @@ async function fetchLatestRuns(): Promise<LatestRunRecord> {
 }
 
 async function fetchBacklogs(): Promise<BacklogRecord> {
-  const [pendingGenerations, queuedEmails, unscoredResponses, openFeedback] = await Promise.all([
+  const [
+    pendingGenerations,
+    queuedEmails,
+    unscoredResponses,
+    openFeedback,
+    contentDrafts,
+    socialDrafts,
+    adsReports,
+    cfoReports,
+    revenueReports,
+  ] = await Promise.all([
     db.practiceMessage.count({ where: { generationStatus: GenerationStatus.PENDING } }),
     db.practiceMessage.count({ where: { deliveryStatus: DeliveryStatus.QUEUED } }),
     db.practiceResponse.count({ where: { score: null } }),
     db.feedbackItem.count({ where: { status: FeedbackStatus.OPEN } }),
+    db.contentItem.count({ where: { status: { in: [ContentWorkflowStatus.DRAFT, ContentWorkflowStatus.QUARANTINED] } } }),
+    db.agentArtifact.count({ where: { agentName: "social-listener-draft", status: AgentArtifactStatus.DRAFT } }),
+    db.agentArtifact.count({ where: { agentName: "ads-reporting", status: AgentArtifactStatus.READY } }),
+    db.agentArtifact.count({ where: { agentName: "cfo-reporting", status: AgentArtifactStatus.READY } }),
+    db.agentArtifact.count({ where: { agentName: "revenue-orchestrator", status: AgentArtifactStatus.READY } }),
   ]);
 
   return {
@@ -437,11 +459,11 @@ async function fetchBacklogs(): Promise<BacklogRecord> {
     "response-scorer": unscoredResponses,
     "autonomy-repair": null,
     "support-triage": openFeedback,
-    "seo-kulliyat-draft": null,
-    "social-listener-draft": null,
-    "ads-reporting": null,
-    "cfo-reporting": null,
-    "revenue-orchestrator": null,
+    "seo-kulliyat-draft": contentDrafts,
+    "social-listener-draft": socialDrafts,
+    "ads-reporting": adsReports,
+    "cfo-reporting": cfoReports,
+    "revenue-orchestrator": revenueReports,
   };
 }
 
