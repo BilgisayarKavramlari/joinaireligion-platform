@@ -2,10 +2,10 @@
  * Phase 2 — Test 01: Auth utility functions
  *
  * Tests pure-function behaviour of src/lib/auth.ts:
- *   - hashPassword: deterministic SHA-256 digest
- *   - createToken: 48-hex-char random token
- *   - setSessionCookie: cookie name, httpOnly flag, base64-encoded payload
- *   - getSessionFromCookie: round-trip decoding, null on bad input
+ *   - hashPassword: salted scrypt digest
+ *   - createToken: URL-safe random token
+ *   - setSessionCookie: hardened opaque session cookie
+ *   - getSessionFromCookie: legacy unsigned cookies are rejected
  *
  * No database or HTTP stack is required.
  */
@@ -14,34 +14,42 @@
 // in the CI/test environment). Mock it so pure-function tests can load.
 jest.mock("@/lib/db", () => ({ db: {} }));
 
-import { hashPassword, createToken, setSessionCookie, getSessionFromCookie } from "@/lib/auth";
+import {
+  SESSION_COOKIE_NAME,
+  createToken,
+  getSessionFromCookie,
+  hashPassword,
+  setSessionCookie,
+  verifyPassword,
+} from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // ─── hashPassword ─────────────────────────────────────────────────────────────
 
 describe("hashPassword", () => {
-  it("returns a 64-character hex string (SHA-256)", () => {
-    const hash = hashPassword("secret123");
-    expect(hash).toHaveLength(64);
-    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  it("returns a salted scrypt hash", async () => {
+    const hash = await hashPassword("secret123");
+    expect(hash).toMatch(/^scrypt\$N=16384,r=8,p=1\$/);
+    await expect(verifyPassword("secret123", hash)).resolves.toEqual({ valid: true, needsRehash: false });
   });
 
-  it("is deterministic — same input always yields same digest", () => {
-    expect(hashPassword("password")).toBe(hashPassword("password"));
+  it("uses a fresh salt for the same input", async () => {
+    await expect(hashPassword("password")).resolves.not.toBe(await hashPassword("password"));
   });
 
-  it("different inputs produce different hashes", () => {
-    expect(hashPassword("abc")).not.toBe(hashPassword("ABC"));
+  it("rejects a different input", async () => {
+    const hash = await hashPassword("abc");
+    await expect(verifyPassword("ABC", hash)).resolves.toMatchObject({ valid: false });
   });
 });
 
 // ─── createToken ──────────────────────────────────────────────────────────────
 
 describe("createToken", () => {
-  it("returns a 48-char hex string", () => {
+  it("returns a 43-character base64url token", () => {
     const token = createToken();
-    expect(token).toHaveLength(48);
-    expect(token).toMatch(/^[0-9a-f]{48}$/);
+    expect(token).toHaveLength(43);
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
   it("every call returns a unique token", () => {
@@ -54,47 +62,33 @@ describe("createToken", () => {
 // ─── session cookie round-trip ────────────────────────────────────────────────
 
 describe("setSessionCookie / getSessionFromCookie", () => {
-  const payload = { userId: "u_123", email: "alice@example.com", role: "USER" };
+  const token = createToken();
 
   function extractCookieValue(response: NextResponse): string | null {
     // NextResponse stores set-cookie in headers
     const raw = response.headers.get("set-cookie") || "";
-    const match = raw.match(/jair_session=([^;]+)/);
+    const match = raw.match(/__Host-jair_session=([^;]+)/);
     return match ? match[1] : null;
   }
 
-  it("sets a cookie named jair_session", () => {
+  it("sets the hardened session cookie with the opaque token", () => {
     const res = NextResponse.json({ ok: true });
-    setSessionCookie(res, payload);
-    expect(res.headers.get("set-cookie")).toContain("jair_session=");
+    setSessionCookie(res, token);
+    expect(res.headers.get("set-cookie")).toContain(`${SESSION_COOKIE_NAME}=${token}`);
   });
 
   it("includes HttpOnly in the cookie attributes", () => {
     const res = NextResponse.json({ ok: true });
-    setSessionCookie(res, payload);
+    setSessionCookie(res, token);
     expect(res.headers.get("set-cookie")?.toLowerCase()).toContain("httponly");
   });
 
-  it("round-trips: decoded cookie matches original payload fields", () => {
+  it("does not decode opaque tokens as client-side session payloads", () => {
     const res = NextResponse.json({ ok: true });
-    setSessionCookie(res, payload);
+    setSessionCookie(res, token);
     const cookieVal = extractCookieValue(res);
     expect(cookieVal).not.toBeNull();
-
-    const decoded = getSessionFromCookie(cookieVal!);
-    expect(decoded).not.toBeNull();
-    expect(decoded!.userId).toBe(payload.userId);
-    expect(decoded!.email).toBe(payload.email);
-    expect(decoded!.role).toBe(payload.role);
-  });
-
-  it("decoded session includes iat timestamp (number)", () => {
-    const before = Date.now();
-    const res = NextResponse.json({ ok: true });
-    setSessionCookie(res, payload);
-    const cookieVal = extractCookieValue(res);
-    const decoded = getSessionFromCookie(cookieVal!);
-    expect(decoded!.iat).toBeGreaterThanOrEqual(before);
+    expect(getSessionFromCookie(cookieVal!)).toBeNull();
   });
 
   it("getSessionFromCookie returns null for undefined input", () => {

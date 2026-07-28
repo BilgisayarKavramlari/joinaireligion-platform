@@ -8,6 +8,10 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@/lib/auth", () => ({
   getSessionFromCookie: (...args: unknown[]) => mockGetSession(...args),
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 jest.mock("@/lib/db", () => ({

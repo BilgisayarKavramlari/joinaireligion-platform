@@ -27,6 +27,10 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@/lib/auth", () => ({
   getSessionFromCookie: (...args: unknown[]) => mockGetSession(...args),
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 jest.mock("@/lib/db", () => ({
@@ -193,6 +197,7 @@ describe("Task 2 — onboarding access guard", () => {
 describe("Task 2 — health integrity warnings", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSession.mockReturnValue({ userId: "admin_health", email: "admin@example.com", role: "ADMIN" });
     mockQueryRaw.mockResolvedValue([{ n: BigInt(0) }]);
     mockAgentRun.findFirst.mockResolvedValue(null);
     mockPracticeMessage.count.mockResolvedValue(0);

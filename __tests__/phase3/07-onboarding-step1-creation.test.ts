@@ -22,15 +22,20 @@ jest.mock("next/headers", () => ({
 jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   getSessionFromCookie: mockGetSession,
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 jest.mock("@/lib/db", () => ({
   db: {
-    onboardingAnswer: { createMany: jest.fn() },
+    onboardingAnswer: { upsert:     jest.fn() },
     userProfile:      { upsert:     jest.fn() },
     user:             { update:     jest.fn() },
     lesson:           { findFirst:  jest.fn() },
     userLesson:       { upsert:     jest.fn() },
+    $transaction: jest.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
   },
 }));
 
@@ -98,7 +103,7 @@ function authRequest(body: object) {
 
 describe("POST /api/onboarding/save (Phase 3 — eager Step 1 creation)", () => {
   beforeEach(() => {
-    (mockDb.onboardingAnswer.createMany as jest.Mock).mockResolvedValue({ count: 6 });
+    (mockDb.onboardingAnswer.upsert as jest.Mock).mockResolvedValue({});
     (mockDb.userProfile.upsert as jest.Mock).mockResolvedValue({});
     (mockDb.user.update as jest.Mock).mockResolvedValue(updatedUser);
     (mockDb.lesson.findFirst as jest.Mock).mockResolvedValue(step1Lesson);

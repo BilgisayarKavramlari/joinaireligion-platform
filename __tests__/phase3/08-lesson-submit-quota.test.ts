@@ -30,6 +30,10 @@ jest.mock("next/headers", () => ({
 jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   getSessionFromCookie: mockGetSession,
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 jest.mock("@/lib/env", () => ({
@@ -100,7 +104,7 @@ function makeDbUser(overrides: {
 } = {}) {
   const isPaid = overrides.isPaid ?? false;
   return {
-    ...makeUser(),
+    ...makeUser({ emailVerifiedAt: new Date(), onboardingDone: true }),
     subscription: isPaid ? { status: "ACTIVE" } : null,
     lessonQuota: overrides.quota !== undefined ? overrides.quota : null,
     onboarding: [],

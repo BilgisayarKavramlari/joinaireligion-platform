@@ -36,6 +36,10 @@ jest.mock("next/headers", () => ({
 jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   getSessionFromCookie: mockGetSession,
+  getCurrentUserFromCookies: async () => {
+    const session = mockGetSession();
+    return session ? { id: session.userId, email: session.email, role: session.role, displayName: null } : null;
+  },
 }));
 
 jest.mock("@/lib/db", () => ({
@@ -50,6 +54,16 @@ jest.mock("@/lib/db", () => ({
 jest.mock("fs/promises", () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
   mkdir: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("sharp", () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    metadata: jest.fn().mockResolvedValue({ width: 512, height: 512 }),
+    rotate: jest.fn().mockReturnThis(),
+    toFormat: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from("sanitized-image")),
+  })),
 }));
 
 // ── Imports ───────────────────────────────────────────────────────────────────
@@ -67,6 +81,15 @@ const TWO_MB_PLUS_ONE = 2 * ONE_MB + 1;
 
 function makeFile(name: string, type: string, sizeBytes: number): File {
   const content = new Uint8Array(sizeBytes);
+  if (type === "image/jpeg" && sizeBytes >= 4) {
+    content.set([0xff, 0xd8], 0);
+    content.set([0xff, 0xd9], sizeBytes - 2);
+  } else if (type === "image/png" && sizeBytes >= 8) {
+    content.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  } else if (type === "image/webp" && sizeBytes >= 12) {
+    content.set(Buffer.from("RIFF"), 0);
+    content.set(Buffer.from("WEBP"), 8);
+  }
   return new File([content], name, { type });
 }
 

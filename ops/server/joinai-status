@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly APP_DIR="/opt/apps/joinaireligion"
+cd "${APP_DIR}"
+
+printf 'git_sha=%s\n' "$(git rev-parse --short HEAD)"
+docker ps --filter 'name=joinaireligion_' --format '{{.Names}} {{.Status}} {{.Ports}}'
+printf 'health_http=%s\n' "$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 http://127.0.0.1:3001/api/health || true)"

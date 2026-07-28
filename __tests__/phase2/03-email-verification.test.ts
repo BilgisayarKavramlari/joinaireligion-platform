@@ -33,6 +33,9 @@ jest.mock("@/lib/db", () => ({
     userProfile: {
       upsert: jest.fn(),
     },
+    session: {
+      create: jest.fn(),
+    },
   },
 }));
 
@@ -69,6 +72,7 @@ describe("POST /api/auth/verify-email", () => {
     (mockDb.emailVerificationToken.update as jest.Mock).mockResolvedValue({});
     (mockDb.user.update as jest.Mock).mockResolvedValue(verifiedUser);
     (mockDb.userProfile.upsert as jest.Mock).mockResolvedValue({});
+    (mockDb.session.create as jest.Mock).mockResolvedValue({ id: "session_001" });
   });
 
   // ─── Input validation ─────────────────────────────────────────────────────────
@@ -184,11 +188,11 @@ describe("POST /api/auth/verify-email", () => {
 
   // ─── Auto-login cookie ────────────────────────────────────────────────────────
 
-  it("sets a jair_session cookie in the response (auto-login)", async () => {
+  it("sets the hardened session cookie in the response (auto-login)", async () => {
     const req = buildJsonRequest({ token: validToken.token });
     const res = await POST(req as any);
     const setCookie = res.headers.get("set-cookie") || "";
-    expect(setCookie).toContain("jair_session=");
+    expect(setCookie).toContain("__Host-jair_session=");
   });
 
   // ─── Redirect routing ─────────────────────────────────────────────────────────

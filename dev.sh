@@ -5,7 +5,6 @@
 # ============================================================
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-GITHUB_TOKEN="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"
 GITHUB_USER="BilgisayarKavramlari"
 REPO="joinaireligion-platform"
 

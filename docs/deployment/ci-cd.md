@@ -14,11 +14,10 @@ push → main
         npm ci → prisma generate → npm run build
         (fails fast; blocks deploy if build fails)
   └── Job 2: Deploy  (only runs if Build passes)
-        SSH → VPS
-        git fetch + reset --hard origin/main
-        .env preserved
-        docker compose up -d --build
-        health check → PRODUCTION_URL/api/health
+        restricted SSH → VPS
+        sudo -n /usr/local/sbin/joinai-deploy
+        root-owned wrapper preserves .env, fetches origin/main,
+        verifies schema status, rebuilds app, and checks local health
 ```
 
 No manual steps are required once the GitHub Secrets are set.
@@ -27,30 +26,29 @@ No manual steps are required once the GitHub Secrets are set.
 
 ## Required GitHub Secrets
 
-Add all five secrets at:  
+Add these four secrets at:
 **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
 
 | Secret name       | What to put there                                      | Example                          |
 |-------------------|--------------------------------------------------------|----------------------------------|
 | `VPS_HOST`        | IP address or hostname of the production VPS           | `203.0.113.42`                   |
-| `VPS_USER`        | SSH username on the VPS                                | `deploy` or `root`               |
+| `VPS_USER`        | Restricted SSH username                                | `joinai-deploy`                  |
 | `VPS_SSH_KEY`     | Full contents of the **private** SSH key (PEM format)  | `-----BEGIN OPENSSH PRIVATE KEY-----…` |
-| `VPS_APP_DIR`     | Absolute path to the app directory on the VPS          | `/opt/apps/joinaireligion`        |
-| `PRODUCTION_URL`  | Full origin without trailing slash                     | `https://joinaireligion.com`     |
+| `VPS_PORT`        | SSH port                                               | `22`                             |
 
 ### Generating a deploy SSH key pair (if you don't already have one)
 
 Run this on your local machine:
 
 ```bash
-ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/joinaireligion_deploy
+ssh-keygen -t ed25519 -C "github-actions-joinaireligion" -f ~/.ssh/joinaireligion_github_actions
 ```
 
-- Copy the **public** key (`~/.ssh/joinaireligion_deploy.pub`) to the VPS:
+- Copy the **public** key (`~/.ssh/joinaireligion_github_actions.pub`) to the VPS:
   ```bash
-  ssh-copy-id -i ~/.ssh/joinaireligion_deploy.pub <VPS_USER>@<VPS_HOST>
+  ssh-copy-id -i ~/.ssh/joinaireligion_github_actions.pub joinai-deploy@<VPS_HOST>
   ```
-- Paste the full contents of `~/.ssh/joinaireligion_deploy` (the **private** key) as the `VPS_SSH_KEY` secret.
+- Paste the full contents of `~/.ssh/joinaireligion_github_actions` (the **private** key) as the `VPS_SSH_KEY` secret.
 
 ---
 
@@ -78,44 +76,26 @@ docker --version      # Docker 24+ recommended
 docker compose version  # v2 plugin (not docker-compose v1)
 ```
 
-### 4. The deploy user can run Docker without sudo
+### 4. Install the restricted wrappers
 
 ```bash
-usermod -aG docker <VPS_USER>
-# Re-login or run: newgrp docker
+cd /opt/apps/joinaireligion
+sudo bash ops/server/install-vps-runtime
 ```
+
+The deploy user must **not** be added to the Docker group. Its sudo policy allows only the argument-free `joinai-deploy` and `joinai-status` wrappers.
 
 ---
 
 ## How the deploy step works, step by step
 
-The remote SSH script (`deploy.yml`, Job 2) does exactly this — nothing more:
+The remote SSH job invokes exactly one allowlisted command:
 
 ```bash
-cd "$VPS_APP_DIR"
-
-# Back up .env
-cp .env /tmp/joinaireligion_env_<timestamp>.bak
-
-# Pull new code
-git fetch origin main
-git reset --hard origin/main
-
-# Restore .env (safety net — git reset won't overwrite gitignored files,
-# but we restore unconditionally)
-cp /tmp/joinaireligion_env_<timestamp>.bak .env
-
-# Rebuild and restart
-docker compose up -d --build
-
-# Verify
-docker compose ps
-
-# Health check — fails the workflow if not HTTP 200
-curl "$PRODUCTION_URL/api/health"
+sudo -n /usr/local/sbin/joinai-deploy
 ```
 
-No `prisma migrate` commands are run automatically. See the section below for database migrations.
+The root-owned wrapper fixes the repository and branch, preserves `.env`, serializes concurrent deployments, checks migration status without applying changes, rebuilds approved services, verifies `http://127.0.0.1:3001/api/health`, and rolls back the application revision on failure. No `prisma migrate deploy`, `prisma db push`, or seed command runs automatically.
 
 ---
 
@@ -134,10 +114,10 @@ ssh <VPS_USER>@<VPS_HOST>
 cd /opt/apps/joinaireligion
 
 # Preview what will change (no writes)
-docker compose run --rm app npx prisma migrate status
+docker compose --profile tools run --rm migrate migrate status
 
 # Apply pending migrations (uses production DATABASE_URL from .env)
-docker compose run --rm app npx prisma migrate deploy
+docker compose --profile tools run --rm migrate migrate deploy
 ```
 
 > **Never use:**
@@ -149,7 +129,7 @@ For additive-only schema changes (new nullable columns, new tables) you may also
 
 ```bash
 # Only safe for purely additive changes; review output carefully
-docker compose run --rm app npx prisma db push
+docker compose --profile tools run --rm migrate db push
 ```
 
 ---
@@ -213,6 +193,5 @@ git push origin main
 | `VPS_HOST`        | ✓                 | GitHub Secrets      |
 | `VPS_USER`        | ✓                 | GitHub Secrets      |
 | `VPS_SSH_KEY`     | ✓                 | GitHub Secrets      |
-| `VPS_APP_DIR`     | ✓                 | GitHub Secrets      |
-| `PRODUCTION_URL`  | ✓                 | GitHub Secrets      |
+| `VPS_PORT`        | ✓                 | GitHub Secrets      |
 | All app secrets   | ✓                 | VPS `.env` file only |

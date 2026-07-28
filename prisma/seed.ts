@@ -51,13 +51,23 @@ async function main() {
 
   // Upsert Step 1 template lesson
   const existing = await prisma.lesson.findFirst({
-    where: { stepNumber: 1, isTemplate: true, forUserId: null },
+    where: {
+      stepNumber: 1,
+      forUserId: null,
+      OR: [
+        { isTemplate: true },
+        { title: STEP1_LESSON.title },
+      ],
+    },
+    orderBy: { isTemplate: "desc" },
   });
 
   if (!existing) {
     await prisma.lesson.create({
       data: {
         ...STEP1_LESSON,
+        isTemplate: true,
+        forUserId: null,
         questions: STEP1_LESSON.questions as object,
       },
     });
@@ -67,6 +77,8 @@ async function main() {
       where: { id: existing.id },
       data: {
         ...STEP1_LESSON,
+        isTemplate: true,
+        forUserId: null,
         questions: STEP1_LESSON.questions as object,
       },
     });

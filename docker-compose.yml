@@ -8,6 +8,11 @@ services:
       - "127.0.0.1:3001:3000"
     env_file:
       - .env
+    environment:
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-unknown}
+      BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
+    volumes:
+      - uploads_data:/app/public/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -21,6 +26,24 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
     restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    profiles:
+      - tools
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
 
   db:
     container_name: joinaireligion_db
@@ -40,3 +63,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

@@ -27,12 +27,13 @@ local commit
   → git push origin main
   → GitHub Actions: .github/workflows/deploy.yml
       job: build  (npm ci + prisma generate + npm run build)
-      job: deploy (SSH → git reset --hard + docker compose up -d --build)
+      job: deploy (restricted SSH → root-owned joinai-deploy wrapper)
+        wrapper: git reset --hard + schema status check + app rebuild
   → health check: GET /api/health → HTTP 200
   → deployment complete
 ```
 
-No other deployment mechanism is authorised. Manual `docker compose up` or `git pull` on the VPS is permitted only for emergency recovery, and must be followed by a note in `ops/reports/`.
+The SSH automation user has no direct Docker or unrestricted sudo access. It may invoke only the root-owned, argument-free deploy and status wrappers installed from `ops/server/`. No other deployment mechanism is authorised. Manual `docker compose up` or `git pull` on the VPS is permitted only for emergency recovery, and must be followed by a note in `ops/reports/`.
 
 ### 2. Prisma schema changes
 

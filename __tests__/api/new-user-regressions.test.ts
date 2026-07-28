@@ -72,6 +72,12 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@/lib/auth", () => ({
   getSessionFromCookie: jest.fn(() => ({ userId: "user-test-123" })),
+  getCurrentUserFromCookies: jest.fn(async () => ({
+    id: "user-test-123",
+    email: "admin@example.com",
+    role: "ADMIN",
+    displayName: null,
+  })),
 }));
 
 // ─── Imports ──────────────────────────────────────────────────────────────────
