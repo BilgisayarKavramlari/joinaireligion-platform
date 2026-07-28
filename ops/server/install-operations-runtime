@@ -62,7 +62,9 @@ if ! command -v nginx >/dev/null 2>&1; then
   apt-get update
   apt-get install -y nginx
 fi
-install -m 0644 -o root -g root "${SOURCE_DIR}/nginx-joinaireligion.conf" /etc/nginx/sites-available/joinaireligion
+if [[ ! -f /etc/nginx/sites-available/joinaireligion ]]; then
+  install -m 0644 -o root -g root "${SOURCE_DIR}/nginx-joinaireligion.conf" /etc/nginx/sites-available/joinaireligion
+fi
 ln -sfn /etc/nginx/sites-available/joinaireligion /etc/nginx/sites-enabled/joinaireligion
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
@@ -88,4 +90,4 @@ timers=(
 )
 systemctl enable --now "${timers[@]}"
 
-echo "JoinAI operations runtime installed; email delivery remains LOG_ONLY and growth agents remain draft/report-only."
+echo "JoinAI operations runtime installed; existing Nginx/TLS configuration was preserved, email remains LOG_ONLY, and growth agents remain draft/report-only."

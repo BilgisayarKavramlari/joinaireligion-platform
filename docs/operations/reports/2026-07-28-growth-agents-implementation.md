@@ -15,6 +15,7 @@ Status: Implementation verified locally; production deployment follows the repos
 
 - Each endpoint requires the existing exact Bearer `CRON_SECRET`.
 - The operations installer reads only the exact `CRON_SECRET` assignment from the application environment file; it never executes the complete file as shell code.
+- The installer creates the base Nginx site only when one does not exist, preserving an existing Certbot-managed TLS configuration on repeat runs.
 - Each execution creates an auditable `AgentRun`; persisted outputs use deterministic fingerprints to prevent duplicate daily or six-hour artifacts.
 - Systemd timers run the agents at 09:00, every six hours, 10:00, 11:00, and 11:30 UTC respectively.
 - `/admin/content` exposes draft counts, locale coverage, quality scores, and gate outcomes.
