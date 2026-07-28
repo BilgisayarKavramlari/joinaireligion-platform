@@ -27,11 +27,15 @@ for script in "${REPO_DIR}"/scripts/cron/*.sh; do
   install -m 0750 -o root -g joinai "${script}" "${CRON_DIR}/$(basename "${script}")"
 done
 
-set -a
-# shellcheck disable=SC1090
-source "${APP_ENV}"
-set +a
-test -n "${CRON_SECRET:-}"
+cron_secret_line="$(grep -m1 '^CRON_SECRET=' "${APP_ENV}" || true)"
+CRON_SECRET="${cron_secret_line#CRON_SECRET=}"
+CRON_SECRET="${CRON_SECRET%$'\r'}"
+if [[ "${CRON_SECRET}" == \"*\" && "${CRON_SECRET}" == *\" ]]; then
+  CRON_SECRET="${CRON_SECRET:1:${#CRON_SECRET}-2}"
+elif [[ "${CRON_SECRET}" == \'*\' && "${CRON_SECRET}" == *\' ]]; then
+  CRON_SECRET="${CRON_SECRET:1:${#CRON_SECRET}-2}"
+fi
+test -n "${CRON_SECRET}"
 
 install -d -m 0750 -o root -g joinai /etc/joinaireligion
 cron_tmp="$(mktemp)"
