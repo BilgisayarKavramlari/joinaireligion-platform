@@ -143,9 +143,29 @@ async function resolveSessionToken(token: string | undefined | null): Promise<Se
   };
 }
 
+export function getSessionTokenFromRequest(request: NextRequest | Request): string | undefined {
+  // Route handlers can receive a Request object whose NextRequest prototype
+  // comes from a different bundle, so an instanceof check is not reliable.
+  const requestCookie = (request as NextRequest).cookies?.get?.(SESSION_COOKIE_NAME)?.value;
+  if (requestCookie) return requestCookie;
+
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return undefined;
+
+  for (const segment of cookieHeader.split(";")) {
+    const separator = segment.indexOf("=");
+    if (separator < 0) continue;
+    const name = segment.slice(0, separator).trim();
+    if (name !== SESSION_COOKIE_NAME) continue;
+    const value = segment.slice(separator + 1).trim();
+    return value || undefined;
+  }
+
+  return undefined;
+}
+
 export async function getCurrentUserFromRequest(request: NextRequest | Request) {
-  const token = request instanceof NextRequest ? request.cookies.get(SESSION_COOKIE_NAME)?.value : undefined;
-  return resolveSessionToken(token);
+  return resolveSessionToken(getSessionTokenFromRequest(request));
 }
 
 export async function getCurrentUserFromCookies() {
@@ -154,7 +174,7 @@ export async function getCurrentUserFromCookies() {
 }
 
 export async function revokeCurrentSession(request: NextRequest | Request) {
-  const token = request instanceof NextRequest ? request.cookies.get(SESSION_COOKIE_NAME)?.value : undefined;
+  const token = getSessionTokenFromRequest(request);
   if (token) await db.session.updateMany({ where: { tokenHash: hashSessionToken(token) }, data: { revokedAt: new Date() } });
 }
 

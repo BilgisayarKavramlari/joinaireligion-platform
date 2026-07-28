@@ -17,6 +17,7 @@ jest.mock("@/lib/db", () => ({ db: {} }));
 import {
   SESSION_COOKIE_NAME,
   createToken,
+  getSessionTokenFromRequest,
   getSessionFromCookie,
   hashPassword,
   setSessionCookie,
@@ -40,6 +41,27 @@ describe("hashPassword", () => {
   it("rejects a different input", async () => {
     const hash = await hashPassword("abc");
     await expect(verifyPassword("ABC", hash)).resolves.toMatchObject({ valid: false });
+  });
+});
+
+// ─── request cookie extraction ───────────────────────────────────────────────
+
+describe("getSessionTokenFromRequest", () => {
+  it("reads the hardened cookie from a standard Request header", () => {
+    const token = createToken();
+    const request = new Request("https://joinaireligion.com/api/auth/me", {
+      headers: { cookie: `theme=dark; ${SESSION_COOKIE_NAME}=${token}; locale=en` },
+    });
+
+    expect(getSessionTokenFromRequest(request)).toBe(token);
+  });
+
+  it("does not match a similarly prefixed cookie name", () => {
+    const request = new Request("https://joinaireligion.com/api/auth/me", {
+      headers: { cookie: `${SESSION_COOKIE_NAME}_old=stale` },
+    });
+
+    expect(getSessionTokenFromRequest(request)).toBeUndefined();
   });
 });
 
