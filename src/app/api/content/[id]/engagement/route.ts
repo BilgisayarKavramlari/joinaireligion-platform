@@ -2,16 +2,26 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { SUPPORTED_CONTENT_LOCALES, type SupportedContentLocale } from "@/lib/growth-agents/content";
 
 const EVENTS = ["view", "like", "dislike", "dwell", "cta"] as const;
 type EngagementEvent = (typeof EVENTS)[number];
 
+function isAllowedOrigin(request: NextRequest, origin: string): boolean {
+  const allowed = new Set([new URL(request.url).origin]);
+  try { allowed.add(new URL(env.NEXT_PUBLIC_APP_URL).origin); } catch { /* validated below by forwarded headers */ }
+  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  if (forwardedHost && forwardedProto) allowed.add(`${forwardedProto}://${forwardedHost.split(",")[0].trim()}`);
+  return allowed.has(origin);
+}
+
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }): Promise<Response> {
   const { id } = await context.params;
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  if (origin && !isAllowedOrigin(request, origin)) {
     return Response.json({ error: "Invalid origin" }, { status: 403 });
   }
 
