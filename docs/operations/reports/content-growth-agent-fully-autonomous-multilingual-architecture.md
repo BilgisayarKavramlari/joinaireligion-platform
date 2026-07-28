@@ -6,7 +6,7 @@ Date: 2026-06-03
 
 The Content Growth Agent runs daily and is responsible for producing at least one publishable public content item per day. Each run gathers candidate topics from internal product signals first, including support tickets, lesson activity, user comments, complaints, feature requests, and repeated FAQ-like questions. It also supports an external research stage for web/news/social and keyword opportunity inputs, but that stage should only be enabled later through approved APIs and policy-safe connectors.
 
-For each chosen topic, the agent creates a canonical content brief, generates structured source content in the default authoring language, localizes it into all supported site locales (`en`, `tr`, `es`, `de`, `fr`), computes SEO and AEO metadata, and passes the result through an automatic publishability gate. Content that passes is published automatically without admin approval. Content that fails quality, completeness, language, duplication, or risk checks is automatically quarantined or rejected. After publication, admins can view, unpublish, and optionally republish items.
+For each chosen topic, the agent creates a canonical content brief, generates structured source content in the default authoring language, localizes it into all supported content locales (`en`, `tr`, `es`, `de`, `fr`, `ru`, `zh`), computes SEO and AEO metadata, and passes the result through an automatic publishability gate. Content that passes is published automatically without admin approval. Content that fails quality, completeness, language, duplication, or risk checks is automatically quarantined or rejected. After publication, admins can view, unpublish, and optionally republish items.
 
 ## 2. Data Model Summary
 
@@ -40,7 +40,7 @@ The automatic publishability gate is the core safety control. It replaces human 
 Recommended gate stages:
 
 - schema and required-field validation
-- locale coverage validation for `en`, `tr`, `es`, `de`, `fr`
+- locale coverage validation for `en`, `tr`, `es`, `de`, `fr`, `ru`, `zh`
 - slug/title/body completeness checks
 - duplicate and near-duplicate detection
 - SEO/AEO minimum score check
@@ -66,6 +66,6 @@ These metrics should feed future topic selection so the agent gradually prioriti
 
 ## 8. Implementation Phases
 
-Phase 1 should define the content-domain schema design, workflow states, publishability gate contract, and admin/reporting requirements in detail. Phase 2 should implement internal-signal topic intake, daily scheduling, and draft-to-published automation for one or two content types such as FAQ and blog article. Phase 3 should add full multilingual variants for `en`, `tr`, `es`, `de`, `fr`, public like/dislike capture, and performance dashboards. Phase 4 should add external research connectors, broader content types, stronger SEO/AEO scoring, and adaptive planning based on historical performance.
+Phase 1 should define the content-domain schema design, workflow states, publishability gate contract, and admin/reporting requirements in detail. Phase 2 should implement internal-signal topic intake, daily scheduling, and draft-to-published automation for one or two content types such as FAQ and blog article. Phase 3 should add full multilingual variants for `en`, `tr`, `es`, `de`, `fr`, `ru`, `zh`, public like/dislike capture, and performance dashboards. Phase 4 should add external research connectors, broader content types, stronger SEO/AEO scoring, and adaptive planning based on historical performance.
 
 Recommended next slice: implement the data contract and workflow-state design for `ContentItem`, `ContentVariant`, `ContentAgentRun`, and the automatic publishability gate result model before building any routes or admin UI.

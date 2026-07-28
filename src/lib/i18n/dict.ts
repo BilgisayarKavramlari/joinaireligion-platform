@@ -1,6 +1,9 @@
 // ─── Complete translation dictionary ─────────────────────────────────────────
 // EN is the source of truth. All other languages mirror this structure.
 
+import { ru } from "@/lib/i18n/locales/ru";
+import { zh } from "@/lib/i18n/locales/zh";
+
 export type Dict = typeof en;
 
 export const en = {
@@ -523,7 +526,7 @@ export const ar: Dict = {
 };
 
 // ─── Language registry ────────────────────────────────────────────────────────
-export const LANGUAGES = { en, tr, es, de, fr, ar } as const;
+export const LANGUAGES = { en, tr, es, de, fr, ar, ru, zh } as const;
 export type LangCode = keyof typeof LANGUAGES;
 export const LANG_CODES = Object.keys(LANGUAGES) as LangCode[];
 

@@ -3,6 +3,7 @@ import {
   assessContentVariants,
   buildFallbackVariant,
   sha256Fingerprint,
+  slugify,
   shouldAutoUnpublish,
   sixHourBucket,
   utcDateKey,
@@ -22,6 +23,7 @@ describe("growth agent content safety", () => {
     const gate = assessContentVariants(variants);
 
     expect(variants.map((variant) => variant.locale)).toEqual([...SUPPORTED_CONTENT_LOCALES]);
+    expect(SUPPORTED_CONTENT_LOCALES).toEqual(["en", "tr", "es", "de", "fr", "ru", "zh"]);
     expect(gate.status).toBe("QUARANTINED");
     expect(gate.outcome).toBe("QUARANTINE");
     expect(gate.reasons).toContain("ai_generation_fallback");
@@ -42,6 +44,23 @@ describe("growth agent content safety", () => {
     variants[1] = { ...variants[1], bodyMarkdown: `${variants[1].bodyMarkdown} garantili aydınlanma` };
 
     expect(assessContentVariants(variants).outcome).toBe("REJECT");
+  });
+
+  it("applies the deterministic risk gate to Russian and Simplified Chinese", () => {
+    const russian = SUPPORTED_CONTENT_LOCALES.map(buildFallbackVariant);
+    const russianIndex = SUPPORTED_CONTENT_LOCALES.indexOf("ru");
+    russian[russianIndex] = { ...russian[russianIndex], bodyMarkdown: `${russian[russianIndex].bodyMarkdown} гарантированное просветление` };
+    expect(assessContentVariants(russian).outcome).toBe("REJECT");
+
+    const chinese = SUPPORTED_CONTENT_LOCALES.map(buildFallbackVariant);
+    const chineseIndex = SUPPORTED_CONTENT_LOCALES.indexOf("zh");
+    chinese[chineseIndex] = { ...chinese[chineseIndex], bodyMarkdown: `${chinese[chineseIndex].bodyMarkdown} 保证开悟` };
+    expect(assessContentVariants(chinese).outcome).toBe("REJECT");
+  });
+
+  it("preserves Cyrillic and Han characters in localized slugs", () => {
+    expect(slugify("Практика внимания")).toBe("практика-внимания");
+    expect(slugify("日常意义练习")).toBe("日常意义练习");
   });
 
   it("only auto-unpublishes after a meaningful sample and strong negative signal", () => {

@@ -22,11 +22,14 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "de", label: "🇩🇪 Deutsch" },
   { code: "fr", label: "🇫🇷 Français" },
   { code: "ar", label: "🇸🇦 العربية" },
+  { code: "ru", label: "🇷🇺 Русский" },
+  { code: "zh", label: "🇨🇳 简体中文" },
 ];
 
 const LANGUAGE_COLORS: Record<string, string> = {
   en: "#c0c0ff", tr: "#80ffb0", es: "#ff8080",
   de: "#ffe080", fr: "#c0ffe0", ar: "#f9c8ff",
+  ru: "#8fb7ff", zh: "#ffb38f",
 };
 
 const LANGUAGE_QUESTION = {

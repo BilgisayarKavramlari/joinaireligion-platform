@@ -3,7 +3,7 @@ import { getCurrentUserFromRequest } from "@/lib/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { env } from "@/lib/env";
 
-const SUPPORTED_LOCALES = new Set(["en", "tr", "es", "de", "fr", "ar"]);
+const SUPPORTED_LOCALES = new Set(["en", "tr", "es", "de", "fr", "ar", "ru", "zh"]);
 
 export async function POST(request: NextRequest) {
   try {

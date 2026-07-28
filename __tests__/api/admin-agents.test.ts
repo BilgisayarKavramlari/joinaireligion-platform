@@ -98,12 +98,13 @@ describe("GET /api/admin/agents", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.agents).toHaveLength(14);
+    expect(body.agents).toHaveLength(15);
 
     const practiceGenerator = body.agents.find((agent: { agentName: string }) => agent.agentName === "practice-generator");
     const supportTriage = body.agents.find((agent: { agentName: string }) => agent.agentName === "support-triage");
     const revenueOrchestrator = body.agents.find((agent: { agentName: string }) => agent.agentName === "revenue-orchestrator");
     const responseScorer = body.agents.find((agent: { agentName: string }) => agent.agentName === "response-scorer");
+    const localeBackfill = body.agents.find((agent: { agentName: string }) => agent.agentName === "content-locale-backfill");
 
     expect(practiceGenerator.latestAgentRun.taskType).toBe("GENERATE_DAILY_BATCH");
     expect(practiceGenerator.backlogCount).toBe(3);
@@ -116,6 +117,9 @@ describe("GET /api/admin/agents", () => {
     expect(revenueOrchestrator.mode).toBe("REPORT_ONLY");
     expect(revenueOrchestrator.backlogCount).toBe(2);
     expect(responseScorer.status).toBe("FAILED");
+    expect(localeBackfill.mode).toBe("LIVE");
+    expect(localeBackfill.nextScheduledRunAt).toBeNull();
+    expect(localeBackfill.policy.defaultSafeBoundaries).toContain("additive writes only");
     expect(body.decisionLogContract.requiresRoutineHumanApproval).toBe(false);
   });
 });

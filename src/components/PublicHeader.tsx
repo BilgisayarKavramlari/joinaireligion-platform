@@ -12,6 +12,8 @@ const LANG_LIST: { code: LangCode; flag: string; name: string }[] = [
   { code: "de", flag: "🇩🇪", name: "Deutsch" },
   { code: "fr", flag: "🇫🇷", name: "Français" },
   { code: "ar", flag: "🇸🇦", name: "العربية" },
+  { code: "ru", flag: "🇷🇺", name: "Русский" },
+  { code: "zh", flag: "🇨🇳", name: "简体中文" },
 ];
 
 export function PublicHeader() {

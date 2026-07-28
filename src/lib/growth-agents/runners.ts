@@ -37,6 +37,7 @@ import {
 
 export const GROWTH_AGENT_NAMES = [
   "seo-kulliyat-draft",
+  "content-locale-backfill",
   "content-publisher",
   "content-performance",
   "social-listener",
@@ -86,6 +87,8 @@ const LOCALE_NAMES: Record<SupportedContentLocale, string> = {
   es: "Spanish",
   de: "German",
   fr: "French",
+  ru: "Russian",
+  zh: "Simplified Chinese",
 };
 
 function safeError(error: unknown): string {
@@ -239,6 +242,40 @@ async function generateLocaleVariant(
     variant: { ...fallback, slug: `${fallback.slug}-${dateKey}` },
     error: generated.error || "OpenAI output failed schema validation",
   };
+}
+
+async function generateTranslatedVariant(
+  locale: SupportedContentLocale,
+  source: {
+    title: string;
+    summary: string;
+    bodyMarkdown: string;
+    seoTitle: string;
+    seoDescription: string;
+    faqBlocks: unknown;
+  },
+  dateKey: string
+): Promise<{ variant: LocalizedContentVariant | null; error: string | null }> {
+  const sourceFaq = parseFaqBlocks(source.faqBlocks) || [];
+  const systemPrompt = `Translate one already-published Join AI Religion article faithfully into ${LOCALE_NAMES[locale]}. Preserve its educational meaning, headings, caution, and factual scope. Do not introduce new claims, spiritual authority, doctrine, therapy, medical, legal, financial, political, or superiority claims. Keep the body substantial and natural in the target language. Return only one JSON object with title, summary, bodyMarkdown, seoTitle, seoDescription, and faqBlocks (at least two translated question/answer objects).`;
+  const userPrompt = JSON.stringify({
+    targetLocale: locale,
+    sourceLocale: "en",
+    source: {
+      title: source.title,
+      summary: source.summary,
+      bodyMarkdown: source.bodyMarkdown,
+      seoTitle: source.seoTitle,
+      seoDescription: source.seoDescription,
+      faqBlocks: sourceFaq,
+    },
+  });
+
+  const generated = await callOpenAIJsonWithError(systemPrompt, userPrompt);
+  const parsed = parseGeneratedVariant(locale, dateKey, generated.data);
+  return parsed
+    ? { variant: parsed, error: null }
+    : { variant: null, error: generated.error || `Translation failed schema validation for ${locale}` };
 }
 
 async function collectSafeContentSignals(now: Date) {
@@ -517,6 +554,105 @@ export async function runContentPublisher(now = new Date()): Promise<GrowthAgent
       published: 1,
       contentItemId: candidate.id,
       status: ContentWorkflowStatus.PUBLISHED,
+      qualityScore: gate.qualityScore,
+      urls,
+      indexNow,
+    };
+  });
+}
+
+export async function runContentLocaleBackfill(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("content-locale-backfill", "BACKFILL_PUBLISHED_CONTENT_LOCALES", now, async (agentRunId) => {
+    const targetLocales = ["ru", "zh"] as const satisfies readonly SupportedContentLocale[];
+    const publishedItems = await db.contentItem.findMany({
+      where: { status: ContentWorkflowStatus.PUBLISHED },
+      orderBy: { publishedAt: "asc" },
+      take: 100,
+      include: { variants: { orderBy: { locale: "asc" } } },
+    });
+    const candidate = publishedItems.find((item) => {
+      const available = new Set(item.variants.map((variant) => variant.locale));
+      return targetLocales.some((locale) => !available.has(locale));
+    });
+    if (!candidate) return { backfilled: 0, skipped: true, reason: "all_published_content_locales_complete" };
+
+    const source = candidate.variants.find((variant) => variant.locale === "en");
+    if (!source) {
+      return { backfilled: 0, skipped: true, contentItemId: candidate.id, reason: "english_source_variant_missing" };
+    }
+
+    const available = new Set(candidate.variants.map((variant) => variant.locale));
+    const missingLocales = targetLocales.filter((locale) => !available.has(locale));
+    const dateKey = utcDateKey(candidate.publishedAt || candidate.createdAt);
+    const translated = await Promise.all(
+      missingLocales.map((locale) => generateTranslatedVariant(locale, source, dateKey))
+    );
+    const errors = translated.flatMap((result, index) =>
+      result.variant ? [] : [`${missingLocales[index]}:${result.error || "translation_failed"}`]
+    );
+    const newVariants = translated.flatMap((result) => result.variant ? [result.variant] : []);
+    if (errors.length > 0 || newVariants.length !== missingLocales.length) {
+      return { backfilled: 0, contentItemId: candidate.id, missingLocales, errors: errors.map(safeError) };
+    }
+
+    const combined = [
+      ...storedVariantsToGateInput(candidate.variants),
+      ...newVariants,
+    ];
+    const gate = assessContentVariants(combined);
+    if (gate.outcome !== ContentModerationOutcome.PASS || gate.qualityScore < 85) {
+      return {
+        backfilled: 0,
+        contentItemId: candidate.id,
+        missingLocales,
+        gateOutcome: gate.outcome,
+        qualityScore: gate.qualityScore,
+        reasons: gate.reasons,
+      };
+    }
+
+    await db.$transaction([
+      ...newVariants.map((variant) => db.contentVariant.create({
+        data: {
+          contentItemId: candidate.id,
+          locale: variant.locale,
+          title: variant.title,
+          slug: variant.slug,
+          summary: variant.summary,
+          bodyMarkdown: variant.bodyMarkdown,
+          seoTitle: variant.seoTitle,
+          seoDescription: variant.seoDescription,
+          faqBlocks: asInputJson(variant.faqBlocks),
+          qualityScore: gate.localeScores[variant.locale],
+          publishedAt: candidate.publishedAt || now,
+        },
+      })),
+      db.contentModerationDecision.create({
+        data: {
+          contentItemId: candidate.id,
+          agentRunId,
+          outcome: ContentModerationOutcome.PASS,
+          riskLevel: "LOW",
+          reasons: asInputJson(["published_locale_backfill_passed_independent_gate", ...missingLocales.map((locale) => `locale_added:${locale}`)]),
+          qualityScores: asInputJson(gate.localeScores),
+        },
+      }),
+    ]);
+
+    const urls = newVariants.map(
+      (variant) => `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`
+    );
+    let indexNow: { submitted: number; accepted: boolean; status: number | null } | { error: string };
+    try {
+      indexNow = await submitIndexNowUrls(urls);
+    } catch (error) {
+      indexNow = { error: safeError(error) };
+    }
+
+    return {
+      backfilled: newVariants.length,
+      contentItemId: candidate.id,
+      locales: newVariants.map((variant) => variant.locale),
       qualityScore: gate.qualityScore,
       urls,
       indexNow,
@@ -1030,6 +1166,8 @@ export async function runGrowthAgentByName(
   switch (agentName) {
     case "seo-kulliyat-draft":
       return runSeoKulliyatDraft(now);
+    case "content-locale-backfill":
+      return runContentLocaleBackfill(now);
     case "content-publisher":
       return runContentPublisher(now);
     case "content-performance":

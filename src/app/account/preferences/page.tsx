@@ -13,6 +13,8 @@ const LANG_OPTIONS: { code: LangCode; label: string }[] = [
   { code: "de", label: "🇩🇪 Deutsch" },
   { code: "fr", label: "🇫🇷 Français" },
   { code: "ar", label: "🇸🇦 العربية" },
+  { code: "ru", label: "🇷🇺 Русский" },
+  { code: "zh", label: "🇨🇳 简体中文" },
 ];
 
 export default function PreferencesPage() {
