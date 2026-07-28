@@ -81,6 +81,28 @@ enum AgentRunStatus {
   CANCELLED
 }
 
+enum AgentArtifactStatus {
+  DRAFT
+  READY
+  QUARANTINED
+  ARCHIVED
+}
+
+enum ContentWorkflowStatus {
+  DRAFT
+  READY
+  PUBLISHED
+  QUARANTINED
+  REJECTED
+  UNPUBLISHED
+}
+
+enum ContentModerationOutcome {
+  PASS
+  QUARANTINE
+  REJECT
+}
+
 /// Origin of an XP award or deduction recorded in XpLedger.
 enum XpSource {
   PRACTICE_RESPONSE
@@ -509,10 +531,144 @@ model AgentRun {
   ideaAssessments   IdeaAssessment[]  @relation("IdeaAssessmentRun")
   taskExecutions    TaskExecution[]   @relation("EngineeringTaskExecutionRun")
   decisionLogs      DecisionLog[]     @relation("DecisionLogRun")
+  contentItems      ContentItem[]
+  contentModerationDecisions ContentModerationDecision[]
+  artifacts         AgentArtifact[]
 
   @@index([agentName, status, createdAt])
   @@index([taskType, createdAt])
   @@index([userId, createdAt])
+}
+
+/// Locale-independent public-content candidate produced by the content agent.
+/// The first live slice is draft-only; publication states are reserved for a
+/// later policy-approved publishing workflow.
+model ContentItem {
+  id                     String                @id @default(cuid())
+  fingerprint            String                @unique
+  canonicalTopic         String
+  category               String
+  contentType            String
+  difficulty             String?
+  status                 ContentWorkflowStatus @default(DRAFT)
+  sourceSummary          Json?
+  publishabilityDecision String?
+  aggregateMetrics       Json?
+  agentRunId             String?
+  publishedAt            DateTime?
+  unpublishedAt          DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  agentRun               AgentRun?             @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  variants               ContentVariant[]
+  sourceSignals          ContentSourceSignal[]
+  feedbackMetrics        ContentFeedbackMetric[]
+  moderationDecisions    ContentModerationDecision[]
+
+  @@index([status, createdAt])
+  @@index([category, contentType, createdAt])
+  @@index([agentRunId, createdAt])
+}
+
+/// Localized representation of a content candidate.
+model ContentVariant {
+  id             String      @id @default(cuid())
+  contentItemId  String
+  locale         String
+  title          String
+  slug           String
+  summary        String
+  bodyMarkdown   String
+  seoTitle       String
+  seoDescription String
+  faqBlocks      Json?
+  qualityScore   Int?
+  publishedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  contentItem    ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, locale])
+  @@unique([locale, slug])
+  @@index([locale, createdAt])
+}
+
+/// Auditable internal evidence used to select a content topic.
+model ContentSourceSignal {
+  id            String      @id @default(cuid())
+  contentItemId String
+  sourceType    String
+  sourceId      String?
+  locale        String?
+  summary       String
+  weight        Int         @default(1)
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId, createdAt])
+  @@index([sourceType, createdAt])
+}
+
+/// Snapshot of public engagement counters. No user-level tracking is stored.
+model ContentFeedbackMetric {
+  id            String      @id @default(cuid())
+  contentItemId String
+  locale        String?
+  views         Int         @default(0)
+  uniqueViews   Int         @default(0)
+  likes         Int         @default(0)
+  dislikes      Int         @default(0)
+  dwellSeconds  Int         @default(0)
+  ctaClicks     Int         @default(0)
+  recordedAt    DateTime    @default(now())
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId, recordedAt])
+  @@index([locale, recordedAt])
+}
+
+/// Result of the automatic quality and risk gate for a content item.
+model ContentModerationDecision {
+  id            String                   @id @default(cuid())
+  contentItemId String
+  agentRunId    String?
+  outcome       ContentModerationOutcome
+  riskLevel     String
+  reasons       Json
+  qualityScores Json?
+  createdAt     DateTime                 @default(now())
+  contentItem   ContentItem              @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  agentRun      AgentRun?                @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([contentItemId, createdAt])
+  @@index([outcome, riskLevel, createdAt])
+  @@index([agentRunId, createdAt])
+}
+
+/// Generic persisted output for draft/report-only growth agents.
+model AgentArtifact {
+  id           String              @id @default(cuid())
+  agentName    String
+  artifactType String
+  fingerprint  String              @unique
+  status       AgentArtifactStatus @default(DRAFT)
+  locale       String?
+  title        String
+  summary      String?
+  payload      Json
+  sourceRefs   Json?
+  riskLevel    String              @default("LOW")
+  qualityScore Int?
+  agentRunId   String?
+  archivedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  agentRun     AgentRun?           @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([agentName, status, createdAt])
+  @@index([artifactType, createdAt])
+  @@index([agentRunId, createdAt])
 }
 
 /// One personalized practice message per user per cadence per scheduled date.
