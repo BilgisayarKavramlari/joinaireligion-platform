@@ -34,6 +34,7 @@ chmod 0600 "${ENV_BACKUP}"
 rollback_required=0
 rollback() {
   local exit_code=$?
+  trap - ERR
   if [[ "${rollback_required}" -eq 1 ]]; then
     echo "Deployment failed; restoring ${PREVIOUS_SHA:0:12}." >&2
     git reset --hard "${PREVIOUS_SHA}" >/dev/null
@@ -60,8 +61,15 @@ docker compose up -d --wait db
 docker compose --profile tools run --rm migrate migrate status
 docker compose up -d --no-build app
 
-http_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-  --retry 12 --retry-delay 5 --retry-connrefused --max-time 15 "${HEALTH_URL}")"
+http_code="000"
+for _attempt in $(seq 1 24); do
+  http_code="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    --max-time 15 "${HEALTH_URL}" || true)"
+  if [[ "${http_code}" == "200" ]]; then
+    break
+  fi
+  sleep 5
+done
 if [[ "${http_code}" != "200" ]]; then
   docker compose logs --tail=80 app >&2
   echo "Health check failed with HTTP ${http_code}." >&2

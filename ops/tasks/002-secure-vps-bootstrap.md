@@ -2,7 +2,7 @@
 
 ## Status
 
-VPS bootstrap and the approved empty-database initialization are complete. Local implementation is verified; commit, push, GitHub Actions secret configuration, and production application deployment remain gated on an authenticated GitHub CLI session.
+VPS bootstrap, the approved empty-database initialization, GitHub publication, Actions secret configuration, and the production application deployment are complete.
 
 ## Human authorization
 
@@ -67,3 +67,4 @@ Not requested. No schema or migration file may be changed by this task.
 - Bootstrap verification returned 40 application tables, one applied migration, one lesson total, one Step 1 template, and an up-to-date migration status.
 - Normal deployments remain migration-status-only. The one-time schema initialization and seed were executed separately under the recorded approval.
 - The seed loader was updated for the installed `jiti` version, the migrator image now generates Prisma Client, and the Step 1 seed now explicitly sets template identity so reruns are idempotent.
+- The first production run exposed a startup race: the host health probe received a connection reset immediately after the container started. The deploy wrapper now polls through transient startup failures and disables its error trap before rollback, preventing recursive rollback. A direct rerun completed with HTTP 200.
