@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI independent content publication every two hours
+
+[Timer]
+OnCalendar=*-*-* 00,02,04,06,08,10,12,14,16,18,20,22:20:00 UTC
+Persistent=true
+Unit=joinai-agent@content-publisher.service
+
+[Install]
+WantedBy=timers.target

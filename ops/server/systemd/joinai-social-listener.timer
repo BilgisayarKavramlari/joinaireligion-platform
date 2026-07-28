@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI aggregate public social listening every six hours
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:10:00 UTC
+Persistent=true
+Unit=joinai-agent@social-listener.service
+
+[Install]
+WantedBy=timers.target

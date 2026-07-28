@@ -37,6 +37,23 @@ const HIGH_RISK_PATTERNS = [
   /\b(?:seule vraie religion|illumination garantie|obéir sans poser de questions)\b/i,
 ];
 
+export function containsHighRiskContent(value: string): boolean {
+  return HIGH_RISK_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+export function shouldAutoUnpublish(metrics: {
+  views: number;
+  uniqueViews: number;
+  likes: number;
+  dislikes: number;
+}): boolean {
+  return metrics.views >= 100
+    && metrics.uniqueViews >= 100
+    && metrics.dislikes >= 25
+    && metrics.dislikes / Math.max(metrics.uniqueViews, 1) >= 0.35
+    && metrics.dislikes > metrics.likes * 1.5;
+}
+
 export function sha256Fingerprint(parts: string[]): string {
   return crypto.createHash("sha256").update(parts.join("|")).digest("hex");
 }
@@ -94,7 +111,7 @@ export function assessContentVariants(variants: LocalizedContentVariant[]): Cont
   const fullText = variants
     .map((variant) => `${variant.title}\n${variant.summary}\n${variant.bodyMarkdown}`)
     .join("\n");
-  const highRisk = HIGH_RISK_PATTERNS.some((pattern) => pattern.test(fullText));
+  const highRisk = containsHighRiskContent(fullText);
   if (highRisk) reasons.push("high_risk_claim_detected");
 
   const qualityScore = Math.round(

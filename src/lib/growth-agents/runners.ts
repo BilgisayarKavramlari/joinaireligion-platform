@@ -3,6 +3,7 @@ import {
   AgentRunStatus,
   BacklogItemStatus,
   BacklogPriority,
+  ContentModerationOutcome,
   ContentWorkflowStatus,
   DecisionEntityType,
   IdeaSourceType,
@@ -15,17 +16,31 @@ import {
   SUPPORTED_CONTENT_LOCALES,
   assessContentVariants,
   buildFallbackVariant,
+  containsHighRiskContent,
   sha256Fingerprint,
   sixHourBucket,
+  shouldAutoUnpublish,
   slugify,
   utcDateKey,
   type LocalizedContentVariant,
   type SupportedContentLocale,
 } from "@/lib/growth-agents/content";
+import { env } from "@/lib/env";
+import {
+  collectPublicSocialSignals,
+  getConfiguredSocialProviders,
+  publishSocialPost,
+  socialIdempotencyKey,
+  type SocialProviderName,
+} from "@/lib/social/providers";
 
 export const GROWTH_AGENT_NAMES = [
   "seo-kulliyat-draft",
+  "content-publisher",
+  "content-performance",
+  "social-listener",
   "social-listener-draft",
+  "social-publisher",
   "ads-reporting",
   "cfo-reporting",
   "revenue-orchestrator",
@@ -47,6 +62,21 @@ const TOPICS = [
   { key: "meditation-attention", title: "Meditation as a cross-cultural attention practice", category: "meditation", contentType: "educational_article" },
   { key: "respectful-curiosity", title: "Approaching unfamiliar traditions with respectful curiosity", category: "comparative_culture", contentType: "faq" },
   { key: "values-in-action", title: "Questions for noticing personal values in action", category: "values", contentType: "guided_reflection" },
+  { key: "attention-and-choice", title: "How attention shapes everyday choices", category: "reflection", contentType: "educational_article" },
+  { key: "journaling-uncertainty", title: "Journaling with uncertainty instead of rushing to answers", category: "journaling", contentType: "guided_reflection" },
+  { key: "ritual-and-routine", title: "The difference between reflective ritual and routine", category: "comparative_culture", contentType: "educational_article" },
+  { key: "questions-for-values", title: "Five questions for clarifying values without judging beliefs", category: "values", contentType: "faq" },
+  { key: "digital-pause", title: "A short digital pause for more deliberate attention", category: "meditation", contentType: "guided_reflection" },
+  { key: "symbols-and-meaning", title: "How symbols can support personal reflection", category: "comparative_culture", contentType: "educational_article" },
+  { key: "curiosity-before-certainty", title: "Practicing curiosity before certainty", category: "reflection", contentType: "guided_reflection" },
+  { key: "journaling-patterns", title: "Using journaling to notice recurring patterns", category: "journaling", contentType: "educational_article" },
+  { key: "listening-practice", title: "A reflective listening practice for difficult conversations", category: "values", contentType: "guided_reflection" },
+  { key: "technology-and-meaning", title: "Using AI as a prompt for reflection without giving it authority", category: "responsible_ai", contentType: "faq" },
+  { key: "cross-cultural-care", title: "Reading cross-cultural practices with context and care", category: "comparative_culture", contentType: "educational_article" },
+  { key: "beginner-meditation", title: "A beginner-friendly attention exercise without spiritual claims", category: "meditation", contentType: "guided_reflection" },
+  { key: "values-conflict", title: "Reflecting when two personal values seem to conflict", category: "values", contentType: "guided_reflection" },
+  { key: "meaningful-questions", title: "What makes a reflective question meaningful", category: "reflection", contentType: "faq" },
+  { key: "responsible-ai-reflection", title: "Boundaries for responsible AI-guided reflection", category: "responsible_ai", contentType: "educational_article" },
 ] as const;
 
 const LOCALE_NAMES: Record<SupportedContentLocale, string> = {
@@ -114,9 +144,34 @@ async function executeAgent(
   }
 }
 
-function selectTopic(now: Date) {
+async function selectTopic(now: Date) {
   const dayNumber = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86_400_000);
-  return TOPICS[dayNumber % TOPICS.length];
+  const published = await db.contentItem.findMany({
+    where: { status: ContentWorkflowStatus.PUBLISHED },
+    orderBy: { publishedAt: "desc" },
+    take: 100,
+    select: { canonicalTopic: true, category: true, aggregateMetrics: true },
+  });
+  const publishedTopics = new Set(published.map((item) => item.canonicalTopic));
+  const categoryScores = new Map<string, number>();
+  for (const item of published) {
+    const metrics = item.aggregateMetrics && typeof item.aggregateMetrics === "object"
+      ? item.aggregateMetrics as Record<string, unknown>
+      : {};
+    const views = Number(metrics.views || 0);
+    if (views < 10) continue;
+    const score = Number(metrics.engagementScore || 0);
+    categoryScores.set(item.category, Math.max(categoryScores.get(item.category) || 0, score));
+  }
+  const candidates = TOPICS.filter((topic) => !publishedTopics.has(topic.title));
+  const pool = candidates.length ? candidates : [...TOPICS];
+  return [...pool].sort((left, right) => {
+    const scoreDifference = (categoryScores.get(right.category) || 0) - (categoryScores.get(left.category) || 0);
+    if (scoreDifference !== 0) return scoreDifference;
+    const leftIndex = TOPICS.indexOf(left);
+    const rightIndex = TOPICS.indexOf(right);
+    return ((leftIndex - dayNumber) % TOPICS.length + TOPICS.length) % TOPICS.length - ((rightIndex - dayNumber) % TOPICS.length + TOPICS.length) % TOPICS.length;
+  })[0];
 }
 
 function parseFaqBlocks(value: unknown): Array<{ question: string; answer: string }> | null {
@@ -171,7 +226,7 @@ async function generateLocaleVariant(
     category: topic.category,
     contentType: topic.contentType,
     locale,
-    publicationMode: "draft-only",
+    publicationMode: "automatic-after-independent-gate",
   });
 
   const generated = await callOpenAIJsonWithError(systemPrompt, userPrompt);
@@ -187,11 +242,20 @@ async function generateLocaleVariant(
 
 async function collectSafeContentSignals(now: Date) {
   const since = new Date(now.getTime() - 30 * 86_400_000);
-  const [feedbackCount, queryCount, responseCount, lessonAttemptCount] = await Promise.all([
+  const [feedbackCount, queryCount, responseCount, lessonAttemptCount, engagement, socialSnapshot] = await Promise.all([
     db.feedbackItem.count({ where: { createdAt: { gte: since } } }),
     db.aiQuery.count({ where: { createdAt: { gte: since } } }),
     db.practiceResponse.count({ where: { createdAt: { gte: since } } }),
     db.lessonAttempt.count({ where: { createdAt: { gte: since } } }),
+    db.contentFeedbackMetric.aggregate({
+      where: { recordedAt: { gte: since } },
+      _sum: { views: true, likes: true, dislikes: true, dwellSeconds: true, ctaClicks: true },
+    }),
+    db.agentArtifact.findFirst({
+      where: { agentName: "social-listener", artifactType: "SOCIAL_LISTENING_SNAPSHOT" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, createdAt: true, payload: true },
+    }),
   ]);
 
   return [
@@ -199,13 +263,24 @@ async function collectSafeContentSignals(now: Date) {
     { sourceType: "AGGREGATE_AI_USAGE", summary: `${queryCount} AI queries in the last 30 days`, count: queryCount },
     { sourceType: "AGGREGATE_PRACTICE", summary: `${responseCount} practice responses in the last 30 days`, count: responseCount },
     { sourceType: "AGGREGATE_LESSONS", summary: `${lessonAttemptCount} lesson attempts in the last 30 days`, count: lessonAttemptCount },
+    {
+      sourceType: "AGGREGATE_CONTENT_ENGAGEMENT",
+      summary: `${engagement._sum.views || 0} views, ${engagement._sum.likes || 0} likes, ${engagement._sum.ctaClicks || 0} CTA clicks in the last 30 days`,
+      count: engagement._sum.views || 0,
+    },
+    {
+      sourceType: "PUBLIC_SOCIAL_TRENDS",
+      summary: socialSnapshot ? `Latest aggregate public social snapshot at ${socialSnapshot.createdAt.toISOString()}` : "No public social snapshot yet",
+      count: socialSnapshot ? 1 : 0,
+      sourceId: socialSnapshot?.id,
+    },
   ];
 }
 
 export async function runSeoKulliyatDraft(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("seo-kulliyat-draft", "GENERATE_MULTILINGUAL_CONTENT_DRAFT", now, async (agentRunId) => {
     const dateKey = utcDateKey(now);
-    const topic = selectTopic(now);
+    const topic = await selectTopic(now);
     const fingerprint = sha256Fingerprint(["seo-kulliyat-draft", dateKey, topic.key]);
     const existing = await db.contentItem.findUnique({ where: { fingerprint }, select: { id: true, status: true } });
     if (existing) {
@@ -255,6 +330,7 @@ export async function runSeoKulliyatDraft(now = new Date()): Promise<GrowthAgent
         sourceSignals: {
           create: signals.map((signal) => ({
             sourceType: signal.sourceType,
+            sourceId: "sourceId" in signal ? signal.sourceId : undefined,
             summary: signal.summary,
             weight: Math.max(1, signal.count),
             metadata: asInputJson({ count: signal.count, containsRawUserText: false }),
@@ -283,7 +359,155 @@ export async function runSeoKulliyatDraft(now = new Date()): Promise<GrowthAgent
       aiGeneratedLocales: variants.filter((variant) => variant.source === "openai").length,
       fallbackLocales: variants.filter((variant) => variant.source === "fallback").length,
       generationErrors: generationErrors.slice(0, 5),
-      publicationAttempted: false,
+      queuedForIndependentPublication: item.status === ContentWorkflowStatus.DRAFT,
+    };
+  });
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function isSupportedLocale(value: string): value is SupportedContentLocale {
+  return SUPPORTED_CONTENT_LOCALES.includes(value as SupportedContentLocale);
+}
+
+function storedVariantsToGateInput(
+  variants: Array<{
+    locale: string;
+    title: string;
+    slug: string;
+    summary: string;
+    bodyMarkdown: string;
+    seoTitle: string;
+    seoDescription: string;
+    faqBlocks: unknown;
+  }>
+): LocalizedContentVariant[] {
+  return variants.flatMap((variant) => {
+    if (!isSupportedLocale(variant.locale)) return [];
+    return [{
+      locale: variant.locale,
+      title: variant.title,
+      slug: variant.slug,
+      summary: variant.summary,
+      bodyMarkdown: variant.bodyMarkdown,
+      seoTitle: variant.seoTitle,
+      seoDescription: variant.seoDescription,
+      faqBlocks: parseFaqBlocks(variant.faqBlocks) || [],
+      source: "openai" as const,
+    }];
+  });
+}
+
+function startOfUtcDay(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+export async function runContentPublisher(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("content-publisher", "INDEPENDENT_REVIEW_AND_PUBLISH", now, async (agentRunId) => {
+    const publishedToday = await db.contentItem.count({
+      where: { status: ContentWorkflowStatus.PUBLISHED, publishedAt: { gte: startOfUtcDay(now) } },
+    });
+    if (publishedToday > 0) {
+      return { published: 0, skipped: true, reason: "daily_publication_limit_reached" };
+    }
+
+    const candidate = await db.contentItem.findFirst({
+      where: { status: ContentWorkflowStatus.DRAFT },
+      orderBy: { createdAt: "asc" },
+      include: {
+        variants: { orderBy: { locale: "asc" } },
+        moderationDecisions: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    });
+    if (!candidate) return { published: 0, skipped: true, reason: "no_publishable_draft" };
+
+    const variants = storedVariantsToGateInput(candidate.variants);
+    const gate = assessContentVariants(variants);
+    const producerDecision = candidate.moderationDecisions[0];
+    const duplicate = await db.contentItem.findFirst({
+      where: {
+        canonicalTopic: candidate.canonicalTopic,
+        status: ContentWorkflowStatus.PUBLISHED,
+        id: { not: candidate.id },
+      },
+      select: { id: true },
+    });
+    const independentPass = gate.outcome === ContentModerationOutcome.PASS
+      && gate.qualityScore >= 85
+      && variants.length === SUPPORTED_CONTENT_LOCALES.length
+      && producerDecision?.outcome === ContentModerationOutcome.PASS
+      && !duplicate;
+
+    if (!independentPass) {
+      const outcome = gate.outcome === ContentModerationOutcome.REJECT
+        ? ContentModerationOutcome.REJECT
+        : ContentModerationOutcome.QUARANTINE;
+      const nextStatus = outcome === ContentModerationOutcome.REJECT
+        ? ContentWorkflowStatus.REJECTED
+        : ContentWorkflowStatus.QUARANTINED;
+      const reasons = [
+        ...gate.reasons,
+        ...(producerDecision?.outcome === ContentModerationOutcome.PASS ? [] : ["producer_gate_not_passed"]),
+        ...(duplicate ? ["duplicate_published_topic"] : []),
+        ...(gate.qualityScore >= 85 ? [] : ["independent_quality_below_85"]),
+      ];
+      await db.$transaction([
+        db.contentItem.update({
+          where: { id: candidate.id },
+          data: { status: nextStatus, publishabilityDecision: outcome },
+        }),
+        db.contentModerationDecision.create({
+          data: {
+            contentItemId: candidate.id,
+            agentRunId,
+            outcome,
+            riskLevel: gate.riskLevel,
+            reasons: asInputJson(reasons),
+            qualityScores: asInputJson(gate.localeScores),
+          },
+        }),
+      ]);
+      return { published: 0, contentItemId: candidate.id, status: nextStatus, gateOutcome: outcome, reasons };
+    }
+
+    await db.$transaction([
+      db.contentItem.update({
+        where: { id: candidate.id },
+        data: {
+          status: ContentWorkflowStatus.PUBLISHED,
+          publishedAt: now,
+          unpublishedAt: null,
+          publishabilityDecision: "PUBLISHED_AUTOMATICALLY_AFTER_INDEPENDENT_GATE",
+          aggregateMetrics: asInputJson({
+            ...asRecord(candidate.aggregateMetrics),
+            qualityScore: gate.qualityScore,
+            localeCoverage: variants.length,
+          }),
+        },
+      }),
+      db.contentVariant.updateMany({ where: { contentItemId: candidate.id }, data: { publishedAt: now } }),
+      db.contentModerationDecision.create({
+        data: {
+          contentItemId: candidate.id,
+          agentRunId,
+          outcome: ContentModerationOutcome.PASS,
+          riskLevel: "LOW",
+          reasons: asInputJson(["independent_publication_gate_passed", "daily_publication_limit_checked"]),
+          qualityScores: asInputJson(gate.localeScores),
+        },
+      }),
+    ]);
+
+    return {
+      published: 1,
+      contentItemId: candidate.id,
+      status: ContentWorkflowStatus.PUBLISHED,
+      qualityScore: gate.qualityScore,
+      urls: candidate.variants.map((variant) => `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`),
     };
   });
 }
@@ -321,10 +545,124 @@ async function createArtifact(input: {
   return { id: created.id, created: true };
 }
 
+export async function runContentPerformance(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("content-performance", "AGGREGATE_CONTENT_PERFORMANCE", now, async (agentRunId) => {
+    const items = await db.contentItem.findMany({
+      where: { status: ContentWorkflowStatus.PUBLISHED },
+      include: { feedbackMetrics: true },
+      orderBy: { publishedAt: "desc" },
+    });
+    const rows: Array<Record<string, unknown>> = [];
+    const autoUnpublished: string[] = [];
+
+    for (const item of items) {
+      const metrics = item.feedbackMetrics.reduce((total, snapshot) => ({
+        views: total.views + snapshot.views,
+        uniqueViews: total.uniqueViews + snapshot.uniqueViews,
+        likes: total.likes + snapshot.likes,
+        dislikes: total.dislikes + snapshot.dislikes,
+        dwellSeconds: total.dwellSeconds + snapshot.dwellSeconds,
+        ctaClicks: total.ctaClicks + snapshot.ctaClicks,
+      }), { views: 0, uniqueViews: 0, likes: 0, dislikes: 0, dwellSeconds: 0, ctaClicks: 0 });
+      const engagementScore = Number((
+        (metrics.likes * 4 + metrics.ctaClicks * 6 + metrics.dwellSeconds / 30 - metrics.dislikes * 5)
+        / Math.max(metrics.views, 1)
+      ).toFixed(4));
+      const aggregateMetrics = {
+        ...asRecord(item.aggregateMetrics),
+        ...metrics,
+        engagementScore,
+        lastAggregatedAt: now.toISOString(),
+      };
+
+      if (shouldAutoUnpublish(metrics)) {
+        await db.$transaction([
+          db.contentItem.update({
+            where: { id: item.id },
+            data: {
+              status: ContentWorkflowStatus.UNPUBLISHED,
+              unpublishedAt: now,
+              aggregateMetrics: asInputJson(aggregateMetrics),
+              publishabilityDecision: "AUTO_UNPUBLISHED_STRONG_NEGATIVE_SIGNAL",
+            },
+          }),
+          db.contentVariant.updateMany({ where: { contentItemId: item.id }, data: { publishedAt: null } }),
+          db.contentModerationDecision.create({
+            data: {
+              contentItemId: item.id,
+              agentRunId,
+              outcome: ContentModerationOutcome.QUARANTINE,
+              riskLevel: "LOW",
+              reasons: asInputJson(["strong_negative_engagement_threshold_reached", "reversible_unpublish_no_deletion"]),
+              qualityScores: asInputJson({ engagementScore }),
+            },
+          }),
+        ]);
+        autoUnpublished.push(item.id);
+      } else {
+        await db.contentItem.update({ where: { id: item.id }, data: { aggregateMetrics: asInputJson(aggregateMetrics) } });
+      }
+      rows.push({ contentItemId: item.id, canonicalTopic: item.canonicalTopic, ...metrics, engagementScore });
+    }
+
+    const dateKey = utcDateKey(now);
+    const artifact = await createArtifact({
+      agentRunId,
+      agentName: "content-performance",
+      artifactType: "CONTENT_PERFORMANCE_REPORT",
+      fingerprint: sha256Fingerprint(["content-performance", dateKey]),
+      title: `Content performance — ${dateKey}`,
+      summary: `${items.length} published content items aggregated; ${autoUnpublished.length} reversibly unpublished.`,
+      payload: { period: "all_time", items: rows, autoUnpublished, containsUserLevelData: false },
+      status: AgentArtifactStatus.READY,
+      qualityScore: 100,
+    });
+    return {
+      aggregated: items.length,
+      autoUnpublished: autoUnpublished.length,
+      autoUnpublishedIds: autoUnpublished,
+      artifactId: artifact.id,
+      duplicateReport: !artifact.created,
+    };
+  });
+}
+
+export async function runSocialListener(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("social-listener", "COLLECT_PUBLIC_SOCIAL_SIGNALS", now, async (agentRunId) => {
+    const { signals, errors } = await collectPublicSocialSignals();
+    const bucket = sixHourBucket(now);
+    const artifact = await createArtifact({
+      agentRunId,
+      agentName: "social-listener",
+      artifactType: "SOCIAL_LISTENING_SNAPSHOT",
+      fingerprint: sha256Fingerprint(["social-listener", bucket]),
+      title: `Public social listening — ${bucket} UTC`,
+      summary: `${signals.reduce((sum, signal) => sum + signal.resultCount, 0)} public results summarized from ${signals.length} query-provider pairs.`,
+      payload: {
+        bucket,
+        signals,
+        errors: errors.map((error) => safeError(error)),
+        containsRawPostText: false,
+        containsPrivateMessages: false,
+      },
+      status: AgentArtifactStatus.READY,
+      qualityScore: errors.length === 0 ? 100 : 80,
+    });
+    return {
+      created: artifact.created ? 1 : 0,
+      duplicate: !artifact.created,
+      artifactId: artifact.id,
+      signalGroups: signals.length,
+      resultCount: signals.reduce((sum, signal) => sum + signal.resultCount, 0),
+      errors: errors.map((error) => safeError(error)),
+    };
+  });
+}
+
 export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("social-listener-draft", "BUILD_SOCIAL_DRAFTS", now, async (agentRunId) => {
     const contentItem = await db.contentItem.findFirst({
-      where: { status: { in: [ContentWorkflowStatus.DRAFT, ContentWorkflowStatus.READY] } },
+      where: { status: ContentWorkflowStatus.PUBLISHED },
       orderBy: { createdAt: "desc" },
       include: { variants: { orderBy: { locale: "asc" } } },
     });
@@ -332,14 +670,15 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
       return { created: 0, skipped: true, reason: "no_safe_internal_content" };
     }
 
-    const bucket = sixHourBucket(now);
-    const fingerprint = sha256Fingerprint(["social-listener-draft", bucket, contentItem.id]);
+    const dateKey = utcDateKey(now);
+    const fingerprint = sha256Fingerprint(["social-listener-draft", dateKey, contentItem.id]);
     const drafts = contentItem.variants.map((variant) => ({
       locale: variant.locale,
+      contentUrl: `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`,
       channels: {
-        linkedin: `${variant.title}\n\n${variant.summary}\n\n#ReflectiveLearning #AI #MeaningMaking`,
-        x: `${variant.title}: ${variant.summary}`.slice(0, 260),
-        instagram: `${variant.summary}\n\nDraft only — fictional educational reflection. #Reflection #Learning`,
+        linkedin: `${variant.title}\n\n${variant.summary}\n\nRead: https://joinaireligion.com/content/${variant.locale}/${variant.slug}\n\n#ReflectiveLearning #ResponsibleAI #MeaningMaking`,
+        x: `${variant.title}: ${variant.summary} https://joinaireligion.com/content/${variant.locale}/${variant.slug}`.slice(0, 280),
+        mastodon: `${variant.title}\n\n${variant.summary}\n\nhttps://joinaireligion.com/content/${variant.locale}/${variant.slug}\n\n#Reflection #ResponsibleAI`.slice(0, 500),
       },
     }));
     const artifact = await createArtifact({
@@ -348,10 +687,10 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
       artifactType: "SOCIAL_DRAFT_PACKAGE",
       fingerprint,
       title: `Social drafts: ${contentItem.canonicalTopic}`,
-      summary: "Draft-only social package derived from approved internal content. No external listening or posting occurred.",
-      payload: { publishingEnabled: false, externalListeningEnabled: false, bucket, drafts },
+      summary: "Social publication package derived only from independently reviewed and published site content.",
+      payload: { publicationPolicy: "configured-providers-only", dateKey, drafts, deliveries: [] },
       sourceRefs: { contentItemId: contentItem.id },
-      status: AgentArtifactStatus.DRAFT,
+      status: AgentArtifactStatus.READY,
       qualityScore: drafts.length === SUPPORTED_CONTENT_LOCALES.length ? 90 : 60,
     });
     return {
@@ -360,8 +699,142 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
       artifactId: artifact.id,
       sourceContentItemId: contentItem.id,
       localeCoverage: drafts.length,
-      publishingAttempted: false,
-      externalListeningAttempted: false,
+      queuedForPublisher: true,
+    };
+  });
+}
+
+type SocialDelivery = {
+  provider: SocialProviderName;
+  status: "PUBLISHED" | "FAILED";
+  attemptedAt: string;
+  externalId?: string;
+  externalUrl?: string | null;
+  error?: string;
+};
+
+function readSocialDrafts(payload: unknown): Array<{
+  locale: string;
+  contentUrl: string;
+  channels: Record<SocialProviderName, string>;
+}> {
+  const drafts = asRecord(payload).drafts;
+  if (!Array.isArray(drafts)) return [];
+  return drafts.flatMap((draft) => {
+    const record = asRecord(draft);
+    const channels = asRecord(record.channels);
+    const locale = typeof record.locale === "string" ? record.locale : "";
+    const contentUrl = typeof record.contentUrl === "string" ? record.contentUrl : "";
+    if (!locale || !contentUrl.startsWith("https://joinaireligion.com/content/")) return [];
+    const linkedin = typeof channels.linkedin === "string" ? channels.linkedin : "";
+    const x = typeof channels.x === "string" ? channels.x : "";
+    const mastodon = typeof channels.mastodon === "string" ? channels.mastodon : "";
+    if (!linkedin || !x || !mastodon) return [];
+    return [{ locale, contentUrl, channels: { linkedin, x, mastodon } }];
+  });
+}
+
+function readSocialDeliveries(payload: unknown): SocialDelivery[] {
+  const deliveries = asRecord(payload).deliveries;
+  if (!Array.isArray(deliveries)) return [];
+  return deliveries.flatMap((delivery) => {
+    const record = asRecord(delivery);
+    if (!(["mastodon", "x", "linkedin"] as string[]).includes(String(record.provider))) return [];
+    if (record.status !== "PUBLISHED" && record.status !== "FAILED") return [];
+    return [{
+      provider: record.provider as SocialProviderName,
+      status: record.status,
+      attemptedAt: String(record.attemptedAt || ""),
+      externalId: typeof record.externalId === "string" ? record.externalId : undefined,
+      externalUrl: typeof record.externalUrl === "string" || record.externalUrl === null ? record.externalUrl : undefined,
+      error: typeof record.error === "string" ? record.error : undefined,
+    }];
+  });
+}
+
+export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("social-publisher", "PUBLISH_APPROVED_SOCIAL_PACKAGE", now, async () => {
+    if (env.SOCIAL_PUBLISHING_ENABLED !== "true") {
+      return { published: 0, skipped: true, reason: "social_publishing_disabled" };
+    }
+    const providers = getConfiguredSocialProviders();
+    if (providers.length === 0) return { published: 0, skipped: true, reason: "no_configured_social_provider" };
+
+    const artifact = await db.agentArtifact.findFirst({
+      where: {
+        agentName: "social-listener-draft",
+        artifactType: "SOCIAL_DRAFT_PACKAGE",
+        status: AgentArtifactStatus.READY,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!artifact) return { published: 0, skipped: true, reason: "no_ready_social_package" };
+
+    const sourceRefs = asRecord(artifact.sourceRefs);
+    const contentItemId = typeof sourceRefs.contentItemId === "string" ? sourceRefs.contentItemId : "";
+    const content = contentItemId
+      ? await db.contentItem.findFirst({ where: { id: contentItemId, status: ContentWorkflowStatus.PUBLISHED }, select: { id: true } })
+      : null;
+    if (!content) {
+      await db.agentArtifact.update({ where: { id: artifact.id }, data: { status: AgentArtifactStatus.QUARANTINED } });
+      return { published: 0, quarantined: true, reason: "source_content_not_published" };
+    }
+
+    const drafts = readSocialDrafts(artifact.payload);
+    if (drafts.length === 0) {
+      await db.agentArtifact.update({ where: { id: artifact.id }, data: { status: AgentArtifactStatus.QUARANTINED } });
+      return { published: 0, quarantined: true, reason: "invalid_social_package" };
+    }
+    const localeIndex = Math.floor(now.getTime() / 86_400_000) % drafts.length;
+    const draft = drafts[localeIndex] || drafts[0];
+    const previousDeliveries = readSocialDeliveries(artifact.payload);
+    let deliveries = [...previousDeliveries];
+    const published: SocialDelivery[] = [];
+
+    for (const provider of providers) {
+      if (deliveries.some((delivery) => delivery.provider === provider && delivery.status === "PUBLISHED")) continue;
+      if (provider !== "mastodon" && deliveries.some((delivery) => delivery.provider === provider && delivery.status === "FAILED")) continue;
+      deliveries = deliveries.filter((delivery) => delivery.provider !== provider || delivery.status === "PUBLISHED");
+      const text = draft.channels[provider];
+      if (containsHighRiskContent(text) || !text.includes(draft.contentUrl)) {
+        deliveries.push({ provider, status: "FAILED", attemptedAt: now.toISOString(), error: "social_copy_safety_gate_failed" });
+      } else {
+        try {
+          const result = await publishSocialPost(provider, text, socialIdempotencyKey([artifact.id, provider]));
+          const delivery: SocialDelivery = {
+            provider,
+            status: "PUBLISHED",
+            attemptedAt: now.toISOString(),
+            externalId: result.externalId,
+            externalUrl: result.externalUrl,
+          };
+          deliveries.push(delivery);
+          published.push(delivery);
+        } catch (error) {
+          deliveries.push({ provider, status: "FAILED", attemptedAt: now.toISOString(), error: safeError(error) });
+        }
+      }
+      await db.agentArtifact.update({
+        where: { id: artifact.id },
+        data: { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+      });
+    }
+
+    const completedProviders = new Set(deliveries.filter((delivery) => delivery.status === "PUBLISHED").map((delivery) => delivery.provider));
+    const complete = providers.every((provider) => completedProviders.has(provider));
+    await db.agentArtifact.update({
+      where: { id: artifact.id },
+      data: complete
+        ? { status: AgentArtifactStatus.ARCHIVED, archivedAt: now, payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) }
+        : { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+    });
+    return {
+      published: published.length,
+      configuredProviders: providers,
+      completedProviders: [...completedProviders],
+      artifactId: artifact.id,
+      complete,
+      failures: deliveries.filter((delivery) => delivery.status === "FAILED").map((delivery) => ({ provider: delivery.provider, error: delivery.error })),
     };
   });
 }
@@ -545,8 +1018,16 @@ export async function runGrowthAgentByName(
   switch (agentName) {
     case "seo-kulliyat-draft":
       return runSeoKulliyatDraft(now);
+    case "content-publisher":
+      return runContentPublisher(now);
+    case "content-performance":
+      return runContentPerformance(now);
+    case "social-listener":
+      return runSocialListener(now);
     case "social-listener-draft":
       return runSocialListenerDraft(now);
+    case "social-publisher":
+      return runSocialPublisher(now);
     case "ads-reporting":
       return runAdsReporting(now);
     case "cfo-reporting":

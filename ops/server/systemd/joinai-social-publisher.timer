@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI bounded social publisher hourly
+
+[Timer]
+OnCalendar=*-*-* *:25:00 UTC
+Persistent=true
+Unit=joinai-agent@social-publisher.service
+
+[Install]
+WantedBy=timers.target

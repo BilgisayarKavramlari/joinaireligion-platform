@@ -3,6 +3,7 @@ import {
   assessContentVariants,
   buildFallbackVariant,
   sha256Fingerprint,
+  shouldAutoUnpublish,
   sixHourBucket,
   utcDateKey,
 } from "@/lib/growth-agents/content";
@@ -41,5 +42,11 @@ describe("growth agent content safety", () => {
     variants[1] = { ...variants[1], bodyMarkdown: `${variants[1].bodyMarkdown} garantili aydınlanma` };
 
     expect(assessContentVariants(variants).outcome).toBe("REJECT");
+  });
+
+  it("only auto-unpublishes after a meaningful sample and strong negative signal", () => {
+    expect(shouldAutoUnpublish({ views: 99, uniqueViews: 99, likes: 0, dislikes: 40 })).toBe(false);
+    expect(shouldAutoUnpublish({ views: 100, uniqueViews: 100, likes: 20, dislikes: 34 })).toBe(false);
+    expect(shouldAutoUnpublish({ views: 100, uniqueViews: 100, likes: 5, dislikes: 40 })).toBe(true);
   });
 });

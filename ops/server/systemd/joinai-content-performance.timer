@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI aggregate content performance daily
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+Persistent=true
+Unit=joinai-agent@content-performance.service
+
+[Install]
+WantedBy=timers.target

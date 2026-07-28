@@ -45,4 +45,17 @@ describe("agent registry policy foundation", () => {
     expect(revenueOrchestrator?.mode).toBe("REPORT_ONLY");
     expect(DECISION_LOG_CONTRACT.requiredFields).toContain("allowedByPolicy");
   });
+
+  it("separates content production, publication, performance, and social delivery", () => {
+    const producer = AGENT_DEFINITIONS.find((agent) => agent.agentName === "seo-kulliyat-draft");
+    const publisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "content-publisher");
+    const performance = AGENT_DEFINITIONS.find((agent) => agent.agentName === "content-performance");
+    const socialPublisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "social-publisher");
+
+    expect(producer?.policy.forbiddenActions).toContain("publish content");
+    expect(publisher?.policy.autonomyLevel).toBe(3);
+    expect(publisher?.policy.defaultSafeBoundaries).toContain("two-agent separation of duties");
+    expect(performance?.policy.forbiddenActions).toContain("profile individual users");
+    expect(socialPublisher?.policy.forbiddenActions).toContain("spend advertising money");
+  });
 });

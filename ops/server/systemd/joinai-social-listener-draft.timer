@@ -1,8 +1,8 @@
 [Unit]
-Description=JoinAI bounded social draft generation every six hours
+Description=JoinAI bounded social package generation daily
 
 [Timer]
-OnCalendar=*-*-* 00,06,12,18:00:00 UTC
+OnCalendar=*-*-* 12:00:00 UTC
 Persistent=true
 Unit=joinai-agent@social-listener-draft.service
 
