@@ -27,10 +27,12 @@ export async function POST(request: NextRequest) {
       customer_email: user.email,
       client_reference_id: user.id,
       metadata: { plan, userId: user.id },
+      subscription_data: { metadata: { plan, userId: user.id } },
     });
 
     return NextResponse.json({ url: session.url, id: session.id });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to create checkout session.", details: String(error) }, { status: 500 });
+    console.error("Failed to create Stripe Checkout session", error);
+    return NextResponse.json({ error: "Failed to create checkout session." }, { status: 500 });
   }
 }

@@ -55,7 +55,11 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ o
   }
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+      "User-Agent": "joinaireligion-platform/1.0",
+    },
     body: JSON.stringify({ from: FROM, to, subject, html }),
   });
   return { ok: r.ok, reason: r.ok ? undefined : `resend_error_${r.status}` };

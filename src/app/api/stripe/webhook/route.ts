@@ -6,14 +6,10 @@ import { db } from "@/lib/db";
 
 /** Resolve Stripe customer email → userId */
 async function resolveUserId(stripe: Stripe, customerId: string): Promise<string | null> {
-  try {
-    const customer = await stripe.customers.retrieve(customerId);
-    if (customer.deleted || !("email" in customer) || !customer.email) return null;
-    const user = await db.user.findUnique({ where: { email: customer.email } });
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted || !("email" in customer) || !customer.email) return null;
+  const user = await db.user.findUnique({ where: { email: customer.email } });
+  return user?.id ?? null;
 }
 
 export async function POST(request: Request) {
@@ -31,6 +27,13 @@ export async function POST(request: Request) {
   }
 
   const stripe = getStripeClient();
+
+  const previousEvent = await db.stripeWebhookEvent.findUnique({
+    where: { eventId: event.id },
+  });
+  if (previousEvent?.status === "processed") {
+    return Response.json({ received: true, duplicate: true, eventType: event.type });
+  }
 
   try {
     switch (event.type) {
@@ -194,9 +197,38 @@ export async function POST(request: Request) {
       default:
         break;
     }
+
+    await db.stripeWebhookEvent.upsert({
+      where: { eventId: event.id },
+      create: {
+        eventId: event.id,
+        eventType: event.type,
+        status: "processed",
+        payload: { livemode: event.livemode, created: event.created },
+      },
+      update: {
+        eventType: event.type,
+        status: "processed",
+        payload: { livemode: event.livemode, created: event.created },
+      },
+    });
   } catch (err) {
     console.error(`Webhook handler error for ${event.type}:`, err);
-    // Don't return 500 — Stripe would retry. Log and acknowledge.
+    await db.stripeWebhookEvent.upsert({
+      where: { eventId: event.id },
+      create: {
+        eventId: event.id,
+        eventType: event.type,
+        status: "failed",
+        payload: { livemode: event.livemode, created: event.created },
+      },
+      update: {
+        eventType: event.type,
+        status: "failed",
+        payload: { livemode: event.livemode, created: event.created },
+      },
+    }).catch(() => undefined);
+    return Response.json({ error: "Webhook processing failed." }, { status: 500 });
   }
 
   return Response.json({ received: true, eventType: event.type });
