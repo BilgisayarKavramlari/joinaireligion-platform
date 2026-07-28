@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI response scoring hourly at :30 UTC
+
+[Timer]
+OnCalendar=*-*-* *:30:00 UTC
+Persistent=true
+Unit=joinai-agent@score-practice-responses.service
+
+[Install]
+WantedBy=timers.target

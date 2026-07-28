@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Run as root." >&2
+  exit 1
+fi
+
+readonly SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
+readonly APP_ENV="/opt/apps/joinaireligion/.env"
+readonly CRON_ENV="/etc/joinaireligion/cron.env"
+readonly CRON_DIR="/opt/joinaireligion/scripts/cron"
+readonly ADMIN_EMAIL="joinaireligion@sadievrenseker.com"
+
+test -f "${APP_ENV}"
+test -d "${REPO_DIR}/scripts/cron"
+test -d "${SOURCE_DIR}/systemd"
+
+if ! id joinai >/dev/null 2>&1; then
+  useradd --system --shell /usr/sbin/nologin --home-dir /opt/joinaireligion joinai
+fi
+
+install -d -m 0750 -o root -g joinai "${CRON_DIR}"
+for script in "${REPO_DIR}"/scripts/cron/*.sh; do
+  install -m 0750 -o root -g joinai "${script}" "${CRON_DIR}/$(basename "${script}")"
+done
+
+set -a
+# shellcheck disable=SC1090
+source "${APP_ENV}"
+set +a
+test -n "${CRON_SECRET:-}"
+
+install -d -m 0750 -o root -g joinai /etc/joinaireligion
+cron_tmp="$(mktemp)"
+cleanup() {
+  rm -f "${cron_tmp}"
+}
+trap cleanup EXIT
+{
+  printf 'APP_URL=%q\n' 'http://127.0.0.1:3001'
+  printf 'CRON_SECRET=%q\n' "${CRON_SECRET}"
+  printf 'EMAIL_MODE=%q\n' 'LOG_ONLY'
+  printf 'ALERT_EMAIL=%q\n' "${ADMIN_EMAIL}"
+} > "${cron_tmp}"
+install -m 0600 -o joinai -g joinai "${cron_tmp}" "${CRON_ENV}"
+
+install -m 0750 -o root -g root "${SOURCE_DIR}/joinai-backup" /usr/local/sbin/joinai-backup
+install -m 0644 -o root -g root "${SOURCE_DIR}/systemd/joinai-agent@.service" /etc/systemd/system/joinai-agent@.service
+for unit in "${SOURCE_DIR}"/systemd/*.timer "${SOURCE_DIR}/systemd/joinai-backup.service"; do
+  install -m 0644 -o root -g root "${unit}" "/etc/systemd/system/$(basename "${unit}")"
+done
+
+if ! command -v nginx >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y nginx
+fi
+install -m 0644 -o root -g root "${SOURCE_DIR}/nginx-joinaireligion.conf" /etc/nginx/sites-available/joinaireligion
+ln -sfn /etc/nginx/sites-available/joinaireligion /etc/nginx/sites-enabled/joinaireligion
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+
+systemctl daemon-reload
+systemctl enable --now nginx
+systemctl reload nginx
+
+timers=(
+  joinai-generate-practices.timer
+  joinai-send-practice-emails.timer
+  joinai-score-practice-responses.timer
+  joinai-autonomy-health.timer
+  joinai-autonomy-repair.timer
+  joinai-support-triage.timer
+  joinai-system-health.timer
+  joinai-backup.timer
+)
+systemctl enable --now "${timers[@]}"
+
+echo "JoinAI operations runtime installed; email delivery remains LOG_ONLY."

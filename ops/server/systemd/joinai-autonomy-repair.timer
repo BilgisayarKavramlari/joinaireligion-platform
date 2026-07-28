@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI safe autonomy repair at 07:35 UTC
+
+[Timer]
+OnCalendar=*-*-* 07:35:00 UTC
+Persistent=true
+Unit=joinai-agent@autonomy-repair.service
+
+[Install]
+WantedBy=timers.target

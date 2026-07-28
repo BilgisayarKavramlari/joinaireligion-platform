@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI practice generation at 06:00 UTC
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 UTC
+Persistent=true
+Unit=joinai-agent@generate-practices.service
+
+[Install]
+WantedBy=timers.target
