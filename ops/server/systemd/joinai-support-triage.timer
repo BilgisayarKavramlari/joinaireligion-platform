@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI support triage every two hours
+
+[Timer]
+OnCalendar=*-*-* 00,02,04,06,08,10,12,14,16,18,20,22:00:00 UTC
+Persistent=true
+Unit=joinai-agent@support-triage.service
+
+[Install]
+WantedBy=timers.target

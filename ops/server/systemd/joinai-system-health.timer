@@ -1,0 +1,11 @@
+[Unit]
+Description=JoinAI local system health every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=joinai-agent@system-health.service
+
+[Install]
+WantedBy=timers.target

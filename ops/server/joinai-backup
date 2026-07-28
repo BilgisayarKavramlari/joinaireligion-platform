@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+readonly APP_DIR="/opt/apps/joinaireligion"
+readonly BACKUP_ROOT="/var/backups/joinaireligion"
+readonly DB_DIR="${BACKUP_ROOT}/db"
+readonly UPLOADS_DIR="${BACKUP_ROOT}/uploads"
+readonly CONFIG_DIR="${BACKUP_ROOT}/config"
+readonly DB_CONTAINER="joinaireligion_db"
+readonly UPLOADS_VOLUME="joinaireligion_uploads_data"
+readonly STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Run as root." >&2
+  exit 1
+fi
+
+exec 9>/run/lock/joinaireligion-backup.lock
+if ! flock -n 9; then
+  echo "Another backup is already running." >&2
+  exit 1
+fi
+
+test -f "${APP_DIR}/.env"
+docker inspect "${DB_CONTAINER}" >/dev/null
+docker volume inspect "${UPLOADS_VOLUME}" >/dev/null
+install -d -m 0700 "${DB_DIR}" "${UPLOADS_DIR}" "${CONFIG_DIR}"
+
+db_tmp="$(mktemp "${DB_DIR}/.database-${STAMP}.XXXXXX.sql.gz")"
+uploads_tmp="$(mktemp "${UPLOADS_DIR}/.uploads-${STAMP}.XXXXXX.tar.gz")"
+cleanup() {
+  rm -f "${db_tmp}" "${uploads_tmp}"
+}
+trap cleanup EXIT
+
+docker exec "${DB_CONTAINER}" pg_dump -U postgres -d joinaireligion | gzip -9 > "${db_tmp}"
+gzip -t "${db_tmp}"
+mv "${db_tmp}" "${DB_DIR}/database-${STAMP}.sql.gz"
+
+uploads_mount="$(docker volume inspect --format '{{ .Mountpoint }}' "${UPLOADS_VOLUME}")"
+test -d "${uploads_mount}"
+tar --numeric-owner -C "${uploads_mount}" -czf "${uploads_tmp}" .
+gzip -t "${uploads_tmp}"
+mv "${uploads_tmp}" "${UPLOADS_DIR}/uploads-${STAMP}.tar.gz"
+
+install -m 0600 -o root -g root "${APP_DIR}/.env" "${CONFIG_DIR}/env-${STAMP}.bak"
+
+find "${DB_DIR}" -type f -name 'database-*.sql.gz' -mtime +14 -delete
+find "${UPLOADS_DIR}" -type f -name 'uploads-*.tar.gz' -mtime +14 -delete
+find "${CONFIG_DIR}" -type f -name 'env-*.bak' -mtime +30 -delete
+
+echo "Backup complete: ${STAMP}."
