@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
 import { decodeContentRouteSegment } from "@/lib/content-routing";
 import { db } from "@/lib/db";
 import { SUPPORTED_CONTENT_LOCALES, type SupportedContentLocale } from "@/lib/growth-agents/content";
@@ -11,7 +12,9 @@ type RouteContext = { params: Promise<{ locale: string; slug: string }> };
 export async function GET(_request: Request, { params }: RouteContext) {
   const raw = await params;
   const locale = decodeContentRouteSegment(raw.locale);
-  const slug = decodeContentRouteSegment(raw.slug).replace(/\.png$/i, "");
+  const decodedSlug = decodeContentRouteSegment(raw.slug);
+  const wantsJpeg = /\.jpe?g$/i.test(decodedSlug);
+  const slug = decodedSlug.replace(/\.(?:png|jpe?g)$/i, "");
   if (!SUPPORTED_CONTENT_LOCALES.includes(locale as SupportedContentLocale)) {
     return new Response("Not found", { status: 404 });
   }
@@ -23,7 +26,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return new Response("Not found", { status: 404 });
   }
 
-  return new ImageResponse(
+  const image = new ImageResponse(
     <div
       style={{
         width: "100%",
@@ -82,4 +85,15 @@ export async function GET(_request: Request, { params }: RouteContext) {
       },
     },
   );
+  if (!wantsJpeg) return image;
+
+  const jpeg = await sharp(Buffer.from(await image.arrayBuffer()))
+    .jpeg({ quality: 90, chromaSubsampling: "4:4:4" })
+    .toBuffer();
+  return new Response(new Uint8Array(jpeg), {
+    headers: {
+      "Content-Type": "image/jpeg",
+      "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800",
+    },
+  });
 }

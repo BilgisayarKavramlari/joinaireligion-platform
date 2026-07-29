@@ -350,7 +350,7 @@ function requiredContentUrl(text: string): URL {
 function socialCardUrl(contentUrl: URL): string {
   const parts = contentUrl.pathname.split("/").filter(Boolean);
   if (parts.length !== 3 || parts[0] !== "content") throw new Error("Social content URL has an invalid route");
-  return `${contentUrl.origin}/social-card/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}.png`;
+  return `${contentUrl.origin}/social-card/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}.jpg`;
 }
 
 async function publishFacebook(text: string): Promise<SocialPublicationResult> {
