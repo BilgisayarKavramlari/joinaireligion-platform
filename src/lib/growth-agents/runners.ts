@@ -807,6 +807,12 @@ export async function runSocialListener(now = new Date()): Promise<GrowthAgentRe
   });
 }
 
+function buildRequiredUrlSocialCopy(text: string, contentUrl: string, maxCharacters: number, separator: string): string {
+  const suffix = `${separator}${contentUrl}`;
+  const available = Math.max(0, maxCharacters - Array.from(suffix).length);
+  return `${Array.from(text).slice(0, available).join("")}${suffix}`;
+}
+
 export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("social-listener-draft", "BUILD_SOCIAL_DRAFTS", now, async (agentRunId) => {
     const contentItem = await db.contentItem.findFirst({
@@ -820,15 +826,20 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
 
     const dateKey = utcDateKey(now);
     const fingerprint = sha256Fingerprint(["social-listener-draft", dateKey, contentItem.id]);
-    const drafts = contentItem.variants.map((variant) => ({
-      locale: variant.locale,
-      contentUrl: `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`,
-      channels: {
-        linkedin: `${variant.title}\n\n${variant.summary}\n\nRead: https://joinaireligion.com/content/${variant.locale}/${variant.slug}\n\n#ReflectiveLearning #ResponsibleAI #MeaningMaking`,
-        x: `${variant.title}: ${variant.summary} https://joinaireligion.com/content/${variant.locale}/${variant.slug}`.slice(0, 280),
-        mastodon: `${variant.title}\n\n${variant.summary}\n\nhttps://joinaireligion.com/content/${variant.locale}/${variant.slug}\n\n#Reflection #ResponsibleAI`.slice(0, 500),
-      },
-    }));
+    const drafts = contentItem.variants.map((variant) => {
+      const contentUrl = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
+      const baseCopy = `${variant.title}: ${variant.summary}`;
+      return {
+        locale: variant.locale,
+        contentUrl,
+        channels: {
+          linkedin: `${variant.title}\n\n${variant.summary}\n\nRead: ${contentUrl}\n\n#ReflectiveLearning #ResponsibleAI #MeaningMaking`,
+          x: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 280, " "),
+          mastodon: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}\n\n#Reflection #ResponsibleAI`.slice(0, 500),
+          bluesky: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 300, "\n\n"),
+        },
+      };
+    });
     const artifact = await createArtifact({
       agentRunId,
       agentName: "social-listener-draft",
@@ -877,8 +888,11 @@ function readSocialDrafts(payload: unknown): Array<{
     const linkedin = typeof channels.linkedin === "string" ? channels.linkedin : "";
     const x = typeof channels.x === "string" ? channels.x : "";
     const mastodon = typeof channels.mastodon === "string" ? channels.mastodon : "";
+    const bluesky = typeof channels.bluesky === "string"
+      ? channels.bluesky
+      : (x.includes(contentUrl) ? x : buildRequiredUrlSocialCopy(x, contentUrl, 300, "\n\n"));
     if (!linkedin || !x || !mastodon) return [];
-    return [{ locale, contentUrl, channels: { linkedin, x, mastodon } }];
+    return [{ locale, contentUrl, channels: { linkedin, x, mastodon, bluesky } }];
   });
 }
 
@@ -887,7 +901,7 @@ function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   if (!Array.isArray(deliveries)) return [];
   return deliveries.flatMap((delivery) => {
     const record = asRecord(delivery);
-    if (!(["mastodon", "x", "linkedin"] as string[]).includes(String(record.provider))) return [];
+    if (!(["mastodon", "x", "linkedin", "bluesky"] as string[]).includes(String(record.provider))) return [];
     if (record.status !== "PUBLISHED" && record.status !== "FAILED") return [];
     return [{
       provider: record.provider as SocialProviderName,

@@ -29,6 +29,9 @@ export const env = {
   LINKEDIN_ACCESS_TOKEN: readEnv("LINKEDIN_ACCESS_TOKEN"),
   LINKEDIN_AUTHOR_URN: readEnv("LINKEDIN_AUTHOR_URN"),
   LINKEDIN_VERSION: readEnv("LINKEDIN_VERSION"),
+  BLUESKY_SERVICE_URL: readEnv("BLUESKY_SERVICE_URL"),
+  BLUESKY_IDENTIFIER: readEnv("BLUESKY_IDENTIFIER"),
+  BLUESKY_APP_PASSWORD: readEnv("BLUESKY_APP_PASSWORD"),
 };
 
 export function requireEnv(key: keyof typeof env): string {

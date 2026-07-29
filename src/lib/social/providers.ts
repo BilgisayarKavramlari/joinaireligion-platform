@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { env } from "@/lib/env";
 
-export type SocialProviderName = "mastodon" | "x" | "linkedin";
+export type SocialProviderName = "mastodon" | "x" | "linkedin" | "bluesky";
 
 export type PublicSocialSignal = {
   provider: "mastodon" | "x";
@@ -32,6 +32,47 @@ function normalizeBaseUrl(value: string | undefined): string {
   return parsed.origin;
 }
 
+function normalizeBlueskyServiceUrl(value: string | undefined): string {
+  const parsed = new URL(value || "https://bsky.social");
+  if (parsed.protocol !== "https:") throw new Error("Bluesky service URL must use HTTPS");
+  return parsed.origin;
+}
+
+export function truncateBlueskyText(text: string): string {
+  const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });
+  const encoder = new TextEncoder();
+  let output = "";
+  let count = 0;
+  for (const { segment } of segmenter.segment(text)) {
+    if (count >= 300 || encoder.encode(output + segment).length > 3_000) break;
+    output += segment;
+    count += 1;
+  }
+  return output;
+}
+
+export function buildBlueskyFacets(text: string): Array<{
+  index: { byteStart: number; byteEnd: number };
+  features: Array<{ $type: "app.bsky.richtext.facet#link"; uri: string }>;
+}> {
+  const encoder = new TextEncoder();
+  const facets = [];
+  for (const match of text.matchAll(/https:\/\/[^\s<>]+/g)) {
+    const rawUrl = match[0];
+    const uri = rawUrl.replace(/[),.;!?]+$/u, "");
+    const start = match.index ?? 0;
+    if (!uri) continue;
+    facets.push({
+      index: {
+        byteStart: encoder.encode(text.slice(0, start)).length,
+        byteEnd: encoder.encode(text.slice(0, start + uri.length)).length,
+      },
+      features: [{ $type: "app.bsky.richtext.facet#link" as const, uri }],
+    });
+  }
+  return facets;
+}
+
 function extractTerms(texts: string[]): string[] {
   const counts = new Map<string, number>();
   for (const text of texts) {
@@ -50,6 +91,7 @@ export function getConfiguredSocialProviders(): SocialProviderName[] {
   if (env.MASTODON_ACCESS_TOKEN) providers.push("mastodon");
   if (env.X_USER_ACCESS_TOKEN) providers.push("x");
   if (env.LINKEDIN_ACCESS_TOKEN && env.LINKEDIN_AUTHOR_URN && env.LINKEDIN_VERSION) providers.push("linkedin");
+  if (env.BLUESKY_IDENTIFIER && env.BLUESKY_APP_PASSWORD) providers.push("bluesky");
   return providers;
 }
 
@@ -183,6 +225,54 @@ async function publishLinkedIn(text: string): Promise<SocialPublicationResult> {
   return { provider: "linkedin", externalId, externalUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}/` };
 }
 
+async function publishBluesky(text: string): Promise<SocialPublicationResult> {
+  if (!env.BLUESKY_IDENTIFIER || !env.BLUESKY_APP_PASSWORD) {
+    throw new Error("Bluesky publication is not fully configured");
+  }
+  const baseUrl = normalizeBlueskyServiceUrl(env.BLUESKY_SERVICE_URL);
+  const sessionResponse = await fetch(new URL("/xrpc/com.atproto.server.createSession", baseUrl), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: env.BLUESKY_IDENTIFIER, password: env.BLUESKY_APP_PASSWORD }),
+    signal: timeoutSignal(),
+  });
+  if (!sessionResponse.ok) throw new Error(`Bluesky authentication failed with HTTP ${sessionResponse.status}`);
+  const session = await sessionResponse.json() as { accessJwt?: string; did?: string; handle?: string };
+  if (!session.accessJwt || !session.did || !session.handle) {
+    throw new Error("Bluesky authentication returned an incomplete session");
+  }
+
+  const postText = truncateBlueskyText(text);
+  const facets = buildBlueskyFacets(postText);
+  const localeMatch = postText.match(/joinaireligion\.com\/content\/([a-z]{2})\//i);
+  const response = await fetch(new URL("/xrpc/com.atproto.repo.createRecord", baseUrl), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.accessJwt}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      repo: session.did,
+      collection: "app.bsky.feed.post",
+      record: {
+        $type: "app.bsky.feed.post",
+        text: postText,
+        ...(facets.length > 0 ? { facets } : {}),
+        ...(localeMatch ? { langs: [localeMatch[1].toLowerCase()] } : {}),
+        createdAt: new Date().toISOString(),
+      },
+    }),
+    signal: timeoutSignal(),
+  });
+  if (!response.ok) throw new Error(`Bluesky publication failed with HTTP ${response.status}`);
+  const payload = await response.json() as { uri?: string; cid?: string };
+  if (!payload.uri || !payload.cid) throw new Error("Bluesky publication returned no record reference");
+  const rkey = payload.uri.split("/").pop();
+  if (!rkey) throw new Error("Bluesky publication returned an invalid record URI");
+  return {
+    provider: "bluesky",
+    externalId: payload.uri,
+    externalUrl: `https://bsky.app/profile/${encodeURIComponent(session.handle)}/post/${encodeURIComponent(rkey)}`,
+  };
+}
+
 export function socialIdempotencyKey(parts: string[]): string {
   return crypto.createHash("sha256").update(parts.join("|")).digest("hex");
 }
@@ -195,5 +285,6 @@ export async function publishSocialPost(
   if (env.SOCIAL_PUBLISHING_ENABLED !== "true") throw new Error("Social publishing is disabled");
   if (provider === "mastodon") return publishMastodon(text, idempotencyKey);
   if (provider === "x") return publishX(text);
-  return publishLinkedIn(text);
+  if (provider === "linkedin") return publishLinkedIn(text);
+  return publishBluesky(text);
 }
