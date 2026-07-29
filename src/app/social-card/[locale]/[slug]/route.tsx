@@ -11,7 +11,7 @@ type RouteContext = { params: Promise<{ locale: string; slug: string }> };
 export async function GET(_request: Request, { params }: RouteContext) {
   const raw = await params;
   const locale = decodeContentRouteSegment(raw.locale);
-  const slug = decodeContentRouteSegment(raw.slug);
+  const slug = decodeContentRouteSegment(raw.slug).replace(/\.png$/i, "");
   if (!SUPPORTED_CONTENT_LOCALES.includes(locale as SupportedContentLocale)) {
     return new Response("Not found", { status: 404 });
   }

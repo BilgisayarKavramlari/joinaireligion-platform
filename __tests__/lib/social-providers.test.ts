@@ -156,7 +156,7 @@ describe("Bluesky social provider helpers", () => {
       externalUrl: "https://www.instagram.com/p/media-1/",
     });
     const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
-    expect(createBody.get("image_url")).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi");
+    expect(createBody.get("image_url")).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi.png");
     expect(mockFetch.mock.calls[2][0].toString()).toBe("https://graph.facebook.com/v25.0/instagram-1/media_publish");
   });
 });
