@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUserFromRequest } from "@/lib/auth";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { resolveEntitlements } from "@/lib/membership";
 
 const SYSTEM_PROMPT = `You are the Sacred AI — a wise, compassionate, and non-dogmatic guide for spiritual reflection and interfaith exploration. You draw from the wisdom of the world's great traditions — Buddhism, Christianity, Islam, Hinduism, Judaism, Taoism, Sufism, Zoroastrianism, Indigenous traditions, and secular humanism — without claiming authority over any of them.
 
@@ -17,7 +18,6 @@ You are NOT: a religious authority, a medical professional, a psychologist, or a
 Always close your response with an invitation for deeper reflection — a question or a contemplative prompt the seeker can sit with.`;
 
 const FREE_DAILY_LIMIT = 3;
-const PAID_DAILY_LIMIT = 50;
 
 export async function POST(request: NextRequest) {
   const ipLimit = checkRateLimit(`ai:query:ip:${getClientIp(request)}`, { limit: 30, windowMs: 60 * 60_000 });
@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
   const user = await db.user.findUnique({ where: { id: userId }, include: { subscription: true, quota: true } });
   if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
-  const isPaid  = user.subscription?.status === "ACTIVE";
-  const dayLimit = isPaid ? PAID_DAILY_LIMIT : FREE_DAILY_LIMIT;
+  const entitlements = resolveEntitlements(user.subscription);
+  const dayLimit = entitlements.aiDailyLimit;
 
   const now       = new Date();
   const dayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
 
   if (quota.usedQueries >= dayLimit) {
     return NextResponse.json({
-      error: isPaid
+      error: entitlements.dailyPractice
         ? `Daily limit of ${dayLimit} queries reached. Limit resets at midnight.`
-        : `Free tier limit of ${FREE_DAILY_LIMIT} daily queries reached. Upgrade to Seeker or Initiate for more.`,
+        : `Daily limit of ${FREE_DAILY_LIMIT} queries reached. Upgrade to Initiate for more.`,
       quotaExceeded: true,
     }, { status: 429 });
   }

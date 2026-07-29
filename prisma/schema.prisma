@@ -40,6 +40,27 @@ enum PracticeType {
   REFLECTION
 }
 
+enum CreditType {
+  AI_QUERY
+}
+
+enum CreditPurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  DISPUTED
+}
+
+enum CreditLedgerSource {
+  PURCHASE
+  CONSUMPTION
+  REVERSAL
+  REFUND
+  CHARGEBACK
+  ADMIN_ADJUSTMENT
+}
+
 // ─── Journey automation enums ─────────────────────────────────────────────────
 
 /// Whether the practice is delivered daily (paid) or weekly (free).
@@ -64,12 +85,12 @@ enum GenerationStatus {
 
 /// Email delivery state for a PracticeMessage.
 enum DeliveryStatus {
-  PENDING   // created but not yet queued for delivery
-  QUEUED    // generation complete, queued for the send cron
-  SENT      // handed off to email provider
+  PENDING // created but not yet queued for delivery
+  QUEUED // generation complete, queued for the send cron
+  SENT // handed off to email provider
   DELIVERED // provider confirmed delivery (webhook)
-  FAILED    // provider returned an error
-  SKIPPED   // excluded from this run (e.g. user unsubscribed after generation)
+  FAILED // provider returned an error
+  SKIPPED // excluded from this run (e.g. user unsubscribed after generation)
 }
 
 /// Execution state for an AgentRun task.
@@ -116,67 +137,70 @@ enum XpSource {
 // ─── Core user model ──────────────────────────────────────────────────────────
 
 model User {
-  id                      String             @id @default(cuid())
-  email                   String             @unique
+  id                      String    @id @default(cuid())
+  email                   String    @unique
   displayName             String?
   passwordHash            String?
   acceptedTermsAt         DateTime?
-  preferredLocale         String             @default("en")
-  preferredEmailLocale    String             @default("en")
+  preferredLocale         String    @default("en")
+  preferredEmailLocale    String    @default("en")
   avatarUrl               String?
-  role                    UserRole           @default(USER)
+  role                    UserRole  @default(USER)
   emailVerifiedAt         DateTime?
   lastLoginAt             DateTime?
   lastActivityAt          DateTime?
-  emailOptIn              Boolean            @default(false)
-  emailFrequency          String             @default("weekly")
-  unsubscribeToken        String?            @unique
+  emailOptIn              Boolean   @default(false)
+  emailFrequency          String    @default("weekly")
+  unsubscribeToken        String?   @unique
   lastPracticeEmailSentAt DateTime?
-  currentLevel            Int                @default(1)
-  xpTotal                 Int                @default(0)
-  daysActive              Int                @default(0)
+  currentLevel            Int       @default(1)
+  xpTotal                 Int       @default(0)
+  daysActive              Int       @default(0)
   lastActiveDate          DateTime?
-  onboardingDone          Boolean            @default(false)
+  onboardingDone          Boolean   @default(false)
   onboardingDoneAt        DateTime?
   unsubscribedAt          DateTime?
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   // ── Existing relations ──────────────────────────────────────────────────────
-  profile                 UserProfile?
-  onboarding              OnboardingAnswer[]
-  queries                 AiQuery[]
-  quota                   QueryQuota?
-  subscription            Subscription?
-  practiceLogs            UserPracticeLog[]
-  journeyLevels           JourneyLevel[]
-  emailLogs               EmailLog[]
-  activityLogs            UserActivityLog[]
-  dialogues               AiDialogue[]
-  invoices                InvoiceRecord[]
-  lessonQuota             LessonQuota?
-  feedbackItems           FeedbackItem[]
-  userLessons             UserLesson[]
-  lessonAttempts          LessonAttempt[]
-  sessions                Session[]
+  profile        UserProfile?
+  onboarding     OnboardingAnswer[]
+  queries        AiQuery[]
+  quota          QueryQuota?
+  subscription   Subscription?
+  practiceLogs   UserPracticeLog[]
+  journeyLevels  JourneyLevel[]
+  emailLogs      EmailLog[]
+  activityLogs   UserActivityLog[]
+  dialogues      AiDialogue[]
+  invoices       InvoiceRecord[]
+  lessonQuota    LessonQuota?
+  feedbackItems  FeedbackItem[]
+  userLessons    UserLesson[]
+  lessonAttempts LessonAttempt[]
+  sessions       Session[]
 
   // ── Journey automation relations ────────────────────────────────────────────
-  practiceMessages        PracticeMessage[]
-  practiceResponses       PracticeResponse[]
-  xpLedger                XpLedger[]
-  agentRuns               AgentRun[]
-  journeyState            UserJourneyState?
+  practiceMessages    PracticeMessage[]
+  practiceResponses   PracticeResponse[]
+  xpLedger            XpLedger[]
+  agentRuns           AgentRun[]
+  journeyState        UserJourneyState?
+  creditBalances      CreditBalance[]
+  creditPurchases     CreditPurchase[]
+  creditLedgerEntries CreditLedger[]
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  revokedAt DateTime?
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
   lastSeenAt DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
 }
@@ -244,12 +268,17 @@ model QueryQuota {
 }
 
 model StripeWebhookEvent {
-  id        String   @id @default(cuid())
-  eventId   String   @unique
-  eventType String
-  status    String?
-  payload   Json?
-  createdAt DateTime @default(now())
+  id               String    @id @default(cuid())
+  eventId          String    @unique
+  eventType        String
+  providerObjectId String?
+  status           String?
+  payload          Json?
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([eventType, providerObjectId])
 }
 
 model Subscription {
@@ -260,6 +289,9 @@ model Subscription {
   providerSubscriptionId String?
   providerPriceId        String?
   providerProductId      String?
+  planCode               String?
+  providerStatus         String?
+  providerEventCreatedAt Int?
   lastPaymentStatus      String?
   canceledAt             DateTime?
   trialEndsAt            DateTime?
@@ -268,6 +300,63 @@ model Subscription {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Current spendable balance. All changes must also be recorded in CreditLedger.
+model CreditBalance {
+  id            String         @id @default(cuid())
+  userId        String
+  creditType    CreditType
+  available     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerEntries CreditLedger[]
+
+  @@unique([userId, creditType])
+  @@index([creditType, available])
+}
+
+/// Immutable snapshot of a one-time credit purchase. Sales remain feature-flagged
+/// until a live Stripe package and legal copy are explicitly configured.
+model CreditPurchase {
+  id                        String               @id @default(cuid())
+  userId                    String
+  packageCode               String
+  creditType                CreditType           @default(AI_QUERY)
+  creditAmount              Int
+  expectedAmountMinor       Int?
+  paidAmountMinor           Int?
+  currency                  String?
+  status                    CreditPurchaseStatus @default(PENDING)
+  providerCheckoutSessionId String?              @unique
+  providerPaymentIntentId   String?              @unique
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  user                      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Append-only credit movement. sourceType + sourceId + creditType makes each
+/// purchase, consumption, refund, or compensation idempotent.
+model CreditLedger {
+  id         String             @id @default(cuid())
+  userId     String
+  balanceId  String
+  creditType CreditType
+  delta      Int
+  sourceType CreditLedgerSource
+  sourceId   String
+  metadata   Json?
+  createdAt  DateTime           @default(now())
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance    CreditBalance      @relation(fields: [balanceId], references: [id], onDelete: Restrict)
+
+  @@unique([creditType, sourceType, sourceId])
+  @@index([userId, createdAt])
+  @@index([balanceId, createdAt])
 }
 
 model Practice {
@@ -477,8 +566,8 @@ model UserJourneyState {
   totalResponsesSubmitted Int          @default(0)
   lastPracticeDeliveredAt DateTime?
   lastResponseSubmittedAt DateTime?
-  nextDailyPracticeDate   DateTime?    // next scheduled daily (paid only)
-  nextWeeklyPracticeDate  DateTime?    // next scheduled weekly (free + paid)
+  nextDailyPracticeDate   DateTime? // next scheduled daily (paid only)
+  nextWeeklyPracticeDate  DateTime? // next scheduled weekly (free + paid)
   pendingLevelUp          Boolean      @default(false)
   lastLevelUpAt           DateTime?
   metadata                Json?
@@ -492,10 +581,10 @@ model UserJourneyState {
 /// the exact prompt that produced them.
 model PromptVersion {
   id        String            @id @default(cuid())
-  name      String            // logical prompt name, e.g. "daily-practice-gen-v1"
+  name      String // logical prompt name, e.g. "daily-practice-gen-v1"
   version   Int
-  body      String            // prompt template; may contain {{variable}} placeholders
-  variables Json?             // array of expected variable names for documentation
+  body      String // prompt template; may contain {{variable}} placeholders
+  variables Json? // array of expected variable names for documentation
   isActive  Boolean           @default(false)
   notes     String?
   createdAt DateTime          @default(now())
@@ -510,30 +599,30 @@ model PromptVersion {
 /// Multiple PracticeMessages or PracticeResponses may link to a single run
 /// when the agent processes a batch.
 model AgentRun {
-  id                String            @id @default(cuid())
-  agentName         String            // e.g. "practice-generator", "response-scorer"
-  taskType          String            // e.g. "GENERATE_DAILY_BATCH", "SCORE_RESPONSE"
-  status            AgentRunStatus    @default(PENDING)
-  userId            String?           // null for system-wide batch runs
-  input             Json?             // serialised task parameters
-  output            Json?             // serialised result summary
-  errorMessage      String?
-  startedAt         DateTime          @default(now())
-  completedAt       DateTime?
-  durationMs        Int?
-  createdAt         DateTime          @default(now())
-  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  generatedMessages PracticeMessage[] // messages this run created
-  scoredResponses   PracticeResponse[] @relation("ScoringRun")
-  triagedFeedbackItems FeedbackItem[] @relation("FeedbackCurrentTriageRun")
-  supportTriageDecisions SupportTriageDecision[] @relation("SupportTriageRun")
-  supportReplies    SupportReply[]    @relation("SupportReplyAgentRun")
-  ideaAssessments   IdeaAssessment[]  @relation("IdeaAssessmentRun")
-  taskExecutions    TaskExecution[]   @relation("EngineeringTaskExecutionRun")
-  decisionLogs      DecisionLog[]     @relation("DecisionLogRun")
-  contentItems      ContentItem[]
+  id                         String                      @id @default(cuid())
+  agentName                  String // e.g. "practice-generator", "response-scorer"
+  taskType                   String // e.g. "GENERATE_DAILY_BATCH", "SCORE_RESPONSE"
+  status                     AgentRunStatus              @default(PENDING)
+  userId                     String? // null for system-wide batch runs
+  input                      Json? // serialised task parameters
+  output                     Json? // serialised result summary
+  errorMessage               String?
+  startedAt                  DateTime                    @default(now())
+  completedAt                DateTime?
+  durationMs                 Int?
+  createdAt                  DateTime                    @default(now())
+  user                       User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  generatedMessages          PracticeMessage[] // messages this run created
+  scoredResponses            PracticeResponse[]          @relation("ScoringRun")
+  triagedFeedbackItems       FeedbackItem[]              @relation("FeedbackCurrentTriageRun")
+  supportTriageDecisions     SupportTriageDecision[]     @relation("SupportTriageRun")
+  supportReplies             SupportReply[]              @relation("SupportReplyAgentRun")
+  ideaAssessments            IdeaAssessment[]            @relation("IdeaAssessmentRun")
+  taskExecutions             TaskExecution[]             @relation("EngineeringTaskExecutionRun")
+  decisionLogs               DecisionLog[]               @relation("DecisionLogRun")
+  contentItems               ContentItem[]
   contentModerationDecisions ContentModerationDecision[]
-  artifacts         AgentArtifact[]
+  artifacts                  AgentArtifact[]
 
   @@index([agentName, status, createdAt])
   @@index([taskType, createdAt])
@@ -544,22 +633,22 @@ model AgentRun {
 /// The first live slice is draft-only; publication states are reserved for a
 /// later policy-approved publishing workflow.
 model ContentItem {
-  id                     String                @id @default(cuid())
-  fingerprint            String                @unique
+  id                     String                      @id @default(cuid())
+  fingerprint            String                      @unique
   canonicalTopic         String
   category               String
   contentType            String
   difficulty             String?
-  status                 ContentWorkflowStatus @default(DRAFT)
+  status                 ContentWorkflowStatus       @default(DRAFT)
   sourceSummary          Json?
   publishabilityDecision String?
   aggregateMetrics       Json?
   agentRunId             String?
   publishedAt            DateTime?
   unpublishedAt          DateTime?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  agentRun               AgentRun?             @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  agentRun               AgentRun?                   @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
   variants               ContentVariant[]
   sourceSignals          ContentSourceSignal[]
   feedbackMetrics        ContentFeedbackMetric[]
@@ -674,26 +763,26 @@ model AgentArtifact {
 /// One personalized practice message per user per cadence per scheduled date.
 /// Generated by the agent, delivered by email, responded to by the user.
 model PracticeMessage {
-  id               String           @id @default(cuid())
+  id               String             @id @default(cuid())
   userId           String
-  cadence          MessageCadence   // DAILY (paid) or WEEKLY (free)
-  tier             PracticeTier     // tier at time of generation
-  scheduledDate    DateTime         // the calendar date this message is for (time is midnight UTC)
-  subject          String?          // email subject line
-  bodyText         String?          // plain-text body
-  bodyHtml         String?          // HTML body
-  generationStatus GenerationStatus @default(PENDING)
-  deliveryStatus   DeliveryStatus   @default(PENDING)
-  promptVersionId  String?          // which prompt was used
-  agentRunId       String?          // which AgentRun produced this
-  xpReward         Int              @default(0) // XP to award when user responds
+  cadence          MessageCadence // DAILY (paid) or WEEKLY (free)
+  tier             PracticeTier // tier at time of generation
+  scheduledDate    DateTime // the calendar date this message is for (time is midnight UTC)
+  subject          String? // email subject line
+  bodyText         String? // plain-text body
+  bodyHtml         String? // HTML body
+  generationStatus GenerationStatus   @default(PENDING)
+  deliveryStatus   DeliveryStatus     @default(PENDING)
+  promptVersionId  String? // which prompt was used
+  agentRunId       String? // which AgentRun produced this
+  xpReward         Int                @default(0) // XP to award when user responds
   sentAt           DateTime?
   generatedAt      DateTime?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  promptVersion    PromptVersion?   @relation(fields: [promptVersionId], references: [id])
-  agentRun         AgentRun?        @relation(fields: [agentRunId], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promptVersion    PromptVersion?     @relation(fields: [promptVersionId], references: [id])
+  agentRun         AgentRun?          @relation(fields: [agentRunId], references: [id])
   responses        PracticeResponse[]
 
   // One scheduled practice per user per cadence per day — prevents duplicates.
@@ -709,11 +798,11 @@ model PracticeResponse {
   id                String          @id @default(cuid())
   userId            String
   practiceMessageId String
-  responseText      String          // user's submitted response
-  score             Int?            // 0–5, set by scoring agent after submission
-  feedback          String?         // AI-generated qualitative feedback
+  responseText      String // user's submitted response
+  score             Int? // 0–5, set by scoring agent after submission
+  feedback          String? // AI-generated qualitative feedback
   xpEarned          Int             @default(0)
-  scoringAgentRunId String?         // AgentRun that scored this response
+  scoringAgentRunId String? // AgentRun that scored this response
   createdAt         DateTime        @default(now())
   scoredAt          DateTime?
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -730,19 +819,19 @@ model PracticeResponse {
 /// balanceBefore + amount == balanceAfter; application code is responsible
 /// for keeping this consistent with User.xpTotal.
 model XpLedger {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   userId        String
-  amount        Int       // positive (award) or negative (correction)
-  source        XpSource  // what caused this delta
-  sourceId      String?   // ID of the originating record (PracticeResponse.id, etc.)
+  amount        Int // positive (award) or negative (correction)
+  source        XpSource // what caused this delta
+  sourceId      String? // ID of the originating record (PracticeResponse.id, etc.)
   balanceBefore Int
   balanceAfter  Int
   notes         String?
-  createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, createdAt])
   @@unique([source, sourceId])
+  @@index([userId, createdAt])
 }
 
 // ─── Feedback system ──────────────────────────────────────────────────────────
@@ -924,36 +1013,36 @@ enum ReleaseRecordStatus {
 /// User-submitted feedback items (bugs, translations, content issues, etc.)
 /// Visible in admin and surfaced to the autonomy system for task generation.
 model FeedbackItem {
-  id             String            @id @default(cuid())
+  id                     String                          @id @default(cuid())
   /// Null when submitted anonymously (not yet implemented) or user is deleted.
-  userId         String?
-  category       FeedbackCategory
-  status         FeedbackStatus    @default(OPEN)
-  authState      FeedbackAuthState @default(ANONYMOUS)
-  submitterEmail String?
-  submitterLocale String?
-  pageUrl        String?
-  userAgent      String?
+  userId                 String?
+  category               FeedbackCategory
+  status                 FeedbackStatus                  @default(OPEN)
+  authState              FeedbackAuthState               @default(ANONYMOUS)
+  submitterEmail         String?
+  submitterLocale        String?
+  pageUrl                String?
+  userAgent              String?
   /// The URL or page path the user was on when submitting feedback.
-  pageContext  String?
+  pageContext            String?
   /// Free-text message from the user.
-  message        String
+  message                String
   /// Admin-written notes or resolution summary.
-  adminNotes     String?
-  triageCategory SupportTriageCategory?
-  triageSeverity SupportTriageSeverity?
-  recommendedAction SupportTriageRecommendedAction?
-  triageStatus   SupportTriageStatus @default(NOT_TRIAGED)
-  triagedAt      DateTime?
-  triageRunId    String?
+  adminNotes             String?
+  triageCategory         SupportTriageCategory?
+  triageSeverity         SupportTriageSeverity?
+  recommendedAction      SupportTriageRecommendedAction?
+  triageStatus           SupportTriageStatus             @default(NOT_TRIAGED)
+  triagedAt              DateTime?
+  triageRunId            String?
   latestTriageDecisionId String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  triageRun      AgentRun?         @relation("FeedbackCurrentTriageRun", fields: [triageRunId], references: [id], onDelete: SetNull)
-  latestTriageDecision SupportTriageDecision? @relation("FeedbackLatestTriageDecision", fields: [latestTriageDecisionId], references: [id], onDelete: SetNull)
-  triageDecisions SupportTriageDecision[] @relation("FeedbackDecisionHistory")
-  supportReplies SupportReply[]
+  createdAt              DateTime                        @default(now())
+  updatedAt              DateTime                        @updatedAt
+  user                   User?                           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  triageRun              AgentRun?                       @relation("FeedbackCurrentTriageRun", fields: [triageRunId], references: [id], onDelete: SetNull)
+  latestTriageDecision   SupportTriageDecision?          @relation("FeedbackLatestTriageDecision", fields: [latestTriageDecisionId], references: [id], onDelete: SetNull)
+  triageDecisions        SupportTriageDecision[]         @relation("FeedbackDecisionHistory")
+  supportReplies         SupportReply[]
 
   @@index([status, category, createdAt])
   @@index([userId, createdAt])
@@ -963,7 +1052,7 @@ model FeedbackItem {
 }
 
 model SupportTriageDecision {
-  id                String                          @id @default(cuid())
+  id                String                         @id @default(cuid())
   feedbackItemId    String
   agentRunId        String
   decisionSource    String
@@ -974,11 +1063,11 @@ model SupportTriageDecision {
   reasonJson        Json?
   replyDraftId      String?
   codingTaskRef     String?
-  createdAt         DateTime                        @default(now())
-  feedbackItem      FeedbackItem                    @relation("FeedbackDecisionHistory", fields: [feedbackItemId], references: [id], onDelete: Cascade)
-  agentRun          AgentRun                        @relation("SupportTriageRun", fields: [agentRunId], references: [id], onDelete: Cascade)
-  latestForFeedback FeedbackItem[]                  @relation("FeedbackLatestTriageDecision")
-  replyDraft        SupportReply?                   @relation("SupportReplyDraftDecision", fields: [replyDraftId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                       @default(now())
+  feedbackItem      FeedbackItem                   @relation("FeedbackDecisionHistory", fields: [feedbackItemId], references: [id], onDelete: Cascade)
+  agentRun          AgentRun                       @relation("SupportTriageRun", fields: [agentRunId], references: [id], onDelete: Cascade)
+  latestForFeedback FeedbackItem[]                 @relation("FeedbackLatestTriageDecision")
+  replyDraft        SupportReply?                  @relation("SupportReplyDraftDecision", fields: [replyDraftId], references: [id], onDelete: SetNull)
 
   @@index([feedbackItemId, createdAt])
   @@index([agentRunId, createdAt])
@@ -986,18 +1075,18 @@ model SupportTriageDecision {
 }
 
 model SupportReply {
-  id               String                 @id @default(cuid())
+  id               String                  @id @default(cuid())
   feedbackItemId   String
   authorType       SupportReplyAuthorType
-  visibility       SupportReplyVisibility @default(ADMIN_ONLY)
-  status           SupportReplyStatus     @default(DRAFT)
+  visibility       SupportReplyVisibility  @default(ADMIN_ONLY)
+  status           SupportReplyStatus      @default(DRAFT)
   body             String
   rationaleSummary String?
   agentRunId       String?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  feedbackItem     FeedbackItem           @relation(fields: [feedbackItemId], references: [id], onDelete: Cascade)
-  agentRun         AgentRun?              @relation("SupportReplyAgentRun", fields: [agentRunId], references: [id], onDelete: SetNull)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  feedbackItem     FeedbackItem            @relation(fields: [feedbackItemId], references: [id], onDelete: Cascade)
+  agentRun         AgentRun?               @relation("SupportReplyAgentRun", fields: [agentRunId], references: [id], onDelete: SetNull)
   triageDecisions  SupportTriageDecision[] @relation("SupportReplyDraftDecision")
 
   @@index([feedbackItemId, createdAt])
@@ -1025,7 +1114,7 @@ model IdeaRecord {
 }
 
 model IdeaAssessment {
-  id               String      @id @default(cuid())
+  id               String     @id @default(cuid())
   ideaId           String
   agentName        String
   assessmentType   String
@@ -1033,10 +1122,10 @@ model IdeaAssessment {
   rationaleSummary String?
   rationaleJson    Json?
   scoreValue       Int?
-  createdAt        DateTime    @default(now())
+  createdAt        DateTime   @default(now())
   agentRunId       String?
-  idea             IdeaRecord  @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  agentRun         AgentRun?   @relation("IdeaAssessmentRun", fields: [agentRunId], references: [id], onDelete: SetNull)
+  idea             IdeaRecord @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  agentRun         AgentRun?  @relation("IdeaAssessmentRun", fields: [agentRunId], references: [id], onDelete: SetNull)
 
   @@index([ideaId, createdAt])
   @@index([agentName, createdAt])

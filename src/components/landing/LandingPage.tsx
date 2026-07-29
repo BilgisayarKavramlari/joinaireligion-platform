@@ -999,6 +999,7 @@ export default function LandingPage() {
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],
+            ["Updates", "/updates"],
             [t.auth.login, "/login"],
             [t.nav.register, "/register"],
           ].map(([label, href]) => (

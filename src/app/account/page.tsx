@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SacredPage, SacredCard, XPBar, StatBox } from "@/components/ui/SacredPage";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSession } from "@/contexts/SessionContext";
 import { LEVEL_XP_THRESHOLDS } from "@/lib/journey-types";
 
 // ─── Level display names (matches LEVEL_XP_THRESHOLDS, 1-indexed) ─────────────
@@ -32,37 +33,17 @@ function xpMaxForLevel(currentLevel: number): number {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type UserData = {
-  email?: string;
-  displayName?: string | null;
-  subscription?: { status?: string; plan?: string } | null;
-  currentLevel?: number;
-  xpTotal?: number;
-  daysActive?: number;
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AccountPage() {
   const { t } = useLanguage();
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
+  const { user, status } = useSession();
 
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d?.user) {
-          router.push("/login");
-          return;
-        }
-        if (d.user.requiresOnboarding) {
-          router.push("/onboarding");
-          return;
-        }
-        setUser(d.user);
-      });
-  }, [router]);
+    if (status === "anonymous") router.push("/login");
+    if (status === "authenticated" && user?.requiresOnboarding) router.push("/onboarding");
+  }, [router, status, user]);
 
   if (!user) {
     return (
@@ -73,7 +54,7 @@ export default function AccountPage() {
   }
 
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Seeker";
-  const tier        = user?.subscription?.status === "active" ? (user.subscription.plan || "Seeker") : "Free";
+  const tier        = user?.subscription?.status === "ACTIVE" ? (user.subscription.plan || "Seeker") : "Free";
   const tierLabel   = tier === "Free" ? "Wanderer" : tier.charAt(0).toUpperCase() + tier.slice(1);
 
   // Real account stats — default to clean new-user state (level 1, 0 XP, 0 days)

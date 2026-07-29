@@ -39,7 +39,11 @@ function makeUser(
 }
 
 function activeSubUser(): EligibilityUser {
-  return makeUser({ subscription: { status: SubscriptionStatus.ACTIVE } });
+  return makeUser({ subscription: { status: SubscriptionStatus.ACTIVE, planCode: "initiate" } });
+}
+
+function activeSeekerUser(): EligibilityUser {
+  return makeUser({ subscription: { status: SubscriptionStatus.ACTIVE, planCode: "seeker" } });
 }
 
 function trialSubUser(): EligibilityUser {
@@ -107,8 +111,12 @@ describe("isEligible", () => {
 // ─── getCadence ───────────────────────────────────────────────────────────────
 
 describe("getCadence", () => {
-  it("returns DAILY for a user with an ACTIVE subscription", () => {
+  it("returns DAILY for an ACTIVE Initiate subscriber", () => {
     expect(getCadence(activeSubUser())).toBe(MessageCadence.DAILY);
+  });
+
+  it("returns WEEKLY for an ACTIVE Seeker supporter", () => {
+    expect(getCadence(activeSeekerUser())).toBe(MessageCadence.WEEKLY);
   });
 
   it("returns WEEKLY for a user with no subscription", () => {
@@ -127,7 +135,7 @@ describe("getCadence", () => {
     expect(getCadence(canceledUser())).toBe(MessageCadence.WEEKLY);
   });
 
-  it("only ACTIVE status yields DAILY — all other statuses yield WEEKLY", () => {
+  it("only ACTIVE Initiate yields DAILY — all other statuses yield WEEKLY", () => {
     const statuses: SubscriptionStatus[] = [
       SubscriptionStatus.TRIAL,
       SubscriptionStatus.PAST_DUE,

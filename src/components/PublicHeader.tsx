@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LANGUAGES, type LangCode } from "@/lib/i18n/dict";
+import { useSession } from "@/contexts/SessionContext";
+import type { LangCode } from "@/lib/i18n/dict";
 
 const LANG_LIST: { code: LangCode; flag: string; name: string }[] = [
   { code: "en", flag: "🇬🇧", name: "English" },
@@ -21,21 +22,14 @@ export function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [langOpen,   setLangOpen]   = useState(false);
-  const [user, setUser] = useState<{ email?: string; displayName?: string | null } | null>(null);
   const langRef = useRef<HTMLDivElement>(null);
   const { lang, setLang, t } = useLanguage();
+  const { user, status, refreshSession, clearSession } = useSession();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.user) setUser(d.user); })
-      .catch(() => undefined);
   }, []);
 
   // Close lang dropdown on outside click
@@ -50,8 +44,9 @@ export function PublicHeader() {
   }, []);
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    window.location.href = "/";
+    const response = await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    if (response?.ok) clearSession();
+    window.location.assign("/");
   }
 
   const initials = user
@@ -59,6 +54,9 @@ export function PublicHeader() {
     : null;
 
   const currentLang = LANG_LIST.find((l) => l.code === lang) ?? LANG_LIST[0];
+  const sessionPending = status === "loading";
+  const sessionFailed = status === "error";
+  const anonymous = status === "anonymous";
 
   return (
     <header
@@ -119,6 +117,9 @@ export function PublicHeader() {
             <button
               onClick={() => setLangOpen((v) => !v)}
               title="Language / Dil"
+              aria-expanded={langOpen}
+              aria-haspopup="menu"
+              aria-controls="public-language-menu"
               style={{
                 display: "flex", alignItems: "center", gap: "0.35rem",
                 padding: "0.36rem 0.65rem", borderRadius: "0.55rem",
@@ -134,7 +135,7 @@ export function PublicHeader() {
             </button>
 
             {langOpen && (
-              <div style={{
+              <div id="public-language-menu" role="menu" style={{
                 position: "absolute", right: 0, top: "calc(100% + 8px)", width: 160,
                 borderRadius: "0.85rem", border: "1px solid var(--border-gold)",
                 background: "rgba(6,2,14,0.97)", backdropFilter: "blur(16px)",
@@ -144,6 +145,8 @@ export function PublicHeader() {
                 {LANG_LIST.map((l) => (
                   <button
                     key={l.code}
+                    role="menuitemradio"
+                    aria-checked={lang === l.code}
                     onClick={() => { setLang(l.code); setLangOpen(false); }}
                     style={{
                       display: "flex", alignItems: "center", gap: "0.6rem",
@@ -169,7 +172,18 @@ export function PublicHeader() {
           {/* User dropdown */}
           <div style={{ position: "relative" }}>
             <button
-              onClick={() => setMenuOpen((v) => !v)}
+              onClick={() => {
+                if (sessionFailed) {
+                  void refreshSession();
+                  return;
+                }
+                setMenuOpen((v) => !v);
+              }}
+              disabled={sessionPending}
+              aria-busy={sessionPending}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              aria-controls="public-account-menu"
               style={{
                 display: "flex", alignItems: "center", gap: "0.5rem",
                 padding: "0.38rem 0.75rem", borderRadius: "0.55rem",
@@ -179,7 +193,14 @@ export function PublicHeader() {
                 fontSize: "0.78rem", transition: "all 0.2s",
               }}
             >
-              {user ? (
+              {sessionPending ? (
+                <span style={{ color: "rgba(237,232,220,0.55)" }}>{t.common.loading}</span>
+              ) : sessionFailed ? (
+                <>
+                  <span aria-hidden style={{ color: "var(--gold)", fontSize: "0.85rem" }}>↻</span>
+                  <span style={{ color: "rgba(237,232,220,0.7)" }}>{t.common.error}</span>
+                </>
+              ) : user ? (
                 <>
                   <div style={{
                     width: 24, height: 24, borderRadius: "50%",
@@ -198,7 +219,7 @@ export function PublicHeader() {
             </button>
 
             {menuOpen && (
-              <div style={{
+              <div id="public-account-menu" role="menu" style={{
                 position: "absolute", right: 0, top: "calc(100% + 8px)", width: 190,
                 borderRadius: "0.85rem", border: "1px solid var(--border-gold)",
                 background: "rgba(6,2,14,0.97)", backdropFilter: "blur(16px)",
@@ -207,23 +228,23 @@ export function PublicHeader() {
               }}>
                 {user ? (
                   <>
-                    <Link href="/account"         className="menu-link" onClick={() => setMenuOpen(false)}>{t.account.profile}</Link>
-                    <Link href="/account/billing" className="menu-link" onClick={() => setMenuOpen(false)}>{t.nav.billing}</Link>
-                    <button onClick={logout} className="menu-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}>
+                    <Link href="/account" role="menuitem" className="menu-link" onClick={() => setMenuOpen(false)}>{t.account.profile}</Link>
+                    <Link href="/account/billing" role="menuitem" className="menu-link" onClick={() => setMenuOpen(false)}>{t.nav.billing}</Link>
+                    <button role="menuitem" onClick={logout} className="menu-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}>
                       {t.nav.signOut}
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link href="/login"    className="menu-link" onClick={() => setMenuOpen(false)}>{t.auth.login}</Link>
-                    <Link href="/register" className="menu-link" onClick={() => setMenuOpen(false)}>{t.nav.beginJourney}</Link>
+                    <Link href="/login" role="menuitem" className="menu-link" onClick={() => setMenuOpen(false)}>{t.auth.login}</Link>
+                    <Link href="/register" role="menuitem" className="menu-link" onClick={() => setMenuOpen(false)}>{t.nav.beginJourney}</Link>
                   </>
                 )}
               </div>
             )}
           </div>
 
-          {!user && (
+          {anonymous && (
             <Link href="/register" className="btn-sacred btn-sacred-gold" style={{ padding: "0.42rem 1rem", fontSize: "0.7rem" }}>
               {t.nav.beginJourney}
             </Link>
@@ -232,6 +253,9 @@ export function PublicHeader() {
           <button
             onClick={() => setMobileOpen((v) => !v)}
             className="header-mobile-btn"
+            aria-expanded={mobileOpen}
+            aria-controls="public-mobile-menu"
+            aria-label={mobileOpen ? t.common.close : "Menu"}
             style={{
               display: "none", padding: "0.38rem 0.7rem",
               borderRadius: "0.5rem", border: "1px solid var(--border-gold)",
@@ -246,7 +270,7 @@ export function PublicHeader() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div style={{
+        <div id="public-mobile-menu" style={{
           borderTop: "1px solid var(--border-gold)", padding: "0.9rem 1.5rem",
           display: "flex", flexDirection: "column", gap: "0.4rem",
         }}>
@@ -255,11 +279,24 @@ export function PublicHeader() {
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],
-            [t.auth.login, "/login"],
-            [t.nav.beginJourney, "/register"],
+            ...(user
+              ? [[t.nav.account, "/account"], [t.nav.billing, "/account/billing"]]
+              : anonymous
+                ? [[t.auth.login, "/login"], [t.nav.beginJourney, "/register"]]
+                : []),
           ].map(([l, h]) => (
             <Link key={h} href={h} className="nav-link" onClick={() => setMobileOpen(false)} style={{ display: "block", padding: "0.55rem 0.8rem" }}>{l}</Link>
           ))}
+          {user && (
+            <button
+              type="button"
+              onClick={logout}
+              className="nav-link"
+              style={{ display: "block", padding: "0.55rem 0.8rem", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}
+            >
+              {t.nav.signOut}
+            </button>
+          )}
           {/* Mobile language selector */}
           <div style={{ paddingTop: "0.5rem", borderTop: "1px solid rgba(201,162,39,0.15)", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
             {LANG_LIST.map((l) => (

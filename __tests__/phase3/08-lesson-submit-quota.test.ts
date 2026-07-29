@@ -5,7 +5,7 @@
  *
  * Phase 3 requirements 9 + 10 + 11:
  *   - Free users: 1 lesson prompt per week
- *   - Paid users: 1 lesson prompt per day
+ *   - Initiate users: 1 lesson prompt per day
  *   - AI query quota (QueryQuota) is separate from lesson quota (LessonQuota)
  *
  * Also covers:
@@ -105,7 +105,7 @@ function makeDbUser(overrides: {
   const isPaid = overrides.isPaid ?? false;
   return {
     ...makeUser({ emailVerifiedAt: new Date(), onboardingDone: true }),
-    subscription: isPaid ? { status: "ACTIVE" } : null,
+    subscription: isPaid ? { status: "ACTIVE", planCode: "initiate" } : null,
     lessonQuota: overrides.quota !== undefined ? overrides.quota : null,
     onboarding: [],
   };

@@ -17,7 +17,7 @@ interface UserProfile {
   daysActive: number;
   onboardingDone: boolean;
   unsubscribedAt?: string | null;
-  subscription?: { status: string } | null;
+  subscription?: { status: string; plan: "seeker" | "initiate" | null } | null;
   profile?: {
     bio?: string | null;
     tradition?: string | null;
@@ -160,7 +160,12 @@ export default function ProfilePage() {
             <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.8rem" }}>
               <StatBox value={user?.daysActive || 0} label={t.account.daysActive} />
               <StatBox value={level} label={t.account.currentLevel} />
-              {user?.subscription?.status === "ACTIVE" && <StatBox value="Initiate" label={t.account.membership_label} />}
+              {user?.subscription?.status === "ACTIVE" && user.subscription.plan && (
+                <StatBox
+                  value={user.subscription.plan.charAt(0).toUpperCase() + user.subscription.plan.slice(1)}
+                  label={t.account.membership_label}
+                />
+              )}
             </div>
           </div>
         </div>

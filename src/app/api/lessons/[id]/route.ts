@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { enforceLearningAccess } from "@/lib/access";
+import { resolveEntitlements } from "@/lib/membership";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -33,7 +34,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       include: { lessonQuota: true, subscription: true },
     });
 
-    const isPaid = user?.subscription?.status === "ACTIVE";
+    const hasDailyAccess = resolveEntitlements(user?.subscription).dailyLessonAttempt;
     const now = new Date();
     let canSubmit = true;
     let reason = "";
@@ -48,7 +49,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const periodEnd = new Date(quota.periodEnd);
         if (quota.usedAttempts >= quota.maxAttempts && now < periodEnd) {
           canSubmit = false;
-          if (isPaid) {
+          if (hasDailyAccess) {
             // Paid: reset daily
             const tomorrow = new Date(now);
             tomorrow.setDate(tomorrow.getDate() + 1);

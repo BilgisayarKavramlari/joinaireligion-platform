@@ -17,7 +17,12 @@ export type AuthenticatedUser = {
   displayName: string | null;
   role: string;
   emailVerifiedAt?: Date | null;
-  subscription?: { status?: string | null; providerCustomerId?: string | null } | null;
+  subscription?: {
+    status?: string | null;
+    planCode?: string | null;
+    providerCustomerId?: string | null;
+    providerPriceId?: string | null;
+  } | null;
 };
 
 export type SessionUser = AuthenticatedUser & { sessionId: string };

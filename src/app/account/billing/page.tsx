@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type Plan = "seeker" | "initiate";
+type Currency = "usd" | "try";
 
 interface UserData {
   id: string;
@@ -52,6 +53,8 @@ export default function BillingPage() {
   const [loading, setLoading] = useState<Plan | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error,   setError]   = useState("");
+  const [currency, setCurrency] = useState<Currency>("usd");
+  const [catalog, setCatalog] = useState<Record<Plan, Partial<Record<Currency, number | null>>> | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -62,11 +65,21 @@ export default function BillingPage() {
       });
   }, [router]);
 
+  useEffect(() => {
+    fetch("/api/stripe/catalog")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.plans) return;
+        setCatalog(Object.fromEntries(data.plans.map((item: { plan: Plan; amounts: Partial<Record<Currency, number | null>> }) => [item.plan, item.amounts])) as Record<Plan, Partial<Record<Currency, number | null>>>);
+      })
+      .catch(() => undefined);
+  }, []);
+
   async function onUpgrade(plan: Plan) {
     setLoading(plan);
     setError("");
     try {
-      const res  = await fetch("/api/stripe/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan }) });
+      const res  = await fetch("/api/stripe/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan, currency }) });
       const data = await res.json() as { url?: string; error?: string };
       if (!res.ok) { setError(data.error || "Unable to start checkout."); return; }
       if (data.url) window.location.href = data.url;
@@ -97,6 +110,15 @@ export default function BillingPage() {
 
   const subStatus = user?.subscription?.status || "TRIAL";
   const isActive  = subStatus === "ACTIVE";
+
+  function displayPrice(plan: Plan) {
+    const amount = catalog?.[plan]?.[currency];
+    if (typeof amount === "number") {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: amount % 100 === 0 ? 0 : 2 }).format(amount / 100);
+    }
+    if (currency === "usd") return plan === "seeker" ? "$10/mo" : "$25/mo";
+    return "TRY shown at checkout";
+  }
 
   return (
     <SacredPage maxWidth={860}>
@@ -149,6 +171,14 @@ export default function BillingPage() {
       {error && <div style={{ marginBottom: "1rem" }}><SacredAlert text={error} tone="error" /></div>}
 
       {!isActive && (
+        <>
+        <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginBottom: "1.2rem" }} aria-label="Payment currency">
+          {(["usd", "try"] as Currency[]).map((item) => (
+            <button key={item} type="button" onClick={() => setCurrency(item)} aria-pressed={currency === item} className={currency === item ? "btn-sacred btn-sacred-gold" : "btn-sacred btn-sacred-ghost"} style={{ padding: "0.45rem 0.9rem", fontSize: "0.76rem" }}>
+              {item === "try" ? "TRY / TL" : "USD"}
+            </button>
+          ))}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.2rem" }}>
           {PLANS.map((plan) => (
             <div key={plan.id} style={{ background: plan.color, border: `1px solid ${plan.border}`, borderRadius: "1.1rem", padding: "1.8rem" }}>
@@ -160,7 +190,7 @@ export default function BillingPage() {
                 </div>
               </div>
               <div style={{ fontSize: "1.5rem", fontWeight: 700, color: plan.id === "initiate" ? "var(--gold-light)" : "var(--text-primary)", margin: "0.5rem 0 1rem" }}>
-                {plan.price}
+                {displayPrice(plan.id)}
               </div>
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 1.5rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 {plan.features.map((f) => (
@@ -180,6 +210,7 @@ export default function BillingPage() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       <div style={{ marginTop: "2rem" }}>

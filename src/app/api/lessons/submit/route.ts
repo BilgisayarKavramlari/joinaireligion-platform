@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { enforceLearningAccess } from "@/lib/access";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { resolveEntitlements } from "@/lib/membership";
 
 // Passing thresholds by level
 function passingScore(level: number): number {
@@ -79,12 +80,12 @@ export async function POST(req: NextRequest) {
 
     // Quota check
     const now = new Date();
-    const isPaid = user.subscription?.status === "ACTIVE";
+    const hasDailyAccess = resolveEntitlements(user.subscription).dailyLessonAttempt;
     const quota = user.lessonQuota;
 
     if (quota && quota.usedAttempts >= quota.maxAttempts && now < new Date(quota.periodEnd)) {
       return NextResponse.json({
-        error: isPaid
+        error: hasDailyAccess
           ? "You've used your daily prompt attempt. Come back tomorrow."
           : "You've used your free attempt this week. Upgrade to Initiate for daily access.",
       }, { status: 429 });
@@ -190,7 +191,7 @@ ${promptText.trim()}
     // Update quota
     if (quota) {
       const newPeriodStart = now;
-      const newPeriodEnd = isPaid
+      const newPeriodEnd = hasDailyAccess
         ? new Date(now.getTime() + 24 * 60 * 60 * 1000)      // paid: daily
         : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // free: weekly
 
@@ -209,9 +210,9 @@ ${promptText.trim()}
         data: {
           userId,
           periodStart: now,
-          periodEnd: isPaid ? new Date(now.getTime() + 86400000) : new Date(now.getTime() + 7 * 86400000),
+          periodEnd: hasDailyAccess ? new Date(now.getTime() + 86400000) : new Date(now.getTime() + 7 * 86400000),
           usedAttempts: 1,
-          maxAttempts: isPaid ? 1 : 1,
+          maxAttempts: 1,
         },
       });
     }

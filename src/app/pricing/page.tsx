@@ -5,8 +5,22 @@ import { useState, useEffect } from "react";
 import { SacredPage, SacredCard, SacredAlert } from "@/components/ui/SacredPage";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSession } from "@/contexts/SessionContext";
 
 type Plan = "seeker" | "initiate";
+type Currency = "usd" | "try";
+type CheckoutState = "idle" | "cancel" | "syncing" | "active" | "error";
+
+const CHECKOUT_COPY = {
+  en: { syncing: "Payment received. Your membership is being activated…", active: "Welcome! Your membership is active.", cancel: "Checkout was canceled. No charge was made.", error: "We could not confirm the membership yet. Check Billing in a moment.", usd: "USD", try: "TRY" },
+  tr: { syncing: "Ödemeniz alındı. Üyeliğiniz etkinleştiriliyor…", active: "Tebrikler! Üyeliğiniz etkinleştirildi.", cancel: "Ödeme işlemi iptal edildi. Herhangi bir ücret alınmadı.", error: "Üyeliği henüz doğrulayamadık. Kısa süre sonra Fatura bölümünü kontrol edin.", usd: "USD", try: "TL" },
+  es: { syncing: "Pago recibido. Estamos activando tu membresía…", active: "¡Bienvenido! Tu membresía está activa.", cancel: "El pago fue cancelado. No se realizó ningún cargo.", error: "Aún no pudimos confirmar la membresía. Revisa Facturación en un momento.", usd: "USD", try: "TRY" },
+  de: { syncing: "Zahlung eingegangen. Deine Mitgliedschaft wird aktiviert…", active: "Willkommen! Deine Mitgliedschaft ist aktiv.", cancel: "Der Bezahlvorgang wurde abgebrochen. Es wurde nichts berechnet.", error: "Die Mitgliedschaft konnte noch nicht bestätigt werden. Prüfe gleich die Abrechnung.", usd: "USD", try: "TRY" },
+  fr: { syncing: "Paiement reçu. Ton adhésion est en cours d’activation…", active: "Bienvenue ! Ton adhésion est active.", cancel: "Le paiement a été annulé. Aucun montant n’a été débité.", error: "L’adhésion n’est pas encore confirmée. Consulte la facturation dans un instant.", usd: "USD", try: "TRY" },
+  ar: { syncing: "تم استلام الدفع. جارٍ تفعيل عضويتك…", active: "مرحباً! عضويتك مفعلة الآن.", cancel: "تم إلغاء الدفع ولم يتم تحصيل أي مبلغ.", error: "تعذر تأكيد العضوية بعد. تحقق من الفواتير بعد قليل.", usd: "دولار", try: "ليرة تركية" },
+  ru: { syncing: "Платёж получен. Подписка активируется…", active: "Добро пожаловать! Подписка активна.", cancel: "Оплата отменена. Средства не списаны.", error: "Подписка пока не подтверждена. Проверьте раздел оплаты чуть позже.", usd: "USD", try: "TRY" },
+  zh: { syncing: "已收到付款，正在激活会员…", active: "欢迎！你的会员已激活。", cancel: "付款已取消，未产生扣款。", error: "暂时无法确认会员状态，请稍后查看账单页面。", usd: "美元", try: "土耳其里拉" },
+} as const;
 
 const PLANS = [
   {
@@ -63,24 +77,61 @@ const FREE_FEATURES = [
 
 export default function PricingPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { user, status: sessionStatus, refreshSession } = useSession();
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError]             = useState("");
-  const [user, setUser]               = useState<{ id: string } | null | "loading">("loading");
+  const [currency, setCurrency]       = useState<Currency>("usd");
+  const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
+  const [catalog, setCatalog] = useState<Record<Plan, Partial<Record<Currency, number | null>>> | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/stripe/catalog")
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => setUser(d?.user || null));
+      .then((data) => {
+        if (!data?.plans) return;
+        const next = Object.fromEntries(data.plans.map((item: { plan: Plan; amounts: Partial<Record<Currency, number | null>> }) => [item.plan, item.amounts]));
+        setCatalog(next as Record<Plan, Partial<Record<Currency, number | null>>>);
+      })
+      .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("status") === "cancel") {
+      setCheckoutState("cancel");
+      return;
+    }
+    const sessionId = params.get("session_id");
+    if (params.get("status") !== "success" || !sessionId) return;
+
+    let cancelled = false;
+    setCheckoutState("syncing");
+    void (async () => {
+      for (let attempt = 0; attempt < 8 && !cancelled; attempt += 1) {
+        const response = await fetch(`/api/stripe/checkout-status?session_id=${encodeURIComponent(sessionId)}`, { cache: "no-store" }).catch(() => null);
+        if (response?.ok) {
+          const data = await response.json();
+          if (data?.membership?.active) {
+            await refreshSession();
+            if (!cancelled) setCheckoutState("active");
+            return;
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, Math.min(5000, 750 * (attempt + 1))));
+      }
+      if (!cancelled) setCheckoutState("error");
+    })();
+    return () => { cancelled = true; };
+  }, [refreshSession]);
+
   async function onChoose(plan: Plan) {
-    if (user === "loading") return;
+    if (sessionStatus === "loading") return;
     if (!user) { router.push(`/register?plan=${plan}`); return; }
     setLoadingPlan(plan);
     setError("");
     try {
-      const res  = await fetch("/api/stripe/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan }) });
+      const res  = await fetch("/api/stripe/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan, currency }) });
       const data = await res.json() as { url?: string; error?: string };
       if (!res.ok) { setError(data.error || "Unable to start checkout."); return; }
       if (data.url) window.location.href = data.url;
@@ -92,9 +143,20 @@ export default function PricingPage() {
   }
 
   function handleStartFree() {
-    if (user === "loading") return;
+    if (sessionStatus === "loading") return;
     if (user) { router.push("/account"); } else { router.push("/register"); }
   }
+
+  function displayPrice(plan: Plan) {
+    const amount = catalog?.[plan]?.[currency];
+    if (typeof amount === "number") {
+      return new Intl.NumberFormat(lang, { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: amount % 100 === 0 ? 0 : 2 }).format(amount / 100);
+    }
+    if (currency === "usd") return plan === "seeker" ? "$10" : "$25";
+    return lang === "tr" ? "TL tutarı ödeme sayfasında" : "TRY shown at checkout";
+  }
+
+  const checkoutCopy = CHECKOUT_COPY[lang] ?? CHECKOUT_COPY.en;
 
   return (
     <SacredPage maxWidth={1020}>
@@ -113,6 +175,33 @@ export default function PricingPage() {
       </div>
 
       {error && <div style={{ maxWidth: 600, margin: "0 auto 1.5rem" }}><SacredAlert text={error} tone="error" /></div>}
+
+      {checkoutState !== "idle" && (
+        <div style={{ maxWidth: 680, margin: "0 auto 1.5rem" }}>
+          <SacredAlert
+            text={checkoutCopy[checkoutState === "syncing" ? "syncing" : checkoutState === "active" ? "active" : checkoutState === "cancel" ? "cancel" : "error"]}
+            tone={checkoutState === "active" ? "success" : checkoutState === "error" ? "error" : "info"}
+          />
+          {checkoutState === "active" && (
+            <div style={{ textAlign: "center", marginTop: "0.8rem" }}><Link href="/account" className="btn-sacred btn-sacred-gold">{t.account.dashboard} →</Link></div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginBottom: "1.8rem" }} aria-label="Payment currency">
+        {(["usd", "try"] as Currency[]).map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => setCurrency(item)}
+            aria-pressed={currency === item}
+            className={currency === item ? "btn-sacred btn-sacred-gold" : "btn-sacred btn-sacred-ghost"}
+            style={{ padding: "0.5rem 1rem", fontSize: "0.78rem" }}
+          >
+            {checkoutCopy[item]}
+          </button>
+        ))}
+      </div>
 
       {/* Plans */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "1.5rem", marginBottom: "2rem" }}>
@@ -150,7 +239,7 @@ export default function PricingPage() {
 
             <div style={{ margin: "0.8rem 0 0.4rem" }}>
               <span className="font-sacred" style={{ fontSize: "2.8rem", fontWeight: 900, color: plan.highlight ? "var(--gold-light)" : "var(--text-primary)" }}>
-                {plan.price}
+                {displayPrice(plan.id)}
               </span>
               <span style={{ fontSize: "0.85rem", color: "rgba(237,232,220,0.45)" }}>{plan.period}</span>
             </div>
@@ -201,7 +290,7 @@ export default function PricingPage() {
             className="btn-sacred btn-sacred-ghost"
             style={{ padding: "0.6rem 1.4rem", fontSize: "0.78rem", alignSelf: "center", whiteSpace: "nowrap", border: "none", cursor: "pointer" }}
           >
-            {user && user !== "loading" ? `${t.account.dashboard} →` : `${t.pricing.startFree} →`}
+            {user ? `${t.account.dashboard} →` : `${t.pricing.startFree} →`}
           </button>
         </div>
       </SacredCard>

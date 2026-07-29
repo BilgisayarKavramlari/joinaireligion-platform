@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 export default function EulaPage() {
-  const effective = "2025-01-01";
+  const effective = "2026-07-29";
 
   return (
     <main
@@ -46,7 +46,7 @@ export default function EulaPage() {
           End-User License &amp; Membership Agreement
         </h1>
         <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", marginBottom: "2rem" }}>
-          Effective Date: {effective} &nbsp;·&nbsp; Version 1.0
+          Effective Date: {effective} &nbsp;·&nbsp; Version 1.1
         </p>
 
         <Section title="1. Acceptance of Terms">
@@ -224,10 +224,17 @@ export default function EulaPage() {
           </p>
           <p style={{ marginTop: "0.8rem" }}>
             Content you submit through the Platform (including lesson responses, profile
-            information, and community contributions) remains your property, but you grant us a
-            worldwide, royalty-free, non-exclusive license to use, store, display, reproduce, and
-            analyze such content for Platform operation, improvement, and research purposes,
-            consistent with our Privacy Policy.
+            information, and community contributions) remains your property. You grant us a
+            limited, worldwide, royalty-free, non-exclusive license to host, store, process, and
+            display that content only as needed to operate the features you request, protect the
+            Platform, comply with law, and perform the other processing described in our Privacy
+            Policy.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            Private journal entries and private practice notes are not licensed for advertising,
+            search-engine optimization, social-media publishing, or public content generation.
+            Optional AI processing of a private journal entry requires a separate, explicit action
+            for that entry as described in the Privacy Policy.
           </p>
         </Section>
 
@@ -235,29 +242,41 @@ export default function EulaPage() {
           <p>
             Your use of the Platform involves the collection, processing, and storage of personal
             data as described in our{" "}
-            <Link href="/legal/privacy" style={{ color: "#c9a227" }}>
+            <Link href="/privacy" style={{ color: "#c9a227" }}>
               Privacy Policy
             </Link>
-            , which is incorporated herein by reference. By using the Platform, you acknowledge
-            and consent to the data practices described therein.
+            , which is incorporated herein by reference. The legal basis for processing may vary
+            by purpose and jurisdiction; use of the Platform is not treated as blanket consent for
+            optional processing that requires a separate choice.
           </p>
           <p style={{ marginTop: "0.8rem" }}>
-            <strong>AI Interaction Data:</strong> Prompts, responses, scores, and lesson
-            interactions submitted through the Platform may be used in aggregated, anonymized form
-            to improve Platform functionality, AI model performance, and content quality. We do
-            not sell individual user data to third parties.
+            <strong>AI Interaction Data:</strong> A guided reflection or AI conversation is
+            processed when you intentionally submit it to receive the requested evaluation or
+            response. AI access to private journals is off by default. A private entry may be sent
+            for AI processing only when you take an explicit action for that specific entry; that
+            choice does not permit background or future access to other entries.
           </p>
           <p style={{ marginTop: "0.8rem" }}>
-            <strong>Data Retention:</strong> Account data is retained for the duration of your
-            membership and for a period of 12 months following account deletion or termination,
-            after which it is permanently purged from active systems, subject to legal retention
-            obligations.
+            <strong>Private Data Boundaries:</strong> Private journals, private practice notes,
+            schedules, and check-ins are not public posts and are not provided to content, SEO,
+            growth, or social-media agents. Routine reminder and product-insight automation is
+            limited to the minimum metadata or aggregate information required for its function.
+            Routine administrator views exclude private journal and private-note text, subject to
+            the narrow support, security, and legal exceptions described in the Privacy Policy.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
+            <strong>Data Retention:</strong> Retention is category-specific and follows the purpose,
+            user-selected settings where available, security requirements, and applicable legal
+            obligations. Deleted private writing is removed from active systems through the
+            deletion process and ages out of protected backups under the applicable backup schedule.
+            Billing, fraud-prevention, or legal records may be retained separately without retaining
+            private journal text for those purposes.
           </p>
           <p style={{ marginTop: "0.8rem" }}>
             <strong>Users in the European Economic Area (EEA):</strong> You may have additional
             rights under the General Data Protection Regulation (GDPR), including rights of access,
             rectification, erasure, restriction, portability, and objection. To exercise these
-            rights, contact us at the address provided in Section 13.
+            rights, contact us at the address provided in Section 15.
           </p>
         </Section>
 
@@ -400,9 +419,11 @@ export default function EulaPage() {
             misrepresentation; or (e) where required by law.
           </p>
           <p style={{ marginTop: "0.8rem" }}>
-            You may terminate your account at any time by contacting us or using the account
-            deletion feature. Upon termination, your license to use the Platform immediately ceases,
-            and we may delete your account data in accordance with our data retention policy.
+            You may terminate your account at any time through available self-service controls or
+            by sending a verified request from your registered email address to the contact address
+            in Section 15. Upon termination, your license to use the Platform immediately ceases,
+            and account data is handled in accordance with our Privacy Policy and applicable legal
+            retention requirements.
             Termination does not entitle you to any refund of prepaid subscription fees, except
             where required by applicable law.
           </p>
@@ -520,7 +541,7 @@ export default function EulaPage() {
           }}
         >
           Last updated: {effective} &nbsp;·&nbsp; Join AI Religion &nbsp;·&nbsp;{" "}
-          <Link href="/legal/privacy" style={{ color: "rgba(201,162,39,0.5)" }}>
+          <Link href="/privacy" style={{ color: "rgba(201,162,39,0.5)" }}>
             Privacy Policy
           </Link>
         </p>

@@ -1,15 +1,92 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
 
 import { requireEnv } from "@/lib/env";
 import { getStripeClient } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import {
+  resolveExistingBillingOwnerId,
+  resolveSubscriptionOwnerId,
+  StripeOwnershipError,
+  syncStripeSubscription,
+} from "@/lib/stripe/subscription-sync";
 
-/** Resolve Stripe customer email → userId */
-async function resolveUserId(stripe: Stripe, customerId: string): Promise<string | null> {
-  const customer = await stripe.customers.retrieve(customerId);
-  if (customer.deleted || !("email" in customer) || !customer.email) return null;
-  const user = await db.user.findUnique({ where: { email: customer.email } });
-  return user?.id ?? null;
+type EventClaim = "claimed" | "processed" | "busy";
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+function eventObjectId(event: Stripe.Event): string | null {
+  const object = event.data.object as { id?: unknown };
+  return typeof object.id === "string" ? object.id : null;
+}
+
+async function claimEvent(event: Stripe.Event): Promise<EventClaim> {
+  try {
+    await db.stripeWebhookEvent.create({
+      data: {
+        eventId: event.id,
+        eventType: event.type,
+        providerObjectId: eventObjectId(event),
+        status: "processing",
+        payload: { livemode: event.livemode, created: event.created },
+      },
+    });
+    return "claimed";
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+  }
+
+  const existing = await db.stripeWebhookEvent.findUnique({ where: { eventId: event.id } });
+  if (existing?.status === "processed") return "processed";
+  if (existing?.status !== "failed") return "busy";
+
+  const retry = await db.stripeWebhookEvent.updateMany({
+    where: { eventId: event.id, status: "failed" },
+    data: {
+      status: "processing",
+      eventType: event.type,
+      providerObjectId: eventObjectId(event),
+    },
+  });
+  return retry.count === 1 ? "claimed" : "busy";
+}
+
+function stripeId(value: { id: string } | string | null | undefined): string | null {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
+}
+
+async function retrieveCurrentSubscription(
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+  allowDeletedFallback = false,
+): Promise<Stripe.Subscription> {
+  try {
+    return await stripe.subscriptions.retrieve(subscription.id);
+  } catch (error) {
+    if (allowDeletedFallback && subscription.status === "canceled") return subscription;
+    throw error;
+  }
+}
+
+async function syncSubscriptionEvent(stripe: Stripe, eventSubscription: Stripe.Subscription, allowDeletedFallback = false) {
+  const subscription = await retrieveCurrentSubscription(stripe, eventSubscription, allowDeletedFallback);
+  const userId = await resolveSubscriptionOwnerId(subscription);
+  if (!userId) throw new StripeOwnershipError("Subscription has no verified local owner");
+  return syncStripeSubscription({ subscription, userId });
+}
+
+async function resolveInvoiceOwner(stripe: Stripe, invoice: Stripe.Invoice): Promise<string | null> {
+  const providerSubscriptionId = stripeId(invoice.subscription);
+  if (providerSubscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(providerSubscriptionId);
+    const userId = await resolveSubscriptionOwnerId(subscription);
+    if (!userId) return null;
+    await syncStripeSubscription({ subscription, userId });
+    return userId;
+  }
+  return resolveExistingBillingOwnerId({ providerCustomerId: stripeId(invoice.customer) });
 }
 
 export async function POST(request: Request) {
@@ -17,178 +94,74 @@ export async function POST(request: Request) {
   if (!signature) return new Response("Missing stripe-signature header", { status: 400 });
 
   const rawBody = await request.text();
-
+  const stripe = getStripeClient();
   let event: Stripe.Event;
   try {
-    const stripe = getStripeClient();
     event = stripe.webhooks.constructEvent(rawBody, signature, requireEnv("STRIPE_WEBHOOK_SECRET"));
-  } catch (error) {
-    return new Response(`Webhook Error: ${String(error)}`, { status: 400 });
+  } catch {
+    return new Response("Invalid webhook signature", { status: 400 });
   }
 
-  const stripe = getStripeClient();
-
-  const previousEvent = await db.stripeWebhookEvent.findUnique({
-    where: { eventId: event.id },
-  });
-  if (previousEvent?.status === "processed") {
+  let claim: EventClaim;
+  try {
+    claim = await claimEvent(event);
+  } catch (error) {
+    console.error("Unable to claim Stripe webhook event", error);
+    return Response.json({ error: "Webhook processing failed." }, { status: 500 });
+  }
+  if (claim === "processed") {
     return Response.json({ received: true, duplicate: true, eventType: event.type });
+  }
+  if (claim === "busy") {
+    return Response.json({ error: "Webhook event is already processing." }, { status: 409 });
   }
 
   try {
     switch (event.type) {
-
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        if (!session.customer || !session.subscription) break;
-        const userId = await resolveUserId(stripe, session.customer as string);
-        if (!userId) break;
-
-        const sub = await stripe.subscriptions.retrieve(session.subscription as string);
-        const priceId = sub.items.data[0]?.price?.id ?? null;
-
-        await db.subscription.upsert({
-          where:  { userId },
-          create: {
-            userId,
-            providerCustomerId:     session.customer as string,
-            providerSubscriptionId: sub.id,
-            providerPriceId:        priceId,
-            providerProductId:      sub.items.data[0]?.price?.product as string ?? null,
-            status:                 "ACTIVE",
-            currentPeriodEnd:       new Date(sub.current_period_end * 1000),
-          },
-          update: {
-            providerCustomerId:     session.customer as string,
-            providerSubscriptionId: sub.id,
-            providerPriceId:        priceId,
-            status:                 "ACTIVE",
-            currentPeriodEnd:       new Date(sub.current_period_end * 1000),
-          },
-        });
-
-        // Upgrade lesson quota to daily for Initiate plan
-        const initiatePrice = process.env.STRIPE_PRICE_INITIATE_MONTHLY;
-        if (priceId === initiatePrice) {
-          const now = new Date();
-          await db.lessonQuota.upsert({
-            where: { userId },
-            create: {
-              userId,
-              periodStart:  now,
-              periodEnd:    new Date(now.getTime() + 86400000),
-              usedAttempts: 0,
-              maxAttempts:  1,
-            },
-            update: {
-              maxAttempts:  1,
-              periodEnd:    new Date(now.getTime() + 86400000),
-              lastResetAt:  now,
-            },
-          });
-          // Log activity
-          await db.userActivityLog.create({
-            data: { userId, eventType: "BILLING", eventName: "initiate_upgrade", metadata: { priceId } },
-          }).catch(() => undefined);
-        }
+        if (session.mode !== "subscription" || !session.subscription) break;
+        const providerSubscriptionId = stripeId(session.subscription);
+        if (!providerSubscriptionId) break;
+        const subscription = await stripe.subscriptions.retrieve(providerSubscriptionId);
+        const userId = await resolveSubscriptionOwnerId(subscription, session);
+        if (!userId) throw new StripeOwnershipError("Checkout session has no verified local owner");
+        await syncStripeSubscription({ subscription, userId });
         break;
       }
 
       case "customer.subscription.created":
-      case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
-        if (!sub.customer) break;
-        const userId = await resolveUserId(stripe, sub.customer as string);
-        if (!userId) break;
-
-        const statusMap: Record<string, "ACTIVE" | "TRIAL" | "PAST_DUE" | "CANCELED"> = {
-          active:   "ACTIVE",
-          trialing: "TRIAL",
-          past_due: "PAST_DUE",
-          canceled: "CANCELED",
-          unpaid:   "PAST_DUE",
-        };
-        const dbStatus = statusMap[sub.status] ?? "ACTIVE";
-
-        await db.subscription.upsert({
-          where:  { userId },
-          create: {
-            userId,
-            providerCustomerId:     sub.customer as string,
-            providerSubscriptionId: sub.id,
-            providerPriceId:        sub.items.data[0]?.price?.id ?? null,
-            providerProductId:      sub.items.data[0]?.price?.product as string ?? null,
-            status:                 dbStatus,
-            currentPeriodEnd:       new Date(sub.current_period_end * 1000),
-            canceledAt:             sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
-          },
-          update: {
-            status:          dbStatus,
-            currentPeriodEnd: new Date(sub.current_period_end * 1000),
-            canceledAt:      sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
-            providerPriceId: sub.items.data[0]?.price?.id ?? null,
-          },
-        });
+      case "customer.subscription.updated":
+        await syncSubscriptionEvent(stripe, event.data.object as Stripe.Subscription);
         break;
-      }
 
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        if (!sub.customer) break;
-        const userId = await resolveUserId(stripe, sub.customer as string);
-        if (!userId) break;
-
-        await db.subscription.updateMany({
-          where:  { userId },
-          data:   { status: "CANCELED", canceledAt: new Date() },
-        });
+      case "customer.subscription.deleted":
+        await syncSubscriptionEvent(stripe, event.data.object as Stripe.Subscription, true);
         break;
-      }
 
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice;
-        if (!invoice.customer) break;
-        const userId = await resolveUserId(stripe, invoice.customer as string);
-        if (!userId) break;
-
-        await db.invoiceRecord.upsert({
-          where:  { providerInvoiceId: invoice.id },
-          create: {
-            userId,
-            providerInvoiceId: invoice.id,
-            status:            "paid",
-            amountCents:       invoice.amount_paid,
-          },
-          update: {
-            status:      "paid",
-            amountCents: invoice.amount_paid,
-          },
-        });
-        break;
-      }
-
+      case "invoice.payment_succeeded":
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        if (!invoice.customer) break;
-        const userId = await resolveUserId(stripe, invoice.customer as string);
+        const userId = await resolveInvoiceOwner(stripe, invoice);
         if (!userId) break;
-
-        // Mark subscription past_due
-        await db.subscription.updateMany({
-          where:  { userId },
-          data:   { status: "PAST_DUE" },
-        });
-
+        const paid = event.type === "invoice.payment_succeeded";
         await db.invoiceRecord.upsert({
-          where:  { providerInvoiceId: invoice.id },
+          where: { providerInvoiceId: invoice.id },
           create: {
             userId,
             providerInvoiceId: invoice.id,
-            status:            "failed",
-            amountCents:       invoice.amount_due,
+            status: paid ? "paid" : "failed",
+            amountCents: paid ? invoice.amount_paid : invoice.amount_due,
+            currency: invoice.currency,
+            hostedInvoiceUrl: invoice.hosted_invoice_url,
+            invoicePdfUrl: invoice.invoice_pdf,
           },
           update: {
-            status: "failed",
+            status: paid ? "paid" : "failed",
+            amountCents: paid ? invoice.amount_paid : invoice.amount_due,
+            currency: invoice.currency,
+            hostedInvoiceUrl: invoice.hosted_invoice_url,
+            invoicePdfUrl: invoice.invoice_pdf,
           },
         });
         break;
@@ -198,33 +171,25 @@ export async function POST(request: Request) {
         break;
     }
 
-    await db.stripeWebhookEvent.upsert({
+    await db.stripeWebhookEvent.update({
       where: { eventId: event.id },
-      create: {
-        eventId: event.id,
+      data: {
         eventType: event.type,
+        providerObjectId: eventObjectId(event),
         status: "processed",
-        payload: { livemode: event.livemode, created: event.created },
-      },
-      update: {
-        eventType: event.type,
-        status: "processed",
+        processedAt: new Date(),
         payload: { livemode: event.livemode, created: event.created },
       },
     });
-  } catch (err) {
-    console.error(`Webhook handler error for ${event.type}:`, err);
-    await db.stripeWebhookEvent.upsert({
-      where: { eventId: event.id },
-      create: {
-        eventId: event.id,
+  } catch (error) {
+    console.error(`Webhook handler error for ${event.type}:`, error);
+    await db.stripeWebhookEvent.updateMany({
+      where: { eventId: event.id, status: "processing" },
+      data: {
         eventType: event.type,
+        providerObjectId: eventObjectId(event),
         status: "failed",
-        payload: { livemode: event.livemode, created: event.created },
-      },
-      update: {
-        eventType: event.type,
-        status: "failed",
+        processedAt: null,
         payload: { livemode: event.livemode, created: event.created },
       },
     }).catch(() => undefined);

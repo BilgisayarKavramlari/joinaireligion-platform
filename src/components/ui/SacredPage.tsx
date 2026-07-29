@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, InputHTMLAttributes, SelectHTMLAttributes } from "react";
+import React, { CSSProperties, ReactNode, InputHTMLAttributes, SelectHTMLAttributes } from "react";
 
 /** Sayfa geneli sacred-game teması wrapper'ı */
 export function SacredPage({ children, maxWidth = 900 }: { children: ReactNode; maxWidth?: number }) {
@@ -129,15 +129,20 @@ export function SacredAlert({ text, tone = "error" }: { text: string; tone?: "er
     info:    { border: "rgba(168,85,247,0.35)", bg: "rgba(168,85,247,0.06)", text: "#c4b5fd" },
   }[tone];
   return (
-    <div style={{
-      padding: "0.7rem 1rem",
-      borderRadius: "0.6rem",
-      border: `1px solid ${colors.border}`,
-      background: colors.bg,
-      color: colors.text,
-      fontSize: "0.83rem",
-      lineHeight: 1.6,
-    }}>
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      aria-live={tone === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
+      style={{
+        padding: "0.7rem 1rem",
+        borderRadius: "0.6rem",
+        border: `1px solid ${colors.border}`,
+        background: colors.bg,
+        color: colors.text,
+        fontSize: "0.83rem",
+        lineHeight: 1.6,
+      }}
+    >
       {text}
     </div>
   );

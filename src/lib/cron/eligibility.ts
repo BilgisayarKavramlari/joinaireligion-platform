@@ -6,14 +6,15 @@
  *
  * Rules:
  *   - Eligible: emailVerifiedAt is not null AND unsubscribedAt is null
- *   - Cadence:  ACTIVE subscription → DAILY (paid tier)
- *               all others          → WEEKLY (free tier)
+ *   - Cadence:  ACTIVE Initiate subscription → DAILY
+ *               all others                   → WEEKLY
  *   - Daily scheduled date:  today at UTC midnight
  *   - Weekly scheduled date: the Monday of the current ISO week at UTC midnight
  *     (same date for every day in the week → prevents duplicates via unique constraint)
  */
 
 import { MessageCadence, SubscriptionStatus } from "@prisma/client";
+import { resolveEntitlements } from "@/lib/membership";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ import { MessageCadence, SubscriptionStatus } from "@prisma/client";
 export type EligibilityUser = {
   emailVerifiedAt: Date | null;
   unsubscribedAt: Date | null;
-  subscription: { status: SubscriptionStatus } | null;
+  subscription: { status: SubscriptionStatus; planCode?: string | null; providerPriceId?: string | null } | null;
 };
 
 // ─── Eligibility ──────────────────────────────────────────────────────────────
@@ -42,14 +43,14 @@ export function isEligible(user: EligibilityUser): boolean {
 /**
  * Returns the appropriate message cadence for a user.
  *
- * - ACTIVE subscription → DAILY  (paid tier, one practice per calendar day)
- * - Everything else     → WEEKLY (free tier, one practice per ISO week)
+ * - ACTIVE Initiate subscription → DAILY  (one practice per calendar day)
+ * - Everything else              → WEEKLY (one practice per ISO week)
  *
  * TRIAL and PAST_DUE are treated as free-tier to avoid generating expensive
  * daily AI content for users who may not convert.
  */
 export function getCadence(user: EligibilityUser): MessageCadence {
-  return user.subscription?.status === SubscriptionStatus.ACTIVE
+  return resolveEntitlements(user.subscription).dailyPractice
     ? MessageCadence.DAILY
     : MessageCadence.WEEKLY;
 }

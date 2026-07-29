@@ -4,6 +4,7 @@ import { Cinzel } from "next/font/google";
 import "./globals.css";
 import { PublicHeader } from "@/components/PublicHeader";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { SessionProvider } from "@/contexts/SessionContext";
 import { FeedbackButton } from "@/components/ui/FeedbackButton";
 
 const cinzel = Cinzel({
@@ -36,9 +37,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={cinzel.variable}>
       <body>
         <LanguageProvider>
-          <PublicHeader />
-          {children}
-          <FeedbackButton />
+          <SessionProvider>
+            <PublicHeader />
+            {children}
+            <FeedbackButton />
+          </SessionProvider>
         </LanguageProvider>
       </body>
     </html>
