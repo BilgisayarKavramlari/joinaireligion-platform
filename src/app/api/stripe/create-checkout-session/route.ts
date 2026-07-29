@@ -27,10 +27,19 @@ export async function POST(request: NextRequest) {
     }
 
     const stripe = getStripeClient();
+    const priceId = getPriceIdForPlan(plan);
+    if (currency !== "auto") {
+      const price = await stripe.prices.retrieve(priceId);
+      const supported = price.currency === currency
+        || typeof price.currency_options?.[currency]?.unit_amount === "number";
+      if (!supported) {
+        return NextResponse.json({ error: `The ${currency.toUpperCase()} price is not configured for this plan.` }, { status: 400 });
+      }
+    }
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      currency,
-      line_items: [{ price: getPriceIdForPlan(plan), quantity: 1 }],
+      ...(currency === "auto" ? { adaptive_pricing: { enabled: true } } : { currency }),
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.NEXT_PUBLIC_APP_URL}/pricing?status=cancel`,
       ...(user.subscription?.providerCustomerId

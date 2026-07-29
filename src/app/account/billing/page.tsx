@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type Plan = "seeker" | "initiate";
-type Currency = "usd" | "try";
+type Currency = "auto" | "usd" | "try";
 
 interface UserData {
   id: string;
@@ -53,8 +53,9 @@ export default function BillingPage() {
   const [loading, setLoading] = useState<Plan | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error,   setError]   = useState("");
-  const [currency, setCurrency] = useState<Currency>("usd");
-  const [catalog, setCatalog] = useState<Record<Plan, Partial<Record<Currency, number | null>>> | null>(null);
+  const [currency, setCurrency] = useState<Currency>("auto");
+  const [catalog, setCatalog] = useState<Record<Plan, Partial<Record<Exclude<Currency, "auto">, number | null>>> | null>(null);
+  const [availableCurrencies, setAvailableCurrencies] = useState<Array<Exclude<Currency, "auto">>>(["usd"]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -70,7 +71,10 @@ export default function BillingPage() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data?.plans) return;
-        setCatalog(Object.fromEntries(data.plans.map((item: { plan: Plan; amounts: Partial<Record<Currency, number | null>> }) => [item.plan, item.amounts])) as Record<Plan, Partial<Record<Currency, number | null>>>);
+        setCatalog(Object.fromEntries(data.plans.map((item: { plan: Plan; amounts: Partial<Record<Exclude<Currency, "auto">, number | null>> }) => [item.plan, item.amounts])) as Record<Plan, Partial<Record<Exclude<Currency, "auto">, number | null>>>);
+        if (Array.isArray(data.currencies)) {
+          setAvailableCurrencies(data.currencies.filter((item: unknown): item is Exclude<Currency, "auto"> => item === "usd" || item === "try"));
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -112,11 +116,12 @@ export default function BillingPage() {
   const isActive  = subStatus === "ACTIVE";
 
   function displayPrice(plan: Plan) {
-    const amount = catalog?.[plan]?.[currency];
+    const shownCurrency = currency === "auto" ? "usd" : currency;
+    const amount = catalog?.[plan]?.[shownCurrency];
     if (typeof amount === "number") {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: amount % 100 === 0 ? 0 : 2 }).format(amount / 100);
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: shownCurrency.toUpperCase(), maximumFractionDigits: amount % 100 === 0 ? 0 : 2 }).format(amount / 100);
     }
-    if (currency === "usd") return plan === "seeker" ? "$10/mo" : "$25/mo";
+    if (shownCurrency === "usd") return plan === "seeker" ? "$10/mo" : "$25/mo";
     return "TRY shown at checkout";
   }
 
@@ -173,12 +178,13 @@ export default function BillingPage() {
       {!isActive && (
         <>
         <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginBottom: "1.2rem" }} aria-label="Payment currency">
-          {(["usd", "try"] as Currency[]).map((item) => (
+          {(["auto", ...availableCurrencies] as Currency[]).map((item) => (
             <button key={item} type="button" onClick={() => setCurrency(item)} aria-pressed={currency === item} className={currency === item ? "btn-sacred btn-sacred-gold" : "btn-sacred btn-sacred-ghost"} style={{ padding: "0.45rem 0.9rem", fontSize: "0.76rem" }}>
-              {item === "try" ? "TRY / TL" : "USD"}
+              {item === "auto" ? "Local currency" : item === "try" ? "TRY / TL" : "USD"}
             </button>
           ))}
         </div>
+        {currency === "auto" && <p style={{ textAlign: "center", margin: "-0.6rem 0 1.2rem", color: "var(--text-muted)", fontSize: "0.74rem" }}>Stripe shows an eligible local currency at secure checkout.</p>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.2rem" }}>
           {PLANS.map((plan) => (
             <div key={plan.id} style={{ background: plan.color, border: `1px solid ${plan.border}`, borderRadius: "1.1rem", padding: "1.8rem" }}>

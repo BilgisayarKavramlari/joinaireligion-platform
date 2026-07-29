@@ -8,18 +8,18 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
 
 type Plan = "seeker" | "initiate";
-type Currency = "usd" | "try";
+type Currency = "auto" | "usd" | "try";
 type CheckoutState = "idle" | "cancel" | "syncing" | "active" | "error";
 
 const CHECKOUT_COPY = {
-  en: { syncing: "Payment received. Your membership is being activated…", active: "Welcome! Your membership is active.", cancel: "Checkout was canceled. No charge was made.", error: "We could not confirm the membership yet. Check Billing in a moment.", usd: "USD", try: "TRY" },
-  tr: { syncing: "Ödemeniz alındı. Üyeliğiniz etkinleştiriliyor…", active: "Tebrikler! Üyeliğiniz etkinleştirildi.", cancel: "Ödeme işlemi iptal edildi. Herhangi bir ücret alınmadı.", error: "Üyeliği henüz doğrulayamadık. Kısa süre sonra Fatura bölümünü kontrol edin.", usd: "USD", try: "TL" },
-  es: { syncing: "Pago recibido. Estamos activando tu membresía…", active: "¡Bienvenido! Tu membresía está activa.", cancel: "El pago fue cancelado. No se realizó ningún cargo.", error: "Aún no pudimos confirmar la membresía. Revisa Facturación en un momento.", usd: "USD", try: "TRY" },
-  de: { syncing: "Zahlung eingegangen. Deine Mitgliedschaft wird aktiviert…", active: "Willkommen! Deine Mitgliedschaft ist aktiv.", cancel: "Der Bezahlvorgang wurde abgebrochen. Es wurde nichts berechnet.", error: "Die Mitgliedschaft konnte noch nicht bestätigt werden. Prüfe gleich die Abrechnung.", usd: "USD", try: "TRY" },
-  fr: { syncing: "Paiement reçu. Ton adhésion est en cours d’activation…", active: "Bienvenue ! Ton adhésion est active.", cancel: "Le paiement a été annulé. Aucun montant n’a été débité.", error: "L’adhésion n’est pas encore confirmée. Consulte la facturation dans un instant.", usd: "USD", try: "TRY" },
-  ar: { syncing: "تم استلام الدفع. جارٍ تفعيل عضويتك…", active: "مرحباً! عضويتك مفعلة الآن.", cancel: "تم إلغاء الدفع ولم يتم تحصيل أي مبلغ.", error: "تعذر تأكيد العضوية بعد. تحقق من الفواتير بعد قليل.", usd: "دولار", try: "ليرة تركية" },
-  ru: { syncing: "Платёж получен. Подписка активируется…", active: "Добро пожаловать! Подписка активна.", cancel: "Оплата отменена. Средства не списаны.", error: "Подписка пока не подтверждена. Проверьте раздел оплаты чуть позже.", usd: "USD", try: "TRY" },
-  zh: { syncing: "已收到付款，正在激活会员…", active: "欢迎！你的会员已激活。", cancel: "付款已取消，未产生扣款。", error: "暂时无法确认会员状态，请稍后查看账单页面。", usd: "美元", try: "土耳其里拉" },
+  en: { syncing: "Payment received. Your membership is being activated…", active: "Welcome! Your membership is active.", cancel: "Checkout was canceled. No charge was made.", error: "We could not confirm the membership yet. Check Billing in a moment.", auto: "Local", usd: "USD", try: "TRY" },
+  tr: { syncing: "Ödemeniz alındı. Üyeliğiniz etkinleştiriliyor…", active: "Tebrikler! Üyeliğiniz etkinleştirildi.", cancel: "Ödeme işlemi iptal edildi. Herhangi bir ücret alınmadı.", error: "Üyeliği henüz doğrulayamadık. Kısa süre sonra Fatura bölümünü kontrol edin.", auto: "Yerel", usd: "USD", try: "TL" },
+  es: { syncing: "Pago recibido. Estamos activando tu membresía…", active: "¡Bienvenido! Tu membresía está activa.", cancel: "El pago fue cancelado. No se realizó ningún cargo.", error: "Aún no pudimos confirmar la membresía. Revisa Facturación en un momento.", auto: "Local", usd: "USD", try: "TRY" },
+  de: { syncing: "Zahlung eingegangen. Deine Mitgliedschaft wird aktiviert…", active: "Willkommen! Deine Mitgliedschaft ist aktiv.", cancel: "Der Bezahlvorgang wurde abgebrochen. Es wurde nichts berechnet.", error: "Die Mitgliedschaft konnte noch nicht bestätigt werden. Prüfe gleich die Abrechnung.", auto: "Lokal", usd: "USD", try: "TRY" },
+  fr: { syncing: "Paiement reçu. Ton adhésion est en cours d’activation…", active: "Bienvenue ! Ton adhésion est active.", cancel: "Le paiement a été annulé. Aucun montant n’a été débité.", error: "L’adhésion n’est pas encore confirmée. Consulte la facturation dans un instant.", auto: "Local", usd: "USD", try: "TRY" },
+  ar: { syncing: "تم استلام الدفع. جارٍ تفعيل عضويتك…", active: "مرحباً! عضويتك مفعلة الآن.", cancel: "تم إلغاء الدفع ولم يتم تحصيل أي مبلغ.", error: "تعذر تأكيد العضوية بعد. تحقق من الفواتير بعد قليل.", auto: "محلي", usd: "دولار", try: "ليرة تركية" },
+  ru: { syncing: "Платёж получен. Подписка активируется…", active: "Добро пожаловать! Подписка активна.", cancel: "Оплата отменена. Средства не списаны.", error: "Подписка пока не подтверждена. Проверьте раздел оплаты чуть позже.", auto: "Местная", usd: "USD", try: "TRY" },
+  zh: { syncing: "已收到付款，正在激活会员…", active: "欢迎！你的会员已激活。", cancel: "付款已取消，未产生扣款。", error: "暂时无法确认会员状态，请稍后查看账单页面。", auto: "当地", usd: "美元", try: "土耳其里拉" },
 } as const;
 
 const PLANS = [
@@ -81,17 +81,21 @@ export default function PricingPage() {
   const { user, status: sessionStatus, refreshSession } = useSession();
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError]             = useState("");
-  const [currency, setCurrency]       = useState<Currency>("usd");
+  const [currency, setCurrency]       = useState<Currency>("auto");
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
-  const [catalog, setCatalog] = useState<Record<Plan, Partial<Record<Currency, number | null>>> | null>(null);
+  const [catalog, setCatalog] = useState<Record<Plan, Partial<Record<Exclude<Currency, "auto">, number | null>>> | null>(null);
+  const [availableCurrencies, setAvailableCurrencies] = useState<Array<Exclude<Currency, "auto">>>(["usd"]);
 
   useEffect(() => {
     fetch("/api/stripe/catalog")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data?.plans) return;
-        const next = Object.fromEntries(data.plans.map((item: { plan: Plan; amounts: Partial<Record<Currency, number | null>> }) => [item.plan, item.amounts]));
-        setCatalog(next as Record<Plan, Partial<Record<Currency, number | null>>>);
+        const next = Object.fromEntries(data.plans.map((item: { plan: Plan; amounts: Partial<Record<Exclude<Currency, "auto">, number | null>> }) => [item.plan, item.amounts]));
+        setCatalog(next as Record<Plan, Partial<Record<Exclude<Currency, "auto">, number | null>>>);
+        if (Array.isArray(data.currencies)) {
+          setAvailableCurrencies(data.currencies.filter((item: unknown): item is Exclude<Currency, "auto"> => item === "usd" || item === "try"));
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -148,11 +152,12 @@ export default function PricingPage() {
   }
 
   function displayPrice(plan: Plan) {
-    const amount = catalog?.[plan]?.[currency];
+    const shownCurrency = currency === "auto" ? "usd" : currency;
+    const amount = catalog?.[plan]?.[shownCurrency];
     if (typeof amount === "number") {
-      return new Intl.NumberFormat(lang, { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: amount % 100 === 0 ? 0 : 2 }).format(amount / 100);
+      return new Intl.NumberFormat(lang, { style: "currency", currency: shownCurrency.toUpperCase(), maximumFractionDigits: amount % 100 === 0 ? 0 : 2 }).format(amount / 100);
     }
-    if (currency === "usd") return plan === "seeker" ? "$10" : "$25";
+    if (shownCurrency === "usd") return plan === "seeker" ? "$10" : "$25";
     return lang === "tr" ? "TL tutarı ödeme sayfasında" : "TRY shown at checkout";
   }
 
@@ -189,7 +194,7 @@ export default function PricingPage() {
       )}
 
       <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginBottom: "1.8rem" }} aria-label="Payment currency">
-        {(["usd", "try"] as Currency[]).map((item) => (
+        {(["auto", ...availableCurrencies] as Currency[]).map((item) => (
           <button
             key={item}
             type="button"
@@ -202,6 +207,11 @@ export default function PricingPage() {
           </button>
         ))}
       </div>
+      {currency === "auto" && (
+        <p style={{ textAlign: "center", margin: "-1rem 0 1.8rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
+          {lang === "tr" ? "Stripe güvenli ödeme sayfasında uygun yerel para birimini otomatik gösterir." : "Stripe automatically shows an eligible local currency at secure checkout."}
+        </p>
+      )}
 
       {/* Plans */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "1.5rem", marginBottom: "2rem" }}>

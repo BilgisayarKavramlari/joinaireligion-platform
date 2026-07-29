@@ -3,7 +3,7 @@ import { SubscriptionStatus } from "@prisma/client";
 import { env } from "@/lib/env";
 
 export type MembershipPlan = "seeker" | "initiate";
-export type CheckoutCurrency = "usd" | "try";
+export type CheckoutCurrency = "auto" | "usd" | "try";
 
 export type MembershipLike = {
   status?: string | null;
@@ -21,8 +21,8 @@ export type MembershipEntitlements = {
 };
 
 export function parseCheckoutCurrency(value: unknown): CheckoutCurrency | null {
-  if (value === undefined || value === null || value === "") return "usd";
-  return value === "usd" || value === "try" ? value : null;
+  if (value === undefined || value === null || value === "") return "auto";
+  return value === "auto" || value === "usd" || value === "try" ? value : null;
 }
 
 export function resolveMembershipPlan(priceId: string | null | undefined): MembershipPlan | null {

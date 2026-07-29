@@ -23,12 +23,8 @@ export type PublicUpdate = {
 export const publicUpdates: readonly PublicUpdate[] = [
   {
     version: "v0.2.0",
-    status: "planned",
-    targetStart: "2026-08-03",
-    targetWindow: {
-      en: "Target: August 3–5, 2026",
-      tr: "Hedef: 3–5 Ağustos 2026",
-    },
+    status: "released",
+    releasedAt: "2026-07-29",
     copy: {
       en: {
         title: "Reliable access and clearer product updates",

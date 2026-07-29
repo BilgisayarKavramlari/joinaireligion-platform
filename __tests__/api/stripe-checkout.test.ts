@@ -1,5 +1,6 @@
 const mockGetCurrentUser = jest.fn();
 const mockCreateSession = jest.fn();
+const mockRetrievePrice = jest.fn();
 
 jest.mock("@/lib/auth", () => ({
   getCurrentUserFromRequest: (...args: unknown[]) => mockGetCurrentUser(...args),
@@ -21,7 +22,10 @@ jest.mock("@/lib/rate-limit", () => ({
 
 jest.mock("@/lib/stripe", () => ({
   getPriceIdForPlan: jest.fn((plan: string) => `price_${plan}`),
-  getStripeClient: jest.fn(() => ({ checkout: { sessions: { create: mockCreateSession } } })),
+  getStripeClient: jest.fn(() => ({
+    checkout: { sessions: { create: mockCreateSession } },
+    prices: { retrieve: mockRetrievePrice },
+  })),
 }));
 
 import { NextRequest } from "next/server";
@@ -43,6 +47,7 @@ beforeEach(() => {
     subscription: null,
   });
   mockCreateSession.mockResolvedValue({ id: "cs_test_12345678", url: "https://checkout.stripe.com/test" });
+  mockRetrievePrice.mockResolvedValue({ currency: "usd", unit_amount: 2500, currency_options: { try: { unit_amount: 100000 } } });
 });
 
 describe("subscription Checkout creation", () => {
@@ -59,6 +64,17 @@ describe("subscription Checkout creation", () => {
       subscription_data: { metadata: { plan: "initiate", userId: "user_123", currency: "try" } },
       success_url: "https://joinaireligion.com/pricing?status=success&session_id={CHECKOUT_SESSION_ID}",
     }));
+  });
+
+  it("uses Adaptive Pricing when the client requests automatic localization", async () => {
+    const response = await POST(request({ plan: "initiate", currency: "auto" }));
+
+    expect(response.status).toBe(200);
+    expect(mockRetrievePrice).not.toHaveBeenCalled();
+    expect(mockCreateSession).toHaveBeenCalledWith(expect.objectContaining({
+      adaptive_pricing: { enabled: true },
+    }));
+    expect(mockCreateSession.mock.calls[0][0]).not.toHaveProperty("currency");
   });
 
   it("reuses the known Stripe customer", async () => {
@@ -90,5 +106,12 @@ describe("subscription Checkout creation", () => {
     expect(response.status).toBe(400);
     expect(mockCreateSession).not.toHaveBeenCalled();
   });
-});
 
+  it("rejects TRY when the configured Price has no TRY currency option", async () => {
+    mockRetrievePrice.mockResolvedValue({ currency: "usd", unit_amount: 2500, currency_options: {} });
+    const response = await POST(request({ plan: "initiate", currency: "try" }));
+
+    expect(response.status).toBe(400);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+});

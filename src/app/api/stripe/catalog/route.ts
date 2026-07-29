@@ -22,7 +22,11 @@ export async function GET() {
       };
     }));
 
-    return NextResponse.json({ currencies: CURRENCIES, plans }, {
+    const currencies = CURRENCIES.filter((currency) =>
+      plans.every((item) => typeof item.amounts[currency] === "number"),
+    );
+
+    return NextResponse.json({ adaptivePricing: true, currencies, plans }, {
       headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=3600" },
     });
   } catch (error) {

@@ -51,14 +51,14 @@ describe("public product updates", () => {
     expect(resolvePublicUpdateLocale("de")).toBe("en");
   });
 
-  test("renders planned status without claiming the release shipped", () => {
+  test("renders released status only after the verified production release", () => {
     mockUseLanguage.mockReturnValue({ lang: "tr" });
     const text = extractText(UpdatesContent()).replace(/\s+/g, " ").trim();
 
     expect(text).toContain("Güncellemeler");
     expect(text).toContain("v0.2.0");
-    expect(text).toContain("Planlandı");
-    expect(text).not.toContain("Yayınlandı");
+    expect(text).toContain("Yayınlandı");
+    expect(text).not.toContain("Planlandı");
   });
 
   test("includes the canonical Updates route in the sitemap", async () => {
@@ -68,4 +68,3 @@ describe("public product updates", () => {
     ]));
   });
 });
-

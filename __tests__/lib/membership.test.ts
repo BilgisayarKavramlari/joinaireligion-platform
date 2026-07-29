@@ -16,8 +16,9 @@ import {
 } from "@/lib/membership";
 
 describe("membership policy", () => {
-  it("accepts only the supported Checkout currencies and defaults to USD", () => {
-    expect(parseCheckoutCurrency(undefined)).toBe("usd");
+  it("accepts only the supported Checkout choices and defaults to automatic localization", () => {
+    expect(parseCheckoutCurrency(undefined)).toBe("auto");
+    expect(parseCheckoutCurrency("auto")).toBe("auto");
     expect(parseCheckoutCurrency("usd")).toBe("usd");
     expect(parseCheckoutCurrency("try")).toBe("try");
     expect(parseCheckoutCurrency("eur")).toBeNull();
