@@ -28,10 +28,14 @@ import {
 import { env } from "@/lib/env";
 import { submitIndexNowUrls } from "@/lib/indexnow";
 import {
+  SOCIAL_LANGUAGE_POLICY_VERSION,
+  SOCIAL_LOCALES,
   collectPublicSocialSignals,
   getConfiguredSocialProviders,
   publishSocialPost,
+  selectProviderLocale,
   socialIdempotencyKey,
+  type SocialLocale,
   type SocialProviderName,
 } from "@/lib/social/providers";
 
@@ -863,17 +867,19 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
   });
 }
 
-type SocialDelivery = {
+export type SocialDelivery = {
   provider: SocialProviderName;
   status: "PUBLISHED" | "FAILED";
   attemptedAt: string;
+  locale?: SocialLocale;
+  languagePolicyVersion?: string;
   externalId?: string;
   externalUrl?: string | null;
   error?: string;
 };
 
 function readSocialDrafts(payload: unknown): Array<{
-  locale: string;
+  locale: SocialLocale;
   contentUrl: string;
   channels: Record<SocialProviderName, string>;
 }> {
@@ -884,7 +890,7 @@ function readSocialDrafts(payload: unknown): Array<{
     const channels = asRecord(record.channels);
     const locale = typeof record.locale === "string" ? record.locale : "";
     const contentUrl = typeof record.contentUrl === "string" ? record.contentUrl : "";
-    if (!locale || !contentUrl.startsWith("https://joinaireligion.com/content/")) return [];
+    if (!(SOCIAL_LOCALES as readonly string[]).includes(locale) || !contentUrl.startsWith("https://joinaireligion.com/content/")) return [];
     const linkedin = typeof channels.linkedin === "string" ? channels.linkedin : "";
     const x = typeof channels.x === "string" ? channels.x : "";
     const mastodon = typeof channels.mastodon === "string" ? channels.mastodon : "";
@@ -892,21 +898,28 @@ function readSocialDrafts(payload: unknown): Array<{
       ? channels.bluesky
       : (x.includes(contentUrl) ? x : buildRequiredUrlSocialCopy(x, contentUrl, 300, "\n\n"));
     if (!linkedin || !x || !mastodon) return [];
-    return [{ locale, contentUrl, channels: { linkedin, x, mastodon, bluesky } }];
+    return [{ locale: locale as SocialLocale, contentUrl, channels: { linkedin, x, mastodon, bluesky } }];
   });
 }
 
-function readSocialDeliveries(payload: unknown): SocialDelivery[] {
+export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   const deliveries = asRecord(payload).deliveries;
   if (!Array.isArray(deliveries)) return [];
   return deliveries.flatMap((delivery) => {
     const record = asRecord(delivery);
     if (!(["mastodon", "x", "linkedin", "bluesky"] as string[]).includes(String(record.provider))) return [];
     if (record.status !== "PUBLISHED" && record.status !== "FAILED") return [];
+    const locale = typeof record.locale === "string" && (SOCIAL_LOCALES as readonly string[]).includes(record.locale)
+      ? record.locale as SocialLocale
+      : undefined;
     return [{
       provider: record.provider as SocialProviderName,
       status: record.status,
       attemptedAt: String(record.attemptedAt || ""),
+      locale,
+      languagePolicyVersion: typeof record.languagePolicyVersion === "string"
+        ? record.languagePolicyVersion
+        : undefined,
       externalId: typeof record.externalId === "string" ? record.externalId : undefined,
       externalUrl: typeof record.externalUrl === "string" || record.externalUrl === null ? record.externalUrl : undefined,
       error: typeof record.error === "string" ? record.error : undefined,
@@ -947,8 +960,6 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
       await db.agentArtifact.update({ where: { id: artifact.id }, data: { status: AgentArtifactStatus.QUARANTINED } });
       return { published: 0, quarantined: true, reason: "invalid_social_package" };
     }
-    const localeIndex = Math.floor(now.getTime() / 86_400_000) % drafts.length;
-    const draft = drafts[localeIndex] || drafts[0];
     const previousDeliveries = readSocialDeliveries(artifact.payload);
     let deliveries = [...previousDeliveries];
     const published: SocialDelivery[] = [];
@@ -957,9 +968,18 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
       if (deliveries.some((delivery) => delivery.provider === provider && delivery.status === "PUBLISHED")) continue;
       if (provider !== "mastodon" && deliveries.some((delivery) => delivery.provider === provider && delivery.status === "FAILED")) continue;
       deliveries = deliveries.filter((delivery) => delivery.provider !== provider || delivery.status === "PUBLISHED");
+      const selectedLocale = selectProviderLocale(provider, artifact.id, drafts.map((draft) => draft.locale));
+      const draft = drafts.find((candidate) => candidate.locale === selectedLocale) || drafts[0];
       const text = draft.channels[provider];
       if (containsHighRiskContent(text) || !text.includes(draft.contentUrl)) {
-        deliveries.push({ provider, status: "FAILED", attemptedAt: now.toISOString(), error: "social_copy_safety_gate_failed" });
+        deliveries.push({
+          provider,
+          status: "FAILED",
+          attemptedAt: now.toISOString(),
+          locale: draft.locale,
+          languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+          error: "social_copy_safety_gate_failed",
+        });
       } else {
         try {
           const result = await publishSocialPost(provider, text, socialIdempotencyKey([artifact.id, provider]));
@@ -967,13 +987,22 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
             provider,
             status: "PUBLISHED",
             attemptedAt: now.toISOString(),
+            locale: draft.locale,
+            languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
             externalId: result.externalId,
             externalUrl: result.externalUrl,
           };
           deliveries.push(delivery);
           published.push(delivery);
         } catch (error) {
-          deliveries.push({ provider, status: "FAILED", attemptedAt: now.toISOString(), error: safeError(error) });
+          deliveries.push({
+            provider,
+            status: "FAILED",
+            attemptedAt: now.toISOString(),
+            locale: draft.locale,
+            languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+            error: safeError(error),
+          });
         }
       }
       await db.agentArtifact.update({

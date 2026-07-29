@@ -2,6 +2,50 @@ import crypto from "crypto";
 import { env } from "@/lib/env";
 
 export type SocialProviderName = "mastodon" | "x" | "linkedin" | "bluesky";
+export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
+export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
+export const SOCIAL_LANGUAGE_POLICY_VERSION = "v1";
+
+type LocaleWeight = { locale: SocialLocale; weight: number };
+
+const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[]> = {
+  mastodon: [
+    { locale: "tr", weight: 80 },
+    { locale: "en", weight: 10 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
+  bluesky: [
+    { locale: "en", weight: 75 },
+    { locale: "tr", weight: 10 },
+    { locale: "es", weight: 3 },
+    { locale: "de", weight: 3 },
+    { locale: "fr", weight: 3 },
+    { locale: "ru", weight: 3 },
+    { locale: "zh", weight: 3 },
+  ],
+  x: [
+    { locale: "en", weight: 80 },
+    { locale: "tr", weight: 10 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
+  linkedin: [
+    { locale: "en", weight: 85 },
+    { locale: "tr", weight: 5 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
+};
 
 export type PublicSocialSignal = {
   provider: "mastodon" | "x";
@@ -36,6 +80,45 @@ function normalizeBlueskyServiceUrl(value: string | undefined): string {
   const parsed = new URL(value || "https://bsky.social");
   if (parsed.protocol !== "https:") throw new Error("Bluesky service URL must use HTTPS");
   return parsed.origin;
+}
+
+function isSocialLocale(value: string): value is SocialLocale {
+  return (SOCIAL_LOCALES as readonly string[]).includes(value);
+}
+
+/**
+ * Pick a provider-specific locale from a stable seed. The weighted policy keeps
+ * retries on the same locale while allowing low-volume coverage for every
+ * supported language.
+ */
+export function selectProviderLocale(
+  provider: SocialProviderName,
+  seed: string,
+  availableLocales: readonly string[] = SOCIAL_LOCALES,
+): SocialLocale | null {
+  const available = new Set(availableLocales.filter(isSocialLocale));
+  if (available.size === 0) return null;
+
+  const weights = PROVIDER_LOCALE_WEIGHTS[provider];
+  const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
+  const digest = crypto.createHash("sha256").update(`${provider}|${seed}`).digest();
+  let bucket = digest.readUInt32BE(0) % totalWeight;
+  let selected = weights[0].locale;
+  for (const entry of weights) {
+    if (bucket < entry.weight) {
+      selected = entry.locale;
+      break;
+    }
+    bucket -= entry.weight;
+  }
+  if (available.has(selected)) return selected;
+  return weights.find((entry) => available.has(entry.locale))?.locale ?? null;
+}
+
+export function contentLocaleFromText(text: string): SocialLocale | null {
+  const match = text.match(/https:\/\/joinaireligion\.com\/content\/([a-z]{2})\//i);
+  const locale = match?.[1]?.toLowerCase() || "";
+  return isSocialLocale(locale) ? locale : null;
 }
 
 export function truncateBlueskyText(text: string): string {
@@ -165,7 +248,9 @@ export async function collectPublicSocialSignals(): Promise<{ signals: PublicSoc
 async function publishMastodon(text: string, idempotencyKey: string): Promise<SocialPublicationResult> {
   if (!env.MASTODON_ACCESS_TOKEN) throw new Error("Mastodon access token is not configured");
   const baseUrl = normalizeBaseUrl(env.MASTODON_BASE_URL);
-  const body = new URLSearchParams({ status: text.slice(0, 500), visibility: "public", language: "en" });
+  const language = contentLocaleFromText(text);
+  if (!language) throw new Error("Mastodon publication has no supported content locale");
+  const body = new URLSearchParams({ status: text.slice(0, 500), visibility: "public", language });
   const response = await fetch(new URL("/api/v1/statuses", baseUrl), {
     method: "POST",
     headers: {

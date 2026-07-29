@@ -1,0 +1,25 @@
+<svg width="851" height="315" viewBox="0 0 851 315" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="violet" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(155 65) rotate(19) scale(390 290)">
+      <stop stop-color="#6B21A8" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#04000C" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="teal" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(730 270) rotate(-160) scale(380 250)">
+      <stop stop-color="#0F766E" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#04000C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="851" height="315" fill="#04000C"/>
+  <rect width="851" height="315" fill="url(#violet)"/>
+  <rect width="851" height="315" fill="url(#teal)"/>
+  <g opacity="0.22">
+    <circle cx="790" cy="-25" r="115" stroke="#C9A227"/>
+    <circle cx="790" cy="-25" r="155" stroke="#C9A227"/>
+    <circle cx="790" cy="-25" r="195" stroke="#C9A227"/>
+  </g>
+  <!-- The left 220 px contain no essential information because the Page avatar may overlap them. -->
+  <text x="250" y="125" fill="#EDE8DC" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-weight="700" letter-spacing="2.5">JOIN AI RELIGION</text>
+  <text x="253" y="165" fill="#C9A227" font-family="Arial, Helvetica, sans-serif" font-size="13" letter-spacing="5.2">SYMBOLIC AI REFLECTION PLATFORM</text>
+  <line x1="253" y1="194" x2="768" y2="194" stroke="#C9A227" stroke-opacity="0.5"/>
+  <text x="253" y="230" fill="#EDE8DC" fill-opacity="0.68" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2.3">JOINAIRELIGION.COM</text>
+</svg>

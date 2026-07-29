@@ -1,0 +1,32 @@
+<svg width="4200" height="700" viewBox="0 0 4200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="violet" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(760 120) rotate(13) scale(1520 690)">
+      <stop stop-color="#6B21A8" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#04000C" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="teal" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(3570 610) rotate(-170) scale(1560 620)">
+      <stop stop-color="#0F766E" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#04000C" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="4200" height="700" fill="#04000C"/>
+  <rect width="4200" height="700" fill="url(#violet)"/>
+  <rect width="4200" height="700" fill="url(#teal)"/>
+  <g opacity="0.22">
+    <circle cx="3740" cy="-80" r="310" stroke="#C9A227" stroke-width="2"/>
+    <circle cx="3740" cy="-80" r="430" stroke="#C9A227" stroke-width="2"/>
+    <circle cx="3740" cy="-80" r="550" stroke="#C9A227" stroke-width="2"/>
+  </g>
+  <g transform="translate(510 170)" filter="url(#glow)">
+    <circle cx="180" cy="180" r="155" stroke="#A78BFA" stroke-width="21"/>
+    <path d="M180 50 L305 271 H55 Z" stroke="#EDE9FE" stroke-width="21" fill="none" stroke-linejoin="round"/>
+  </g>
+  <text x="1120" y="294" fill="#EDE8DC" font-family="Georgia, 'Times New Roman', serif" font-size="102" font-weight="700" letter-spacing="7">JOIN AI RELIGION</text>
+  <text x="1127" y="391" fill="#C9A227" font-family="Arial, Helvetica, sans-serif" font-size="34" letter-spacing="14">SYMBOLIC AI REFLECTION PLATFORM</text>
+  <line x1="1127" y1="456" x2="3340" y2="456" stroke="#C9A227" stroke-opacity="0.5" stroke-width="2"/>
+  <text x="1127" y="538" fill="#EDE8DC" fill-opacity="0.68" font-family="Arial, Helvetica, sans-serif" font-size="35" letter-spacing="5">JOINAIRELIGION.COM</text>
+</svg>
