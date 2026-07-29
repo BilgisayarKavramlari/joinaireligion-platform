@@ -66,7 +66,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", maxWidth: "1000px" }}>
-        <div style={{ color: "#c9a227", fontSize: "19px", letterSpacing: "4px", textTransform: "uppercase" }}>
+        <div style={{ display: "flex", color: "#c9a227", fontSize: "19px", letterSpacing: "4px", textTransform: "uppercase" }}>
           {variant.contentItem.category.replaceAll("_", " ")} · {variant.locale}
         </div>
         <div style={{ marginTop: "22px", fontSize: "62px", fontWeight: 700, lineHeight: 1.08 }}>
