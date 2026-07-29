@@ -1,6 +1,6 @@
 # Mainstream social onboarding
 
-Scope: YouTube, Meta Facebook Page plus Instagram Professional, and LinkedIn organization publishing. This runbook contains no secret values and does not authorize account creation or external publication by itself.
+Scope: YouTube, Meta Facebook Page plus Instagram Professional and Threads, X, LinkedIn organization publishing, and TikTok. This runbook contains no secret values and does not authorize account creation or external publication by itself.
 
 ## Shared ownership
 
@@ -83,6 +83,60 @@ Business portfolio → Page/Instagram linkage → developer app → permissions/
 ### Connection order after account creation
 
 Organization Page/admin → developer app association → Community Management access → OAuth grant → tokens in production secret store → organization-URN discovery/verification → text canary → delivery-ID verification → provider switch → scheduled publishing; media support follows only after stable text delivery.
+
+## 4. Threads
+
+### Human gates
+
+1. Activate the `joinaireligion` Threads profile from the linked Instagram Professional account.
+2. Add the Threads use case to the Meta app.
+3. Configure the exact OAuth redirect URI and grant only `threads_basic` and `threads_content_publish`.
+4. Exchange the short-lived token for a long-lived Threads user token.
+5. Approve one text-only canary before scheduled publishing is enabled.
+
+### Secret names
+
+- `THREADS_ACCESS_TOKEN`
+- `THREADS_PUBLISHING_ENABLED` (starts `false`)
+
+### Connection order
+
+Threads profile activation → Meta Threads use case → OAuth grant → long-lived token in production secret store → `/me` profile verification → container/publish canary → permalink verification → provider switch → scheduled publishing.
+
+Official references: [Meta Threads Postman collection](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api), [Threads authorization](https://www.postman.com/meta/threads/folder/34203612-e0373e84-de6b-46f1-b90d-3fea76ba6782).
+
+## 5. X
+
+### Human gates
+
+1. Verify the public brand handle and its recovery/2FA settings.
+2. Choose and accept the current X API pricing plan in the Developer Console.
+3. Create an app with OAuth 2.0 user authentication and an exact callback URI.
+4. Grant `tweet.read`, `tweet.write`, `users.read`, and `offline.access` once.
+5. Approve one text-only canary before scheduled publishing is enabled.
+
+### Secret names
+
+- `X_BEARER_TOKEN` (public aggregate listening only)
+- `X_USER_ACCESS_TOKEN`
+- `X_REFRESH_TOKEN`
+- `X_PUBLISHING_ENABLED` (starts `false`)
+
+Official references: [OAuth 2.0 PKCE](https://docs.x.com/fundamentals/authentication/oauth-2-0/user-access-token), [Create a Post](https://docs.x.com/x-api/posts/create-post).
+
+## 6. TikTok
+
+TikTok is a separate media workflow, not a text-provider toggle. The Direct Post client must query creator information, display the creator's current privacy/comment/interaction options, obtain express consent for that upload, and poll the returned publication status. Unreviewed clients are restricted to private visibility; public autonomous posting stays disabled until TikTok completes its audit. Promotional watermarks, overlaid links, and promotional text in uploaded media are not permitted.
+
+### Human gates
+
+1. Create the brand account and retain owner-controlled 2FA/recovery.
+2. Register the developer app, add Content Posting API, and verify the site domain or media URL prefix.
+3. Complete OAuth for `video.publish`.
+4. Test only with `SELF_ONLY` while the client is unaudited.
+5. Submit the required product demonstration and app review, then explicitly approve the public-posting release gate.
+
+Official references: [Content Posting API](https://developers.tiktok.com/doc/content-posting-api-get-started/), [Direct Post guidelines](https://developers.tiktok.com/doc/content-sharing-guidelines/).
 
 ## Per-provider release gate
 

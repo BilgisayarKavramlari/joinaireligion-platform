@@ -11,6 +11,8 @@ jest.mock("@/lib/env", () => ({
     INSTAGRAM_USER_ID: "instagram-1",
     FACEBOOK_PUBLISHING_ENABLED: "true",
     INSTAGRAM_PUBLISHING_ENABLED: "true",
+    THREADS_ACCESS_TOKEN: "threads-test-token",
+    THREADS_PUBLISHING_ENABLED: "true",
   },
 }));
 
@@ -50,7 +52,7 @@ describe("Bluesky social provider helpers", () => {
   });
 
   it("selects deterministic provider-specific locales with low-volume seven-language coverage", () => {
-    const providers: SocialProviderName[] = ["mastodon", "bluesky", "x", "linkedin", "facebook", "instagram"];
+    const providers: SocialProviderName[] = ["mastodon", "bluesky", "x", "linkedin", "facebook", "instagram", "threads"];
     const counts = Object.fromEntries(providers.map((provider) => [
       provider,
       Object.fromEntries(SOCIAL_LOCALES.map((locale) => [locale, 0])),
@@ -74,6 +76,7 @@ describe("Bluesky social provider helpers", () => {
     expect(counts.linkedin.en).toBeGreaterThan(counts.linkedin.tr);
     expect(counts.facebook.en).toBeGreaterThan(counts.facebook.tr);
     expect(counts.instagram.en).toBeGreaterThan(counts.instagram.tr);
+    expect(counts.threads.en).toBeGreaterThan(counts.threads.tr);
   });
 
   it("falls back to the highest-weight available locale", () => {
@@ -158,5 +161,30 @@ describe("Bluesky social provider helpers", () => {
     const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
     expect(createBody.get("image_url")).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi.jpg");
     expect(mockFetch.mock.calls[2][0].toString()).toBe("https://graph.facebook.com/v25.0/instagram-1/media_publish");
+  });
+
+  it("creates, waits for, and publishes a Threads text container", async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "threads-container-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "threads-container-1", status: "FINISHED" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "threads-post-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ permalink: "https://www.threads.net/@join/post/example" }), { status: 200 }));
+
+    const result = await publishSocialPost(
+      "threads",
+      "A reflection\n\nhttps://joinaireligion.com/content/en/reflection-example",
+      "threads-idempotency-key",
+    );
+
+    expect(result).toEqual({
+      provider: "threads",
+      externalId: "threads-post-1",
+      externalUrl: "https://www.threads.net/@join/post/example",
+    });
+    expect(mockFetch.mock.calls[0][0]).toBe("https://graph.threads.net/me/threads");
+    const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
+    expect(createBody.get("media_type")).toBe("TEXT");
+    expect(createBody.get("text")).toContain("https://joinaireligion.com/content/en/reflection-example");
+    expect(mockFetch.mock.calls[2][0]).toBe("https://graph.threads.net/me/threads_publish");
   });
 });

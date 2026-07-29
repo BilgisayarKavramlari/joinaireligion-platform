@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { env } from "@/lib/env";
 
-export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "bluesky";
+export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
 export const SOCIAL_LANGUAGE_POLICY_VERSION = "v1";
@@ -57,6 +57,15 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
   instagram: [
     { locale: "en", weight: 70 },
     { locale: "tr", weight: 20 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
+  threads: [
+    { locale: "en", weight: 75 },
+    { locale: "tr", weight: 15 },
     { locale: "es", weight: 2 },
     { locale: "de", weight: 2 },
     { locale: "fr", weight: 2 },
@@ -195,11 +204,17 @@ function extractTerms(texts: string[]): string[] {
 export function getConfiguredSocialProviders(): SocialProviderName[] {
   const providers: SocialProviderName[] = [];
   if (env.MASTODON_ACCESS_TOKEN) providers.push("mastodon");
-  if (env.X_USER_ACCESS_TOKEN) providers.push("x");
-  if (env.LINKEDIN_ACCESS_TOKEN && env.LINKEDIN_AUTHOR_URN && env.LINKEDIN_VERSION) providers.push("linkedin");
+  if (env.X_PUBLISHING_ENABLED === "true" && env.X_USER_ACCESS_TOKEN) providers.push("x");
+  if (
+    env.LINKEDIN_PUBLISHING_ENABLED === "true"
+    && env.LINKEDIN_ACCESS_TOKEN
+    && env.LINKEDIN_AUTHOR_URN
+    && env.LINKEDIN_VERSION
+  ) providers.push("linkedin");
   const metaConfigured = Boolean(env.META_GRAPH_VERSION && env.META_PAGE_ACCESS_TOKEN);
   if (env.FACEBOOK_PUBLISHING_ENABLED === "true" && metaConfigured && env.META_PAGE_ID) providers.push("facebook");
   if (env.INSTAGRAM_PUBLISHING_ENABLED === "true" && metaConfigured && env.INSTAGRAM_USER_ID) providers.push("instagram");
+  if (env.THREADS_PUBLISHING_ENABLED === "true" && env.THREADS_ACCESS_TOKEN) providers.push("threads");
   if (env.BLUESKY_IDENTIFIER && env.BLUESKY_APP_PASSWORD) providers.push("bluesky");
   return providers;
 }
@@ -294,7 +309,9 @@ async function publishMastodon(text: string, idempotencyKey: string): Promise<So
 }
 
 async function publishX(text: string): Promise<SocialPublicationResult> {
-  if (!env.X_USER_ACCESS_TOKEN) throw new Error("X user access token is not configured");
+  if (env.X_PUBLISHING_ENABLED !== "true" || !env.X_USER_ACCESS_TOKEN) {
+    throw new Error("X publication is not fully configured");
+  }
   const response = await fetch("https://api.x.com/2/tweets", {
     method: "POST",
     headers: { Authorization: `Bearer ${env.X_USER_ACCESS_TOKEN}`, "Content-Type": "application/json" },
@@ -309,7 +326,12 @@ async function publishX(text: string): Promise<SocialPublicationResult> {
 }
 
 async function publishLinkedIn(text: string): Promise<SocialPublicationResult> {
-  if (!env.LINKEDIN_ACCESS_TOKEN || !env.LINKEDIN_AUTHOR_URN || !env.LINKEDIN_VERSION) {
+  if (
+    env.LINKEDIN_PUBLISHING_ENABLED !== "true"
+    || !env.LINKEDIN_ACCESS_TOKEN
+    || !env.LINKEDIN_AUTHOR_URN
+    || !env.LINKEDIN_VERSION
+  ) {
     throw new Error("LinkedIn publication is not fully configured");
   }
   const response = await fetch("https://api.linkedin.com/rest/posts", {
@@ -334,6 +356,69 @@ async function publishLinkedIn(text: string): Promise<SocialPublicationResult> {
   const externalId = response.headers.get("x-restli-id");
   if (!externalId) throw new Error("LinkedIn publication returned no post id");
   return { provider: "linkedin", externalId, externalUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}/` };
+}
+
+async function publishThreads(text: string): Promise<SocialPublicationResult> {
+  if (env.THREADS_PUBLISHING_ENABLED !== "true" || !env.THREADS_ACCESS_TOKEN) {
+    throw new Error("Threads publication is not fully configured");
+  }
+  requiredContentUrl(text);
+  const createBody = new URLSearchParams({
+    media_type: "TEXT",
+    text: Array.from(text).slice(0, 500).join(""),
+    access_token: env.THREADS_ACCESS_TOKEN,
+  });
+  const createResponse = await fetch("https://graph.threads.net/me/threads", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: createBody,
+    signal: timeoutSignal(),
+  });
+  if (!createResponse.ok) throw new Error(`Threads container creation failed with HTTP ${createResponse.status}`);
+  const created = await createResponse.json() as { id?: string };
+  if (!created.id) throw new Error("Threads container creation returned no id");
+
+  let ready = false;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const statusUrl = new URL(`https://graph.threads.net/${encodeURIComponent(created.id)}`);
+    statusUrl.searchParams.set("fields", "id,status,error_message");
+    statusUrl.searchParams.set("access_token", env.THREADS_ACCESS_TOKEN);
+    const statusResponse = await fetch(statusUrl, { signal: timeoutSignal(), cache: "no-store" });
+    if (!statusResponse.ok) throw new Error(`Threads container status failed with HTTP ${statusResponse.status}`);
+    const status = await statusResponse.json() as { status?: string };
+    if (status.status === "FINISHED" || status.status === "PUBLISHED") {
+      ready = true;
+      break;
+    }
+    if (status.status === "ERROR" || status.status === "EXPIRED") {
+      throw new Error(`Threads container entered ${status.status.toLowerCase()} state`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  if (!ready) throw new Error("Threads container did not become ready before timeout");
+
+  const publishBody = new URLSearchParams({
+    creation_id: created.id,
+    access_token: env.THREADS_ACCESS_TOKEN,
+  });
+  const publishResponse = await fetch("https://graph.threads.net/me/threads_publish", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: publishBody,
+    signal: timeoutSignal(),
+  });
+  if (!publishResponse.ok) throw new Error(`Threads publication failed with HTTP ${publishResponse.status}`);
+  const published = await publishResponse.json() as { id?: string };
+  if (!published.id) throw new Error("Threads publication returned no post id");
+
+  const permalinkUrl = new URL(`https://graph.threads.net/${encodeURIComponent(published.id)}`);
+  permalinkUrl.searchParams.set("fields", "id,permalink");
+  permalinkUrl.searchParams.set("access_token", env.THREADS_ACCESS_TOKEN);
+  const permalinkResponse = await fetch(permalinkUrl, { signal: timeoutSignal(), cache: "no-store" });
+  const permalink = permalinkResponse.ok
+    ? (await permalinkResponse.json() as { permalink?: string }).permalink || null
+    : null;
+  return { provider: "threads", externalId: published.id, externalUrl: permalink };
 }
 
 function metaGraphUrl(path: string): URL {
@@ -501,5 +586,6 @@ export async function publishSocialPost(
   if (provider === "linkedin") return publishLinkedIn(text);
   if (provider === "facebook") return publishFacebook(text);
   if (provider === "instagram") return publishInstagram(text);
+  if (provider === "threads") return publishThreads(text);
   return publishBluesky(text);
 }
