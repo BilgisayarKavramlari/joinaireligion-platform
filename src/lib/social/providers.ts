@@ -204,7 +204,10 @@ function extractTerms(texts: string[]): string[] {
 export function getConfiguredSocialProviders(): SocialProviderName[] {
   const providers: SocialProviderName[] = [];
   if (env.MASTODON_ACCESS_TOKEN) providers.push("mastodon");
-  if (env.X_PUBLISHING_ENABLED === "true" && env.X_USER_ACCESS_TOKEN) providers.push("x");
+  const xOAuth1Configured = Boolean(
+    env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_TOKEN_SECRET,
+  );
+  if (env.X_PUBLISHING_ENABLED === "true" && (env.X_USER_ACCESS_TOKEN || xOAuth1Configured)) providers.push("x");
   if (
     env.LINKEDIN_PUBLISHING_ENABLED === "true"
     && env.LINKEDIN_ACCESS_TOKEN
@@ -308,13 +311,44 @@ async function publishMastodon(text: string, idempotencyKey: string): Promise<So
   return { provider: "mastodon", externalId: payload.id, externalUrl: payload.url || null };
 }
 
+function oauthPercentEncode(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function xOAuth1AuthorizationHeader(method: string, url: string): string | null {
+  if (!env.X_API_KEY || !env.X_API_SECRET || !env.X_ACCESS_TOKEN || !env.X_ACCESS_TOKEN_SECRET) return null;
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: env.X_API_KEY,
+    oauth_nonce: crypto.randomBytes(24).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1_000).toString(),
+    oauth_token: env.X_ACCESS_TOKEN,
+    oauth_version: "1.0",
+  };
+  const parameterString = Object.entries(oauthParams)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${oauthPercentEncode(key)}=${oauthPercentEncode(value)}`)
+    .join("&");
+  const signatureBase = [method.toUpperCase(), oauthPercentEncode(url), oauthPercentEncode(parameterString)].join("&");
+  const signingKey = `${oauthPercentEncode(env.X_API_SECRET)}&${oauthPercentEncode(env.X_ACCESS_TOKEN_SECRET)}`;
+  oauthParams.oauth_signature = crypto.createHmac("sha1", signingKey).update(signatureBase).digest("base64");
+  return `OAuth ${Object.entries(oauthParams)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${oauthPercentEncode(key)}="${oauthPercentEncode(value)}"`)
+    .join(", ")}`;
+}
+
 async function publishX(text: string): Promise<SocialPublicationResult> {
-  if (env.X_PUBLISHING_ENABLED !== "true" || !env.X_USER_ACCESS_TOKEN) {
+  const endpoint = "https://api.x.com/2/tweets";
+  const authorization = env.X_USER_ACCESS_TOKEN
+    ? `Bearer ${env.X_USER_ACCESS_TOKEN}`
+    : xOAuth1AuthorizationHeader("POST", endpoint);
+  if (env.X_PUBLISHING_ENABLED !== "true" || !authorization) {
     throw new Error("X publication is not fully configured");
   }
-  const response = await fetch("https://api.x.com/2/tweets", {
+  const response = await fetch(endpoint, {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.X_USER_ACCESS_TOKEN}`, "Content-Type": "application/json" },
+    headers: { Authorization: authorization, "Content-Type": "application/json" },
     body: JSON.stringify({ text: text.slice(0, 280), made_with_ai: true }),
     signal: timeoutSignal(),
   });

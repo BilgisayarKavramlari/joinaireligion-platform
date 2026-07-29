@@ -3,6 +3,11 @@ const mockFetch = jest.fn();
 jest.mock("@/lib/env", () => ({
   env: {
     SOCIAL_PUBLISHING_ENABLED: "true",
+    X_API_KEY: "x-api-key",
+    X_API_SECRET: "x-api-secret",
+    X_ACCESS_TOKEN: "x-access-token",
+    X_ACCESS_TOKEN_SECRET: "x-access-token-secret",
+    X_PUBLISHING_ENABLED: "true",
     MASTODON_BASE_URL: "https://mastoturk.org",
     MASTODON_ACCESS_TOKEN: "test-token",
     META_GRAPH_VERSION: "v25.0",
@@ -138,6 +143,28 @@ describe("Bluesky social provider helpers", () => {
     expect(url.toString()).toBe("https://graph.facebook.com/v25.0/page-1/feed");
     const body = request.body as URLSearchParams;
     expect(body.get("link")).toBe("https://joinaireligion.com/content/en/reflection-example");
+  });
+
+  it("signs X publication with OAuth 1.0a credentials generated for the owner account", async () => {
+    mockFetch.mockResolvedValue(new Response(JSON.stringify({ data: { id: "x-post-1" } }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    const result = await publishSocialPost(
+      "x",
+      "A reflection https://joinaireligion.com/content/en/reflection-example",
+      "x-idempotency-key",
+    );
+
+    expect(result).toEqual({ provider: "x", externalId: "x-post-1", externalUrl: "https://x.com/i/web/status/x-post-1" });
+    const [url, request] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.x.com/2/tweets");
+    const authorization = (request.headers as Record<string, string>).Authorization;
+    expect(authorization).toContain("OAuth oauth_consumer_key=\"x-api-key\"");
+    expect(authorization).toContain("oauth_token=\"x-access-token\"");
+    expect(authorization).not.toContain("x-api-secret");
+    expect(authorization).not.toContain("x-access-token-secret");
   });
 
   it("creates, waits for, and publishes an Instagram image container", async () => {

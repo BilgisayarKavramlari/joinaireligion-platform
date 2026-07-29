@@ -111,15 +111,14 @@ Official references: [Meta Threads Postman collection](https://www.postman.com/m
 
 1. Verify the public brand handle and its recovery/2FA settings.
 2. Choose and accept the current X API pricing plan in the Developer Console.
-3. Create an app with OAuth 2.0 user authentication and an exact callback URI.
-4. Grant `tweet.read`, `tweet.write`, `users.read`, and `offline.access` once.
+3. For a single owner-operated account, generate the app's OAuth 1.0a API Key/Secret and owner Access Token/Secret; alternatively configure OAuth 2.0 with `tweet.read`, `tweet.write`, `users.read`, and `offline.access`.
 5. Approve one text-only canary before scheduled publishing is enabled.
 
 ### Secret names
 
 - `X_BEARER_TOKEN` (public aggregate listening only)
 - `X_USER_ACCESS_TOKEN`
-- `X_REFRESH_TOKEN`
+- `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET` (lower-interaction owner-account option)
 - `X_PUBLISHING_ENABLED` (starts `false`)
 
 Official references: [OAuth 2.0 PKCE](https://docs.x.com/fundamentals/authentication/oauth-2-0/user-access-token), [Create a Post](https://docs.x.com/x-api/posts/create-post).
