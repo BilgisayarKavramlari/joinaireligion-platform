@@ -841,6 +841,8 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
           x: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 280, " "),
           mastodon: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}\n\n#Reflection #ResponsibleAI`.slice(0, 500),
           bluesky: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 300, "\n\n"),
+          facebook: `${variant.title}\n\n${variant.summary}\n\nRead: ${contentUrl}`,
+          instagram: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}\n\n#ReflectiveLearning #ResponsibleAI`,
         },
       };
     });
@@ -897,8 +899,14 @@ function readSocialDrafts(payload: unknown): Array<{
     const bluesky = typeof channels.bluesky === "string"
       ? channels.bluesky
       : (x.includes(contentUrl) ? x : buildRequiredUrlSocialCopy(x, contentUrl, 300, "\n\n"));
+    const facebook = typeof channels.facebook === "string"
+      ? channels.facebook
+      : `${linkedin}\n\n${contentUrl}`;
+    const instagram = typeof channels.instagram === "string"
+      ? channels.instagram
+      : `${mastodon}\n\n${contentUrl}`.slice(0, 2_200);
     if (!linkedin || !x || !mastodon) return [];
-    return [{ locale: locale as SocialLocale, contentUrl, channels: { linkedin, x, mastodon, bluesky } }];
+    return [{ locale: locale as SocialLocale, contentUrl, channels: { linkedin, x, mastodon, bluesky, facebook, instagram } }];
   });
 }
 
@@ -907,7 +915,7 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   if (!Array.isArray(deliveries)) return [];
   return deliveries.flatMap((delivery) => {
     const record = asRecord(delivery);
-    if (!(["mastodon", "x", "linkedin", "bluesky"] as string[]).includes(String(record.provider))) return [];
+    if (!(["mastodon", "x", "linkedin", "facebook", "instagram", "bluesky"] as string[]).includes(String(record.provider))) return [];
     if (record.status !== "PUBLISHED" && record.status !== "FAILED") return [];
     const locale = typeof record.locale === "string" && (SOCIAL_LOCALES as readonly string[]).includes(record.locale)
       ? record.locale as SocialLocale

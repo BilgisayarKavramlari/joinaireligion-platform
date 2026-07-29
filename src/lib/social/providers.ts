@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { env } from "@/lib/env";
 
-export type SocialProviderName = "mastodon" | "x" | "linkedin" | "bluesky";
+export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
 export const SOCIAL_LANGUAGE_POLICY_VERSION = "v1";
@@ -45,6 +45,24 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "ru", weight: 2 },
     { locale: "zh", weight: 2 },
   ],
+  facebook: [
+    { locale: "en", weight: 70 },
+    { locale: "tr", weight: 20 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
+  instagram: [
+    { locale: "en", weight: 70 },
+    { locale: "tr", weight: 20 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
 };
 
 export type PublicSocialSignal = {
@@ -80,6 +98,11 @@ function normalizeBlueskyServiceUrl(value: string | undefined): string {
   const parsed = new URL(value || "https://bsky.social");
   if (parsed.protocol !== "https:") throw new Error("Bluesky service URL must use HTTPS");
   return parsed.origin;
+}
+
+function normalizeMetaGraphVersion(value: string | undefined): string {
+  if (!value || !/^v\d+\.\d+$/.test(value)) throw new Error("Meta Graph version is not configured safely");
+  return value;
 }
 
 function isSocialLocale(value: string): value is SocialLocale {
@@ -174,6 +197,9 @@ export function getConfiguredSocialProviders(): SocialProviderName[] {
   if (env.MASTODON_ACCESS_TOKEN) providers.push("mastodon");
   if (env.X_USER_ACCESS_TOKEN) providers.push("x");
   if (env.LINKEDIN_ACCESS_TOKEN && env.LINKEDIN_AUTHOR_URN && env.LINKEDIN_VERSION) providers.push("linkedin");
+  const metaConfigured = Boolean(env.META_GRAPH_VERSION && env.META_PAGE_ACCESS_TOKEN);
+  if (env.FACEBOOK_PUBLISHING_ENABLED === "true" && metaConfigured && env.META_PAGE_ID) providers.push("facebook");
+  if (env.INSTAGRAM_PUBLISHING_ENABLED === "true" && metaConfigured && env.INSTAGRAM_USER_ID) providers.push("instagram");
   if (env.BLUESKY_IDENTIFIER && env.BLUESKY_APP_PASSWORD) providers.push("bluesky");
   return providers;
 }
@@ -310,6 +336,108 @@ async function publishLinkedIn(text: string): Promise<SocialPublicationResult> {
   return { provider: "linkedin", externalId, externalUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}/` };
 }
 
+function metaGraphUrl(path: string): URL {
+  const version = normalizeMetaGraphVersion(env.META_GRAPH_VERSION);
+  return new URL(`https://graph.facebook.com/${version}/${path.replace(/^\//, "")}`);
+}
+
+function requiredContentUrl(text: string): URL {
+  const match = text.match(/https:\/\/joinaireligion\.com\/content\/[a-z]{2}\/[a-z0-9-]+/i);
+  if (!match) throw new Error("Social publication has no approved Join AI Religion content URL");
+  return new URL(match[0]);
+}
+
+function socialCardUrl(contentUrl: URL): string {
+  const parts = contentUrl.pathname.split("/").filter(Boolean);
+  if (parts.length !== 3 || parts[0] !== "content") throw new Error("Social content URL has an invalid route");
+  return `${contentUrl.origin}/social-card/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}`;
+}
+
+async function publishFacebook(text: string): Promise<SocialPublicationResult> {
+  if (env.FACEBOOK_PUBLISHING_ENABLED !== "true" || !env.META_PAGE_ID || !env.META_PAGE_ACCESS_TOKEN) {
+    throw new Error("Facebook publication is not fully configured");
+  }
+  const contentUrl = requiredContentUrl(text);
+  const body = new URLSearchParams({
+    message: text.slice(0, 5_000),
+    link: contentUrl.toString(),
+    access_token: env.META_PAGE_ACCESS_TOKEN,
+  });
+  const response = await fetch(metaGraphUrl(`${encodeURIComponent(env.META_PAGE_ID)}/feed`), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    signal: timeoutSignal(),
+  });
+  if (!response.ok) throw new Error(`Facebook publication failed with HTTP ${response.status}`);
+  const payload = await response.json() as { id?: string };
+  if (!payload.id) throw new Error("Facebook publication returned no post id");
+  return { provider: "facebook", externalId: payload.id, externalUrl: null };
+}
+
+async function publishInstagram(text: string): Promise<SocialPublicationResult> {
+  if (env.INSTAGRAM_PUBLISHING_ENABLED !== "true" || !env.INSTAGRAM_USER_ID || !env.META_PAGE_ACCESS_TOKEN) {
+    throw new Error("Instagram publication is not fully configured");
+  }
+  const contentUrl = requiredContentUrl(text);
+  const createBody = new URLSearchParams({
+    image_url: socialCardUrl(contentUrl),
+    caption: text.slice(0, 2_200),
+    access_token: env.META_PAGE_ACCESS_TOKEN,
+  });
+  const createResponse = await fetch(metaGraphUrl(`${encodeURIComponent(env.INSTAGRAM_USER_ID)}/media`), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: createBody,
+    signal: timeoutSignal(),
+  });
+  if (!createResponse.ok) throw new Error(`Instagram container creation failed with HTTP ${createResponse.status}`);
+  const created = await createResponse.json() as { id?: string };
+  if (!created.id) throw new Error("Instagram container creation returned no id");
+
+  let ready = false;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const statusUrl = metaGraphUrl(encodeURIComponent(created.id));
+    statusUrl.searchParams.set("fields", "status_code");
+    statusUrl.searchParams.set("access_token", env.META_PAGE_ACCESS_TOKEN);
+    const statusResponse = await fetch(statusUrl, { signal: timeoutSignal(), cache: "no-store" });
+    if (!statusResponse.ok) throw new Error(`Instagram container status failed with HTTP ${statusResponse.status}`);
+    const status = await statusResponse.json() as { status_code?: string };
+    if (status.status_code === "FINISHED") {
+      ready = true;
+      break;
+    }
+    if (status.status_code === "ERROR" || status.status_code === "EXPIRED") {
+      throw new Error(`Instagram container entered ${status.status_code.toLowerCase()} state`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  if (!ready) throw new Error("Instagram container did not become ready before timeout");
+
+  const publishBody = new URLSearchParams({
+    creation_id: created.id,
+    access_token: env.META_PAGE_ACCESS_TOKEN,
+  });
+  const publishResponse = await fetch(metaGraphUrl(`${encodeURIComponent(env.INSTAGRAM_USER_ID)}/media_publish`), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: publishBody,
+    signal: timeoutSignal(),
+  });
+  if (!publishResponse.ok) throw new Error(`Instagram publication failed with HTTP ${publishResponse.status}`);
+  const published = await publishResponse.json() as { id?: string };
+  if (!published.id) throw new Error("Instagram publication returned no media id");
+
+  const permalinkUrl = metaGraphUrl(encodeURIComponent(published.id));
+  permalinkUrl.searchParams.set("fields", "permalink");
+  permalinkUrl.searchParams.set("access_token", env.META_PAGE_ACCESS_TOKEN);
+  const permalinkResponse = await fetch(permalinkUrl, { signal: timeoutSignal(), cache: "no-store" });
+  const permalink = permalinkResponse.ok
+    ? (await permalinkResponse.json() as { permalink?: string }).permalink || null
+    : null;
+  return { provider: "instagram", externalId: published.id, externalUrl: permalink };
+}
+
 async function publishBluesky(text: string): Promise<SocialPublicationResult> {
   if (!env.BLUESKY_IDENTIFIER || !env.BLUESKY_APP_PASSWORD) {
     throw new Error("Bluesky publication is not fully configured");
@@ -371,5 +499,7 @@ export async function publishSocialPost(
   if (provider === "mastodon") return publishMastodon(text, idempotencyKey);
   if (provider === "x") return publishX(text);
   if (provider === "linkedin") return publishLinkedIn(text);
+  if (provider === "facebook") return publishFacebook(text);
+  if (provider === "instagram") return publishInstagram(text);
   return publishBluesky(text);
 }

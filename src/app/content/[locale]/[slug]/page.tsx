@@ -37,12 +37,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const variant = await getVariant(locale, slug);
   if (!variant || variant.contentItem.status !== "PUBLISHED" || !variant.publishedAt) return {};
   const canonical = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
+  const socialImage = `https://joinaireligion.com/social-card/${variant.locale}/${variant.slug}`;
   const languages = Object.fromEntries(variant.contentItem.variants.map((item) => [item.locale, `https://joinaireligion.com/content/${item.locale}/${item.slug}`]));
   return {
     title: variant.seoTitle,
     description: variant.seoDescription,
     alternates: { canonical, languages },
-    openGraph: { title: variant.seoTitle, description: variant.seoDescription, type: "article", url: canonical },
+    openGraph: { title: variant.seoTitle, description: variant.seoDescription, type: "article", url: canonical, images: [{ url: socialImage, width: 1200, height: 1200 }] },
+    twitter: { card: "summary_large_image", title: variant.seoTitle, description: variant.seoDescription, images: [socialImage] },
   };
 }
 
