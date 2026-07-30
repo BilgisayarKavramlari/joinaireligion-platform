@@ -52,6 +52,7 @@ const eligibleUserSelect = {
   currentLevel: true,
   xpTotal: true,
   emailVerifiedAt: true,
+  emailOptIn: true,
   unsubscribedAt: true,
   subscription: { select: { status: true } },
   profile: {
@@ -151,6 +152,7 @@ export async function POST(request: Request): Promise<Response> {
     candidateUsers = await db.user.findMany({
       where: {
         emailVerifiedAt: { not: null },
+        emailOptIn: true,
         unsubscribedAt: null,
       },
       select: eligibleUserSelect,

@@ -32,6 +32,7 @@ function makeUser(
 ): EligibilityUser {
   return {
     emailVerifiedAt: VERIFIED_DATE,
+    emailOptIn: true,
     unsubscribedAt: null,
     subscription: null,
     ...overrides,
@@ -95,6 +96,10 @@ describe("isEligible", () => {
 
   it("returns false when unsubscribedAt is set", () => {
     expect(isEligible(unsubscribedUser())).toBe(false);
+  });
+
+  it("returns false when practice email preference is disabled", () => {
+    expect(isEligible(makeUser({ emailOptIn: false }))).toBe(false);
   });
 
   it("returns false when both unverified and unsubscribed", () => {

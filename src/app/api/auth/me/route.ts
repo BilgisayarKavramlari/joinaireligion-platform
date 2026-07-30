@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { resolveSubscriptionPlan } from "@/lib/membership";
+import { levelForXp } from "@/lib/journey-types";
 
 export async function GET(request: NextRequest) {
   const sessionUser = await getCurrentUserFromRequest(request);
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       displayName: user.displayName,
       role: user.role,
       emailVerifiedAt: user.emailVerifiedAt,
-      currentLevel: user.currentLevel,
+      currentLevel: levelForXp(user.xpTotal),
       xpTotal: user.xpTotal,
       daysActive: user.daysActive,
       onboardingDone: user.onboardingDone,

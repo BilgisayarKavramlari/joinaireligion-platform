@@ -26,16 +26,22 @@
  *   Computed by computeLevel() below.
  */
 
+import {
+  levelForXp,
+  MAX_LEVEL as JOURNEY_MAX_LEVEL,
+  XP_PER_LEVEL as JOURNEY_XP_PER_LEVEL,
+} from "@/lib/journey-types";
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** XP awarded equals the integer score (task spec: "XP equal to score, max 5"). */
 export const XP_PER_SCORE_UNIT = 1; // multiplier; xpEarned = score * XP_PER_SCORE_UNIT
 
 /** XP required to advance one level (task spec: "300 XP per level"). */
-export const XP_PER_LEVEL = 300;
+export const XP_PER_LEVEL = JOURNEY_XP_PER_LEVEL;
 
 /** Maximum level a user can reach (task spec: "max level 10"). */
-export const MAX_LEVEL = 10;
+export const MAX_LEVEL = JOURNEY_MAX_LEVEL;
 
 /** Maximum score value. */
 export const MAX_SCORE = 5;
@@ -146,6 +152,5 @@ export function xpForScoreValue(score: Score): number {
  *   2700+   → level 10 (capped)
  */
 export function computeLevel(xpTotal: number): number {
-  if (xpTotal < 0) return 1;
-  return Math.min(MAX_LEVEL, Math.floor(xpTotal / XP_PER_LEVEL) + 1);
+  return levelForXp(xpTotal);
 }

@@ -46,7 +46,7 @@ trap cleanup EXIT
 {
   printf 'APP_URL=%q\n' 'http://127.0.0.1:3001'
   printf 'CRON_SECRET=%q\n' "${CRON_SECRET}"
-  printf 'EMAIL_MODE=%q\n' 'LOG_ONLY'
+  printf 'EMAIL_MODE=%q\n' 'LIVE'
   printf 'ALERT_EMAIL=%q\n' "${ADMIN_EMAIL}"
 } > "${cron_tmp}"
 install -m 0600 -o joinai -g joinai "${cron_tmp}" "${CRON_ENV}"
@@ -82,12 +82,14 @@ systemctl reload nginx
 timers=(
   joinai-generate-practices.timer
   joinai-send-practice-emails.timer
+  joinai-send-notification-emails.timer
   joinai-score-practice-responses.timer
   joinai-autonomy-health.timer
   joinai-autonomy-repair.timer
   joinai-support-triage.timer
   joinai-seo-kulliyat-draft.timer
   joinai-content-publisher.timer
+  joinai-content-locale-backfill.timer
   joinai-content-performance.timer
   joinai-social-listener.timer
   joinai-social-listener-draft.timer
@@ -101,4 +103,4 @@ timers=(
 )
 systemctl enable --now "${timers[@]}"
 
-echo "JoinAI operations runtime installed; existing Nginx/TLS configuration was preserved, email remains LOG_ONLY, and autonomous content/social timers are enabled within their policy boundaries."
+echo "JoinAI operations runtime installed; existing Nginx/TLS configuration was preserved, consent-aware email delivery is LIVE, and autonomous content/social timers are enabled within their policy boundaries."

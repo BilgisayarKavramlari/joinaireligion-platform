@@ -19,7 +19,15 @@ export async function GET(req: NextRequest) {
   if (!token) return html("If the unsubscribe link is valid, the address has been unsubscribed.");
   const user = await db.user.findUnique({ where: { unsubscribeToken: hashToken(token) } });
   if (user) {
-    await db.user.update({ where: { id: user.id }, data: { unsubscribedAt: new Date(), emailOptIn: false } });
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        unsubscribedAt: new Date(),
+        emailOptIn: false,
+        contentEmailOptIn: false,
+        contentEmailOptInAt: null,
+      },
+    });
     sendUnsubscribeConfirmEmail(user.email, user.id).catch(() => undefined);
   }
   return html("If the unsubscribe link is valid, the address has been unsubscribed.");

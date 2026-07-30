@@ -10,7 +10,7 @@
  *   3. No duplicate send — already SENT messages are excluded by the DB query
  *   4. DRY_RUN does not mutate the database
  *   5. Failed send records FAILED status and EmailLog error entry
- *   6. LOG_ONLY records SENT without calling the email provider
+ *   6. LOG_ONLY previews without consuming the queued message
  *   7. Missing content skips message with SKIPPED status
  *
  * NOTE: Jest and @types/jest are not yet installed in this project.
@@ -98,6 +98,8 @@ function baseMessage() {
       email: "seeker@example.com",
       displayName: "Seeker",
       preferredEmailLocale: "en",
+      emailOptIn: true,
+      unsubscribedAt: null,
       unsubscribeToken: "tok_abc123",
     },
   };
@@ -253,35 +255,20 @@ describe("No duplicate send", () => {
     );
   });
 
-  it("marks the message SENT so it is excluded from the next run", async () => {
+  it("keeps the message queued in LOG_ONLY so a future LIVE run can deliver it", async () => {
     mockMessageFindMany.mockResolvedValue([makeQueuedMessage()]);
     await POST(makeRequest({ mode: "LOG_ONLY" }));
-    expect(mockMessageUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "msg_001" },
-        data: expect.objectContaining({
-          deliveryStatus: DeliveryStatus.SENT,
-        }),
-      })
-    );
+    expect(mockMessageUpdate).not.toHaveBeenCalled();
   });
 });
 
 // ─── 5. LOG_ONLY mode ─────────────────────────────────────────────────────────
 
 describe("LOG_ONLY mode", () => {
-  it("creates an EmailLog record for each message", async () => {
+  it("does not create a delivery record for an email that was not sent", async () => {
     mockMessageFindMany.mockResolvedValue([makeQueuedMessage()]);
     await POST(makeRequest({ mode: "LOG_ONLY" }));
-    expect(mockEmailLogCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          userId: "user_001",
-          template: "practice-message",
-          status: DeliveryStatus.SENT,
-        }),
-      })
-    );
+    expect(mockEmailLogCreate).not.toHaveBeenCalled();
   });
 
   it("does not call sendEmail even if messages exist", async () => {
@@ -290,14 +277,15 @@ describe("LOG_ONLY mode", () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
-  it("returns sent count equal to number of processed messages", async () => {
+  it("returns previews while sent remains zero", async () => {
     mockMessageFindMany.mockResolvedValue([
       makeQueuedMessage(),
       makeQueuedMessage({ id: "msg_002", user: { ...baseMessage().user, email: "b@example.com" } }),
     ]);
     const res = await POST(makeRequest({ mode: "LOG_ONLY" }));
     const body = await res.json();
-    expect(body.sent).toBe(2);
+    expect(body.sent).toBe(0);
+    expect(body.previews).toHaveLength(2);
     expect(body.failed).toBe(0);
   });
 });
@@ -436,8 +424,8 @@ describe("renderEmail (src/lib/cron/email-renderer)", () => {
       unsubscribeToken: "my-token",
       appUrl: "https://app.joinai.test",
     });
-    expect(out.html).toContain("/unsubscribe?token=my-token");
-    expect(out.text).toContain("/unsubscribe?token=my-token");
+    expect(out.html).toContain("/api/unsubscribe?token=my-token");
+    expect(out.text).toContain("/api/unsubscribe?token=my-token");
   });
 
   it("uses fallback note when unsubscribeToken is null", () => {
@@ -451,7 +439,7 @@ describe("renderEmail (src/lib/cron/email-renderer)", () => {
       unsubscribeToken: null,
       appUrl: "https://app.joinai.test",
     });
-    expect(out.html).not.toContain("/unsubscribe");
+    expect(out.html).not.toContain("/api/unsubscribe");
     expect(out.html).toContain("log in to your account");
   });
 

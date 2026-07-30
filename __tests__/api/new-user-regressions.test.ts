@@ -13,7 +13,7 @@
  *
  * Fix 3 — Starter stats correctness
  *   - LEVEL_XP_THRESHOLDS[0] is 0 (Level 1 starts at 0 XP)
- *   - xpMaxForLevel(1) returns 100 (threshold for Level 2)
+ *   - xpMaxForLevel(1) returns 300 (threshold for Level 2)
  *
  * Fix 4 — Feedback system
  *   - POST /api/feedback creates a FeedbackItem and returns 201
@@ -266,22 +266,23 @@ describe("Fix 3 — Starter stats correctness", () => {
     expect(LEVEL_XP_THRESHOLDS[0]).toBe(0);
   });
 
-  it("LEVEL_XP_THRESHOLDS[1] is 100 — Level 2 threshold is 100 XP", () => {
-    expect(LEVEL_XP_THRESHOLDS[1]).toBe(100);
+  it("LEVEL_XP_THRESHOLDS[1] is 300 — Level 2 threshold is 300 XP", () => {
+    expect(LEVEL_XP_THRESHOLDS[1]).toBe(300);
   });
 
-  it("xpMax for a level-1 user is the level-2 threshold (100)", () => {
+  it("xpMax for a level-1 user is the level-2 threshold (300)", () => {
     // Reproduce the xpMaxForLevel logic from account/page.tsx
     const currentLevel = 1;
     const xpMax = LEVEL_XP_THRESHOLDS[currentLevel] ?? LEVEL_XP_THRESHOLDS[LEVEL_XP_THRESHOLDS.length - 1] ?? 500;
-    expect(xpMax).toBe(100);
+    expect(xpMax).toBe(300);
   });
 
   it("a new user has level 1, 0 XP, 0 active days by default", () => {
     // These are the default values used when API fields are missing
-    const currentLevel = undefined ?? 1;
-    const xpTotal      = undefined ?? 0;
-    const daysActive   = undefined ?? 0;
+    const missing: number | undefined = undefined;
+    const currentLevel = missing ?? 1;
+    const xpTotal      = missing ?? 0;
+    const daysActive   = missing ?? 0;
     expect(currentLevel).toBe(1);
     expect(xpTotal).toBe(0);
     expect(daysActive).toBe(0);

@@ -55,7 +55,7 @@ const mockEmail = sendFirstLessonEmail as jest.MockedFunction<typeof sendFirstLe
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const fakeSession = { userId: "u_ob_001", email: "seeker@test.com", role: "USER", iat: Date.now() };
-const updatedUser  = makeUser({ onboardingDone: true });
+const updatedUser  = makeUser({ onboardingDone: true, emailOptIn: true });
 
 const step1Lesson = {
   id:                  "lesson_step1_template",
@@ -164,6 +164,13 @@ describe("POST /api/onboarding/save (Phase 3 — eager Step 1 creation)", () => 
       updatedUser.displayName,
       undefined,
     );
+  });
+
+  it("does not send the first-lesson email when the user opted out", async () => {
+    (mockDb.user.update as jest.Mock).mockResolvedValue(makeUser({ onboardingDone: true, emailOptIn: false }));
+    const req = authRequest({ answers: fullAnswers });
+    await POST(req as any);
+    expect(mockEmail).not.toHaveBeenCalled();
   });
 
   // ─── preferred_language → User.preferredLocale ────────────────────────────────

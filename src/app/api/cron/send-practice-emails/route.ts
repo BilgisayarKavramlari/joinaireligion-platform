@@ -8,10 +8,9 @@
  * Modes (pass as ?mode= query param):
  *   DRY_RUN  (default) — selects eligible messages, renders emails, returns a
  *            preview payload.  No database mutations.  Safe to call at any time.
- *   LOG_ONLY — renders emails and writes EmailLog records but does not call any
- *            external email provider.  Marks messages SENT in the database so
- *            they are not re-queued on the next run.
- *   LIVE     — same as LOG_ONLY but also calls the configured email provider.
+ *   LOG_ONLY — renders previews but does not call an external provider or mark
+ *            messages delivered. This keeps them safely queued for LIVE mode.
+ *   LIVE     — calls the configured email provider and records the result.
  *            Only activates when isSendingEnabled() returns true
  *            (EMAIL_SENDING_ENABLED=true + RESEND_API_KEY + EMAIL_FROM set).
  *            If isSendingEnabled() is false, falls back to LOG_ONLY silently.
@@ -68,6 +67,8 @@ const messageSelect = {
       email: true,
       displayName: true,
       preferredEmailLocale: true,
+      emailOptIn: true,
+      unsubscribedAt: true,
       unsubscribeToken: true,
     },
   },
@@ -165,6 +166,25 @@ export async function POST(request: Request): Promise<Response> {
   let skippedCount = 0;
 
   for (const msg of messages) {
+    if (!msg.user.emailOptIn || msg.user.unsubscribedAt) {
+      skippedCount++;
+      if (mode !== "DRY_RUN") {
+        await db.practiceMessage.update({
+          where: { id: msg.id },
+          data: { deliveryStatus: DeliveryStatus.SKIPPED },
+        });
+        await db.emailLog.create({
+          data: {
+            userId: msg.userId,
+            template: "practice-message",
+            status: "SKIPPED",
+            metadata: { reason: "email_preference_disabled", messageId: msg.id, mode },
+          },
+        });
+      }
+      continue;
+    }
+
     // Skip messages with missing content (should not happen in production)
     if (!msg.subject || !msg.bodyHtml || !msg.bodyText) {
       skippedCount++;
@@ -215,7 +235,21 @@ export async function POST(request: Request): Promise<Response> {
       continue;
     }
 
-    // ── LOG_ONLY / LIVE ────────────────────────────────────────────────────────
+    // LOG_ONLY is diagnostic: keep the message queued so enabling LIVE later
+    // cannot silently lose a notification that was never actually delivered.
+    if (mode === "LOG_ONLY") {
+      previews.push({
+        messageId: msg.id,
+        userId: msg.userId,
+        to: msg.user.email,
+        subject: rendered.subject,
+        htmlLength: rendered.html.length,
+        textLength: rendered.text.length,
+      });
+      continue;
+    }
+
+    // ── LIVE ──────────────────────────────────────────────────────────────────
     let providerMsgId: string | null = null;
     let sendError: string | null = null;
 
@@ -235,10 +269,7 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    const deliveryStatus =
-      sendingActive && sendError
-        ? DeliveryStatus.FAILED
-        : DeliveryStatus.SENT;
+    const deliveryStatus = sendError ? DeliveryStatus.FAILED : DeliveryStatus.SENT;
 
     // Update PracticeMessage status
     await db.practiceMessage.update({
@@ -299,6 +330,6 @@ export async function POST(request: Request): Promise<Response> {
     sent: sentCount,
     failed: failedCount,
     skipped: skippedCount,
-    ...(mode === "DRY_RUN" ? { previews } : {}),
+    ...(mode !== "LIVE" ? { previews } : {}),
   });
 }

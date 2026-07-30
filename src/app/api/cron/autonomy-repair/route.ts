@@ -234,6 +234,7 @@ const eligibleUserSelect = {
   currentLevel: true,
   xpTotal: true,
   emailVerifiedAt: true,
+  emailOptIn: true,
   unsubscribedAt: true,
   subscription: { select: { status: true } },
   profile: { select: { tradition: true, intent: true, bio: true, timezone: true } },
@@ -268,7 +269,7 @@ async function regenerateMissingPractices(agentRunId: string): Promise<RepairRes
 
   // Fetch candidate users
   const candidates = await db.user.findMany({
-    where: { emailVerifiedAt: { not: null }, unsubscribedAt: null },
+    where: { emailVerifiedAt: { not: null }, emailOptIn: true, unsubscribedAt: null },
     select: eligibleUserSelect,
     take: 500,
   });

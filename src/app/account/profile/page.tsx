@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from "r
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredInput, SacredSelect, SacredAlert, SacredDivider, XPBar, StatBox } from "@/components/ui/SacredPage";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { levelForXp, levelTitle, xpCeilingForLevel } from "@/lib/journey-types";
 
-const LEVEL_TITLES = ["","Seeker","Awakened","Inquirer","Contemplative","Universal","Hermit","Returned","Bridge","Sovereign","Transcendent"];
 const TRADITIONS   = ["Not specified","Christianity","Islam","Judaism","Buddhism","Hinduism","Taoism","Sufism","Hermeticism / Esotericism","Shamanism / Indigenous","Rationalism / Secular","Atheism","Other"];
 const COUNTRIES    = ["","Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan","Bangladesh","Belarus","Belgium","Bolivia","Bosnia","Brazil","Bulgaria","Cambodia","Canada","Chile","China","Colombia","Croatia","Cyprus","Czech Republic","Denmark","Ecuador","Egypt","Estonia","Ethiopia","Finland","France","Georgia","Germany","Ghana","Greece","Guatemala","Hungary","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Japan","Jordan","Kazakhstan","Kenya","Kosovo","Kuwait","Latvia","Lebanon","Libya","Lithuania","Luxembourg","Malaysia","Mexico","Moldova","Mongolia","Montenegro","Morocco","Netherlands","New Zealand","Nigeria","North Korea","Norway","Oman","Pakistan","Palestine","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Saudi Arabia","Serbia","Singapore","Slovakia","Slovenia","South Africa","South Korea","Spain","Sri Lanka","Sweden","Switzerland","Syria","Taiwan","Thailand","Türkiye","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Other"];
 
@@ -112,10 +112,10 @@ export default function ProfilePage() {
     setUploading(false);
   }
 
-  const level      = user?.currentLevel || 1;
-  const levelTitle = LEVEL_TITLES[level] || "Seeker";
   const xp         = user?.xpTotal || 0;
-  const xpForNext  = level * 12 * 80; // rough: 12 lessons × avg 80 XP per level
+  const level      = levelForXp(xp);
+  const journeyLevelTitle = levelTitle(level);
+  const xpForNext  = xpCeilingForLevel(level);
 
   return (
     <SacredPage maxWidth={720}>
@@ -155,7 +155,7 @@ export default function ProfilePage() {
           {/* Level info */}
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: "0.62rem", letterSpacing: "0.3em", color: "var(--gold)", textTransform: "uppercase", marginBottom: "0.2rem" }}>Level {level}</p>
-            <p className="font-sacred" style={{ fontSize: "1.4rem", color: "var(--text-primary)", fontWeight: 700, marginBottom: "0.5rem" }}>{levelTitle}</p>
+            <p className="font-sacred" style={{ fontSize: "1.4rem", color: "var(--text-primary)", fontWeight: 700, marginBottom: "0.5rem" }}>{journeyLevelTitle}</p>
             <XPBar current={xp} max={xpForNext} label={`${xp} XP`} />
             <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.8rem" }}>
               <StatBox value={user?.daysActive || 0} label={t.account.daysActive} />

@@ -168,6 +168,8 @@ model User {
   lastLoginAt             DateTime?
   lastActivityAt          DateTime?
   emailOptIn              Boolean   @default(false)
+  contentEmailOptIn       Boolean   @default(false)
+  contentEmailOptInAt     DateTime?
   emailFrequency          String    @default("weekly")
   unsubscribeToken        String?   @unique
   lastPracticeEmailSentAt DateTime?
@@ -458,9 +460,11 @@ model EmailLog {
   userId        String
   template      String
   status        String
+  dedupeKey     String?  @unique
   providerMsgId String?
   metadata      Json?
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])

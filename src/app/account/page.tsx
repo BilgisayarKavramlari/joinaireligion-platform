@@ -6,31 +6,8 @@ import { useRouter } from "next/navigation";
 import { SacredPage, SacredCard, XPBar, StatBox } from "@/components/ui/SacredPage";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
-import { LEVEL_XP_THRESHOLDS } from "@/lib/journey-types";
+import { levelForXp, levelTitle, xpCeilingForLevel } from "@/lib/journey-types";
 import { getJourneyPlannerCopy } from "@/lib/journey-planner-copy";
-
-// ─── Level display names (matches LEVEL_XP_THRESHOLDS, 1-indexed) ─────────────
-const LEVEL_NAMES: Record<number, string> = {
-  1:  "Seeker",
-  2:  "Pilgrim",
-  3:  "Inquirer",
-  4:  "Initiate",
-  5:  "Devotee",
-  6:  "Adept",
-  7:  "Sage",
-  8:  "Luminary",
-  9:  "Awakened",
-  10: "Illuminate",
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** XP required to reach the next level; returns the max threshold when at cap. */
-function xpMaxForLevel(currentLevel: number): number {
-  // LEVEL_XP_THRESHOLDS is 0-indexed; element at index [currentLevel] is the
-  // threshold for level (currentLevel + 1).
-  return LEVEL_XP_THRESHOLDS[currentLevel] ?? LEVEL_XP_THRESHOLDS[LEVEL_XP_THRESHOLDS.length - 1] ?? 500;
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,11 +37,11 @@ export default function AccountPage() {
   const tierLabel   = tier === "Free" ? "Wanderer" : tier.charAt(0).toUpperCase() + tier.slice(1);
 
   // Real account stats — default to clean new-user state (level 1, 0 XP, 0 days)
-  const currentLevel = user?.currentLevel ?? 1;
   const xpTotal      = user?.xpTotal      ?? 0;
+  const currentLevel = levelForXp(xpTotal);
   const daysActive   = user?.daysActive   ?? 0;
-  const xpMax        = xpMaxForLevel(currentLevel);
-  const levelName    = LEVEL_NAMES[currentLevel] ?? `Level ${currentLevel}`;
+  const xpMax        = xpCeilingForLevel(currentLevel);
+  const levelName    = levelTitle(currentLevel);
 
   const NAV_ITEMS = [
     { href: "/account/profile",     icon: "⚗️",  label: t.account.profile,      desc: t.account.profileDesc      },
@@ -106,7 +83,7 @@ export default function AccountPage() {
             {t.account.welcomeBack.replace("{name}", displayName)}
           </h1>
           <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)" }}>
-            {user?.email || "Your sacred account"} · Tier:{" "}
+            {user?.email || "Your sacred account"} · Membership:{" "}
             <span style={{ color: "var(--gold-light)" }}>{tierLabel}</span>
           </p>
         </div>

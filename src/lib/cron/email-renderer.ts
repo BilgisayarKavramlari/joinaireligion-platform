@@ -87,7 +87,7 @@ function responseUrl(appUrl: string, messageId: string): string {
 }
 
 function unsubscribeUrl(appUrl: string, token: string): string {
-  return `${appUrl}/unsubscribe?token=${encodeURIComponent(token)}`;
+  return `${appUrl}/api/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
 // ─── HTML injection ────────────────────────────────────────────────────────────

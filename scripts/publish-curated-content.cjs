@@ -58,7 +58,6 @@ async function main() {
     return;
   }
 
-  const publishedAt = new Date();
   const result = await db.$transaction(async (tx) => {
     const item = await tx.contentItem.create({
       data: {
@@ -67,14 +66,14 @@ async function main() {
         category,
         contentType,
         difficulty: typeof payload.difficulty === "string" ? payload.difficulty : "intermediate",
-        status: ContentWorkflowStatus.PUBLISHED,
+        status: ContentWorkflowStatus.READY,
         sourceSummary: {
           source: "owner_authorized_editorial",
           purpose: "medium_launch_and_canonical_site_publication",
         },
-        publishabilityDecision: "PUBLISHED_AFTER_OWNER_AUTHORIZED_EDITORIAL_REVIEW",
+        publishabilityDecision: "AWAITING_REQUIRED_MULTILINGUAL_COVERAGE",
         aggregateMetrics: { qualityScore: 95, localeCoverage: 1 },
-        publishedAt,
+        publishedAt: null,
       },
     });
 
@@ -90,7 +89,7 @@ async function main() {
         seoDescription,
         faqBlocks: [],
         qualityScore: 95,
-        publishedAt,
+        publishedAt: null,
       },
     });
 
@@ -125,7 +124,7 @@ async function main() {
   });
 
   console.log(JSON.stringify({
-    status: "published",
+    status: "staged_for_multilingual_backfill",
     contentItemId: result.item.id,
     variantId: result.variant.id,
     url: `https://joinaireligion.com/content/${locale}/${slug}`,

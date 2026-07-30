@@ -4,20 +4,12 @@ import { env } from "@/lib/env";
 export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "pinterest" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
-export const SOCIAL_LANGUAGE_POLICY_VERSION = "v2";
+export const SOCIAL_LANGUAGE_POLICY_VERSION = "v3";
 
 type LocaleWeight = { locale: SocialLocale; weight: number };
 
 const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[]> = {
-  mastodon: [
-    { locale: "tr", weight: 80 },
-    { locale: "en", weight: 10 },
-    { locale: "es", weight: 2 },
-    { locale: "de", weight: 2 },
-    { locale: "fr", weight: 2 },
-    { locale: "ru", weight: 2 },
-    { locale: "zh", weight: 2 },
-  ],
+  mastodon: [{ locale: "tr", weight: 100 }],
   bluesky: [
     { locale: "en", weight: 75 },
     { locale: "tr", weight: 10 },

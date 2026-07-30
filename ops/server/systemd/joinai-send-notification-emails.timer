@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI consent-aware lesson and content notification emails
+
+[Timer]
+OnCalendar=*-*-* *:05/10:00 UTC
+Persistent=true
+Unit=joinai-agent@send-notification-emails.service
+
+[Install]
+WantedBy=timers.target

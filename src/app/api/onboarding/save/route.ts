@@ -93,12 +93,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 5. Fire first-lesson email (non-blocking, includes lesson content) ─────
-    sendFirstLessonEmail(
-      updatedUser.email,
-      userId,
-      updatedUser.displayName,
-      step1Lesson ?? undefined,
-    ).catch(console.error);
+    if (updatedUser.emailOptIn) {
+      sendFirstLessonEmail(
+        updatedUser.email,
+        userId,
+        updatedUser.displayName,
+        step1Lesson ?? undefined,
+      ).catch(console.error);
+    }
 
     return NextResponse.json({ ok: true, next: "/lessons" });
   } catch (error) {

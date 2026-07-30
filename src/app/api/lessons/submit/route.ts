@@ -5,6 +5,7 @@ import { enforceLearningAccess } from "@/lib/access";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { resolveEntitlements } from "@/lib/membership";
 import { persistPersonalizedLesson } from "@/lib/lessons/personalized";
+import { levelForXp, levelTitle } from "@/lib/journey-types";
 
 // Passing thresholds by level
 function passingScore(level: number): number {
@@ -232,12 +233,10 @@ ${promptText.trim()}
         data: { status: "COMPLETED", completedAt: now, xpEarned: xp },
       });
 
-      // Count completed lessons
-      const completedCount = await db.userLesson.count({ where: { userId, status: "COMPLETED" } });
       const newXp = (user.xpTotal || 0) + xp;
 
-      // Level up every 12 completed lessons
-      const newLevel = Math.min(10, Math.floor(completedCount / 12) + 1);
+      // Journey level is derived from the single canonical XP progression.
+      const newLevel = levelForXp(newXp);
       const leveledUp = newLevel > user.currentLevel;
 
       await db.user.update({
@@ -250,9 +249,8 @@ ${promptText.trim()}
       });
 
       if (leveledUp) {
-        const levelLabels = ["","Seeker","Awakened","Inquirer","Contemplative","Universal","Hermit","Returned","Bridge","Sovereign","Transcendent"];
         await db.journeyLevel.create({
-          data: { userId, level: newLevel, label: levelLabels[newLevel] || `Level ${newLevel}` },
+          data: { userId, level: newLevel, label: levelTitle(newLevel) },
         });
       }
 

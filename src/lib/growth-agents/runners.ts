@@ -263,7 +263,7 @@ async function generateTranslatedVariant(
   dateKey: string
 ): Promise<{ variant: LocalizedContentVariant | null; error: string | null }> {
   const sourceFaq = parseFaqBlocks(source.faqBlocks) || [];
-  const systemPrompt = `Translate one already-published Join AI Religion article faithfully into ${LOCALE_NAMES[locale]}. Preserve its educational meaning, headings, caution, and factual scope. Do not introduce new claims, spiritual authority, doctrine, therapy, medical, legal, financial, political, or superiority claims. Keep the body substantial and natural in the target language. Return only one JSON object with title, summary, bodyMarkdown, seoTitle, seoDescription, and faqBlocks (at least two translated question/answer objects).`;
+  const systemPrompt = `Translate one Join AI Religion article faithfully into ${LOCALE_NAMES[locale]}. Preserve its educational meaning, headings, caution, and factual scope. Do not introduce new claims, spiritual authority, doctrine, therapy, medical, legal, financial, political, or superiority claims. Keep the body substantial and natural in the target language. Return only one JSON object with title, summary, bodyMarkdown, seoTitle, seoDescription, and faqBlocks (at least two translated question/answer objects).`;
   const userPrompt = JSON.stringify({
     targetLocale: locale,
     sourceLocale: "en",
@@ -568,19 +568,19 @@ export async function runContentPublisher(now = new Date()): Promise<GrowthAgent
 }
 
 export async function runContentLocaleBackfill(now = new Date()): Promise<GrowthAgentResult> {
-  return executeAgent("content-locale-backfill", "BACKFILL_PUBLISHED_CONTENT_LOCALES", now, async (agentRunId) => {
-    const targetLocales = ["ru", "zh"] as const satisfies readonly SupportedContentLocale[];
-    const publishedItems = await db.contentItem.findMany({
-      where: { status: ContentWorkflowStatus.PUBLISHED },
-      orderBy: { publishedAt: "asc" },
+  return executeAgent("content-locale-backfill", "BACKFILL_REQUIRED_CONTENT_LOCALES", now, async (agentRunId) => {
+    const targetLocales = SUPPORTED_CONTENT_LOCALES;
+    const incompleteItems = await db.contentItem.findMany({
+      where: { status: { in: [ContentWorkflowStatus.READY, ContentWorkflowStatus.PUBLISHED] } },
+      orderBy: { createdAt: "asc" },
       take: 100,
       include: { variants: { orderBy: { locale: "asc" } } },
     });
-    const candidate = publishedItems.find((item) => {
+    const candidate = incompleteItems.find((item) => {
       const available = new Set(item.variants.map((variant) => variant.locale));
-      return targetLocales.some((locale) => !available.has(locale));
+      return available.has("en") && targetLocales.some((locale) => !available.has(locale));
     });
-    if (!candidate) return { backfilled: 0, skipped: true, reason: "all_published_content_locales_complete" };
+    if (!candidate) return { backfilled: 0, skipped: true, reason: "all_required_content_locales_complete" };
 
     const source = candidate.variants.find((variant) => variant.locale === "en");
     if (!source) {
@@ -617,6 +617,7 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
       };
     }
 
+    const remainsPublished = candidate.status === ContentWorkflowStatus.PUBLISHED;
     await db.$transaction([
       ...newVariants.map((variant) => db.contentVariant.create({
         data: {
@@ -630,29 +631,47 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
           seoDescription: variant.seoDescription,
           faqBlocks: asInputJson(variant.faqBlocks),
           qualityScore: gate.localeScores[variant.locale],
-          publishedAt: candidate.publishedAt || now,
+          publishedAt: remainsPublished ? candidate.publishedAt || now : null,
         },
       })),
+      db.contentItem.update({
+        where: { id: candidate.id },
+        data: {
+          status: remainsPublished ? ContentWorkflowStatus.PUBLISHED : ContentWorkflowStatus.DRAFT,
+          publishabilityDecision: remainsPublished
+            ? "PUBLISHED_MULTILINGUAL_COVERAGE_REPAIRED"
+            : "MULTILINGUAL_COVERAGE_COMPLETE_AWAITING_PUBLICATION_GATE",
+          aggregateMetrics: asInputJson({
+            ...asRecord(candidate.aggregateMetrics),
+            qualityScore: gate.qualityScore,
+            localeCoverage: combined.length,
+          }),
+        },
+      }),
       db.contentModerationDecision.create({
         data: {
           contentItemId: candidate.id,
           agentRunId,
           outcome: ContentModerationOutcome.PASS,
           riskLevel: "LOW",
-          reasons: asInputJson(["published_locale_backfill_passed_independent_gate", ...missingLocales.map((locale) => `locale_added:${locale}`)]),
+          reasons: asInputJson(["required_locale_backfill_passed_independent_gate", ...missingLocales.map((locale) => `locale_added:${locale}`)]),
           qualityScores: asInputJson(gate.localeScores),
         },
       }),
     ]);
 
-    const urls = newVariants.map(
-      (variant) => `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`
-    );
+    const urls = remainsPublished
+      ? newVariants.map((variant) => `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`)
+      : [];
     let indexNow: { submitted: number; accepted: boolean; status: number | null } | { error: string };
-    try {
-      indexNow = await submitIndexNowUrls(urls);
-    } catch (error) {
-      indexNow = { error: safeError(error) };
+    if (urls.length > 0) {
+      try {
+        indexNow = await submitIndexNowUrls(urls);
+      } catch (error) {
+        indexNow = { error: safeError(error) };
+      }
+    } else {
+      indexNow = { submitted: 0, accepted: true, status: null };
     }
 
     return {
@@ -660,6 +679,7 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
       contentItemId: candidate.id,
       locales: newVariants.map((variant) => variant.locale),
       qualityScore: gate.qualityScore,
+      status: remainsPublished ? ContentWorkflowStatus.PUBLISHED : ContentWorkflowStatus.DRAFT,
       urls,
       indexNow,
     };

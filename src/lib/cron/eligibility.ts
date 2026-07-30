@@ -5,7 +5,8 @@
  * when.  No database calls — designed for easy unit testing.
  *
  * Rules:
- *   - Eligible: emailVerifiedAt is not null AND unsubscribedAt is null
+ *   - Eligible: emailVerifiedAt is not null, practice email is enabled,
+ *               and the user has not globally unsubscribed
  *   - Cadence:  ACTIVE Initiate subscription → DAILY
  *               all others                   → WEEKLY
  *   - Daily scheduled date:  today at UTC midnight
@@ -21,6 +22,7 @@ import { resolveEntitlements } from "@/lib/membership";
 /** Minimal user shape required to compute eligibility and cadence. */
 export type EligibilityUser = {
   emailVerifiedAt: Date | null;
+  emailOptIn: boolean;
   unsubscribedAt: Date | null;
   subscription: { status: SubscriptionStatus; planCode?: string | null; providerPriceId?: string | null } | null;
 };
@@ -32,10 +34,11 @@ export type EligibilityUser = {
  *
  * Conditions:
  *   1. Email must be verified (emailVerifiedAt !== null).
- *   2. User must not have unsubscribed (unsubscribedAt === null).
+ *   2. Lesson/practice email preference must be enabled.
+ *   3. User must not have globally unsubscribed (unsubscribedAt === null).
  */
 export function isEligible(user: EligibilityUser): boolean {
-  return user.emailVerifiedAt !== null && user.unsubscribedAt === null;
+  return user.emailVerifiedAt !== null && user.emailOptIn && user.unsubscribedAt === null;
 }
 
 // ─── Cadence ──────────────────────────────────────────────────────────────────

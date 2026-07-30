@@ -79,12 +79,13 @@ describe("Bluesky social provider helpers", () => {
         const locale = selectProviderLocale(provider, seed);
         if (locale) counts[provider][locale] += 1;
       }
-      if (provider !== "instagram" && provider !== "pinterest") {
+      if (provider !== "instagram" && provider !== "pinterest" && provider !== "mastodon") {
         for (const locale of SOCIAL_LOCALES) expect(counts[provider][locale]).toBeGreaterThan(0);
       }
     }
 
-    expect(counts.mastodon.tr).toBeGreaterThan(counts.mastodon.en);
+    expect(counts.mastodon.tr).toBe(2_000);
+    expect(counts.mastodon.en).toBe(0);
     expect(counts.bluesky.en).toBeGreaterThan(counts.bluesky.tr);
     expect(counts.x.en).toBeGreaterThan(counts.x.tr);
     expect(counts.linkedin.en).toBeGreaterThan(counts.linkedin.tr);
@@ -97,7 +98,7 @@ describe("Bluesky social provider helpers", () => {
   });
 
   it("falls back to the highest-weight available locale", () => {
-    expect(selectProviderLocale("mastodon", "stable-seed", ["en", "zh"])).toBe("en");
+    expect(selectProviderLocale("mastodon", "stable-seed", ["en", "zh"])).toBeNull();
     expect(selectProviderLocale("bluesky", "stable-seed", ["tr", "zh"])).toBe("tr");
     expect(selectProviderLocale("x", "stable-seed", [])).toBeNull();
   });

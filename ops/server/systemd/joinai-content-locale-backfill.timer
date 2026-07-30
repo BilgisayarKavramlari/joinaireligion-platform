@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI required content locale backfill
+
+[Timer]
+OnCalendar=*-*-* *:10:00 UTC
+Persistent=true
+Unit=joinai-agent@content-locale-backfill.service
+
+[Install]
+WantedBy=timers.target

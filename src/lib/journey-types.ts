@@ -134,18 +134,38 @@ export const XP_PER_SCORE: Readonly<Record<number, number>> = {
   5: 50,
 } as const;
 
+/** XP required to advance one journey level. */
+export const XP_PER_LEVEL = 300;
+
+/** Maximum journey level. */
+export const MAX_LEVEL = 10;
+
+/** Stable display names for journey levels (membership plans are separate). */
+export const LEVEL_TITLES: Readonly<Record<number, string>> = {
+  1: "Seeker",
+  2: "Awakened",
+  3: "Inquirer",
+  4: "Contemplative",
+  5: "Universal",
+  6: "Hermit",
+  7: "Returned",
+  8: "Bridge",
+  9: "Sovereign",
+  10: "Transcendent",
+};
+
 /** Minimum XP total required to reach each level (1-indexed). */
 export const LEVEL_XP_THRESHOLDS: Readonly<number[]> = [
-  0,    // level 1  — starting level
-  100,  // level 2
-  250,  // level 3
-  500,  // level 4
-  900,  // level 5
-  1400, // level 6
-  2100, // level 7
-  3000, // level 8
-  4200, // level 9
-  5800, // level 10
+  0,    // level 1 — starting level
+  300,  // level 2
+  600,  // level 3
+  900,  // level 4
+  1200, // level 5
+  1500, // level 6
+  1800, // level 7
+  2100, // level 8
+  2400, // level 9
+  2700, // level 10
 ] as const;
 
 /** How many days without a response before a streak resets. */
@@ -178,6 +198,17 @@ export function levelForXp(xpTotal: number): number {
     }
   }
   return level;
+}
+
+/** Human-readable title for a journey level. */
+export function levelTitle(level: number): string {
+  return LEVEL_TITLES[level] ?? `Level ${level}`;
+}
+
+/** Total-XP ceiling displayed for the user's current level. */
+export function xpCeilingForLevel(level: number): number {
+  if (level >= MAX_LEVEL) return LEVEL_XP_THRESHOLDS[MAX_LEVEL - 1];
+  return LEVEL_XP_THRESHOLDS[Math.max(1, level)] ?? XP_PER_LEVEL;
 }
 
 /**
