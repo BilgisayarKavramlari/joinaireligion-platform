@@ -28,7 +28,7 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
   exit 0
 fi
 
-response="$(curl --silent --show-error --fail-with-body --max-time 120 --retry 1 --retry-delay 3 \
+response="$(curl --silent --show-error --fail-with-body --max-time 300 --retry 1 --retry-delay 3 \
   -X POST \
   -H "Authorization: Bearer ${CRON_SECRET}" \
   -H "Content-Type: application/json" \

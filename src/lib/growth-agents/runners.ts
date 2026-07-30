@@ -590,9 +590,14 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
     const available = new Set(candidate.variants.map((variant) => variant.locale));
     const missingLocales = targetLocales.filter((locale) => !available.has(locale));
     const dateKey = utcDateKey(candidate.publishedAt || candidate.createdAt);
-    const translated = await Promise.all(
-      missingLocales.map((locale) => generateTranslatedVariant(locale, source, dateKey))
-    );
+    // Keep translation concurrency deliberately low. The model provider can
+    // throttle a six-language burst, while pairs remain fast and reliable.
+    const translated: Awaited<ReturnType<typeof generateTranslatedVariant>>[] = [];
+    for (let index = 0; index < missingLocales.length; index += 2) {
+      translated.push(...await Promise.all(
+        missingLocales.slice(index, index + 2).map((locale) => generateTranslatedVariant(locale, source, dateKey))
+      ));
+    }
     const errors = translated.flatMap((result, index) =>
       result.variant ? [] : [`${missingLocales[index]}:${result.error || "translation_failed"}`]
     );
