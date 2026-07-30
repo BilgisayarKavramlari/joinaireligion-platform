@@ -22,6 +22,33 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.2.2",
+    status: "released",
+    releasedAt: "2026-07-30",
+    copy: {
+      en: {
+        title: "Clear billing records and a steadier learning journey",
+        summary: "A reliability and presentation release for payments, personalized lessons, multilingual insights, and social publishing.",
+        highlights: [
+          "Account payment history now shows real amounts, statuses, and Stripe receipts",
+          "Personalized lessons are idempotent and historical duplicate steps appear only once",
+          "Lesson headings, paragraphs, phases, and inline emphasis render cleanly",
+          "Insights follow the selected language, while Instagram uses English-first 4:5 visual publishing",
+        ],
+      },
+      tr: {
+        title: "Açık ödeme kayıtları ve daha istikrarlı öğrenme yolculuğu",
+        summary: "Ödemeler, kişiselleştirilmiş dersler, çok dilli içgörüler ve sosyal yayınlar için güvenilirlik ve sunum sürümü.",
+        highlights: [
+          "Hesap ödeme geçmişi artık gerçek tutarları, durumları ve Stripe makbuzlarını gösteriyor",
+          "Kişiselleştirilmiş dersler tekilleştirildi; geçmişteki çift adımlar arayüzde yalnızca bir kez görünüyor",
+          "Ders başlıkları, paragrafları, aşamaları ve satır içi vurgular temiz biçimde görüntüleniyor",
+          "İçgörüler seçili dili izliyor; Instagram İngilizce öncelikli 4:5 görsellerle yayın yapıyor",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.2.1",
     status: "released",
     releasedAt: "2026-07-30",
