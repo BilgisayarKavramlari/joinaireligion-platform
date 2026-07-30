@@ -14,9 +14,11 @@ This file stores public, non-secret account identifiers and connection state onl
 | Instagram | Live Professional account: `joinaireligion` | Live image publishing verified | Routine Page-token and asset-link health only |
 | X | Brand account tab exists but its public handle is not independently verified | Text adapter exists behind `X_PUBLISHING_ENABLED`; credentials absent | Verify handle, select an X API plan, create app, grant `tweet.write` OAuth access |
 | LinkedIn | No Join AI Religion organization Page verified | Text adapter exists behind `LINKEDIN_PUBLISHING_ENABLED`; credentials absent | Create organization Page and obtain Community Management access |
-| Threads | No public profile verified | Text adapter implemented behind `THREADS_PUBLISHING_ENABLED`; credentials absent | Activate from the brand Instagram account, add the Threads use case, grant `threads_basic` and `threads_content_publish` |
+| Threads | Live: `@joinaireligion` | Live text publishing verified; long-lived user token installed and hourly provider switch enabled | Routine token-expiry monitoring and refresh |
 | TikTok | Not opened | Adapter not implemented | Create Business account, then Content Posting API review |
 
 ## Release rule
 
 Each platform is independent. Missing or failed providers do not pause providers that have passed their canary. A provider is added to scheduled publishing only after its public identifier is confirmed, its scoped credential is stored only in the production secret store, its provider switch is explicitly enabled, and one delivery result is externally verified.
+
+Threads canary verification: `https://www.threads.com/@joinaireligion/post/DbZapNrgKm6`.
