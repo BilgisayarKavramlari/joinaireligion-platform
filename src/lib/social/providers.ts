@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { env } from "@/lib/env";
 
-export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "bluesky";
+export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "pinterest" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
 export const SOCIAL_LANGUAGE_POLICY_VERSION = "v1";
@@ -66,6 +66,15 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
   threads: [
     { locale: "en", weight: 75 },
     { locale: "tr", weight: 15 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
+  ],
+  pinterest: [
+    { locale: "en", weight: 85 },
+    { locale: "tr", weight: 5 },
     { locale: "es", weight: 2 },
     { locale: "de", weight: 2 },
     { locale: "fr", weight: 2 },
@@ -218,6 +227,11 @@ export function getConfiguredSocialProviders(): SocialProviderName[] {
   if (env.FACEBOOK_PUBLISHING_ENABLED === "true" && metaConfigured && env.META_PAGE_ID) providers.push("facebook");
   if (env.INSTAGRAM_PUBLISHING_ENABLED === "true" && metaConfigured && env.INSTAGRAM_USER_ID) providers.push("instagram");
   if (env.THREADS_PUBLISHING_ENABLED === "true" && env.THREADS_ACCESS_TOKEN) providers.push("threads");
+  if (
+    env.PINTEREST_PUBLISHING_ENABLED === "true"
+    && env.PINTEREST_ACCESS_TOKEN
+    && env.PINTEREST_BOARD_ID
+  ) providers.push("pinterest");
   if (env.BLUESKY_IDENTIFIER && env.BLUESKY_APP_PASSWORD) providers.push("bluesky");
   return providers;
 }
@@ -455,6 +469,50 @@ async function publishThreads(text: string): Promise<SocialPublicationResult> {
   return { provider: "threads", externalId: published.id, externalUrl: permalink };
 }
 
+async function publishPinterest(text: string): Promise<SocialPublicationResult> {
+  if (
+    env.PINTEREST_PUBLISHING_ENABLED !== "true"
+    || !env.PINTEREST_ACCESS_TOKEN
+    || !env.PINTEREST_BOARD_ID
+  ) {
+    throw new Error("Pinterest publication is not fully configured");
+  }
+  const contentUrl = requiredContentUrl(text);
+  const copyLines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && line !== contentUrl.toString() && !line.startsWith("#"));
+  const title = Array.from(copyLines[0] || "Join AI Religion reflection").slice(0, 100).join("");
+  const description = Array.from(copyLines.slice(1).join(" ") || title).slice(0, 800).join("");
+  const response = await fetch("https://api.pinterest.com/v5/pins", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.PINTEREST_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      board_id: env.PINTEREST_BOARD_ID,
+      title,
+      description,
+      alt_text: `${title}. Join AI Religion article cover.`,
+      link: contentUrl.toString(),
+      media_source: {
+        source_type: "image_url",
+        url: socialCardUrl(contentUrl),
+      },
+    }),
+    signal: timeoutSignal(),
+  });
+  if (!response.ok) throw new Error(`Pinterest publication failed with HTTP ${response.status}`);
+  const payload = await response.json() as { id?: string };
+  if (!payload.id) throw new Error("Pinterest publication returned no Pin id");
+  return {
+    provider: "pinterest",
+    externalId: payload.id,
+    externalUrl: `https://www.pinterest.com/pin/${encodeURIComponent(payload.id)}/`,
+  };
+}
+
 function metaGraphUrl(path: string): URL {
   const version = normalizeMetaGraphVersion(env.META_GRAPH_VERSION);
   return new URL(`https://graph.facebook.com/${version}/${path.replace(/^\//, "")}`);
@@ -621,5 +679,6 @@ export async function publishSocialPost(
   if (provider === "facebook") return publishFacebook(text);
   if (provider === "instagram") return publishInstagram(text);
   if (provider === "threads") return publishThreads(text);
+  if (provider === "pinterest") return publishPinterest(text);
   return publishBluesky(text);
 }

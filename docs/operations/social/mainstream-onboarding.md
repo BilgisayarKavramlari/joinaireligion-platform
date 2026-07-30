@@ -123,7 +123,34 @@ Official references: [Meta Threads Postman collection](https://www.postman.com/m
 
 Official references: [OAuth 2.0 PKCE](https://docs.x.com/fundamentals/authentication/oauth-2-0/user-access-token), [Create a Post](https://docs.x.com/x-api/posts/create-post).
 
-## 6. TikTok
+## 6. Pinterest
+
+Pinterest uses a two-stage access model. Trial Access is suitable for building and recording the OAuth/API demonstration, but Boards and Pins created by a Trial app are visible only to their creator. Public autonomous publishing remains disabled until Pinterest grants Standard Access.
+
+### Human gates
+
+1. Confirm the `joinaireligion` profile is a free Pinterest Business account.
+2. Register the Pinterest developer app with the public privacy policy and exact OAuth redirect URI.
+3. Obtain Trial Access and authorize only `boards:read`, `boards:write`, `pins:read`, and `pins:write`.
+4. Record the required OAuth and Trial Pin demonstration, then submit the Standard Access request.
+5. Approve one public image Pin canary after Standard Access is granted.
+
+### Secret names
+
+- `PINTEREST_APP_ID`
+- `PINTEREST_APP_SECRET`
+- `PINTEREST_ACCESS_TOKEN`
+- `PINTEREST_REFRESH_TOKEN`
+- `PINTEREST_BOARD_ID`
+- `PINTEREST_PUBLISHING_ENABLED` (starts `false`)
+
+### Connection order
+
+Business profile → developer app → Trial Access → OAuth grant → private Trial board/Pin → demo recording → Standard Access review → public board verification → public canary → provider switch → scheduled publishing. Access tokens must be refreshed within 30 days using the continuous refresh token.
+
+Official references: [Pinterest access tiers](https://developers.pinterest.com/docs/key-concepts/access-tiers/), [Pinterest OAuth](https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/), [Create Pin](https://developers.pinterest.com/docs/api/v5/pins-create/).
+
+## 7. TikTok
 
 TikTok is a separate media workflow, not a text-provider toggle. The Direct Post client must query creator information, display the creator's current privacy/comment/interaction options, obtain express consent for that upload, and poll the returned publication status. Unreviewed clients are restricted to private visibility; public autonomous posting stays disabled until TikTok completes its audit. Promotional watermarks, overlaid links, and promotional text in uploaded media are not permitted.
 

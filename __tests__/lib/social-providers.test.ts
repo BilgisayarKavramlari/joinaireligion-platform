@@ -18,6 +18,9 @@ jest.mock("@/lib/env", () => ({
     INSTAGRAM_PUBLISHING_ENABLED: "true",
     THREADS_ACCESS_TOKEN: "threads-test-token",
     THREADS_PUBLISHING_ENABLED: "true",
+    PINTEREST_ACCESS_TOKEN: "pinterest-test-token",
+    PINTEREST_BOARD_ID: "123456789",
+    PINTEREST_PUBLISHING_ENABLED: "true",
   },
 }));
 
@@ -57,7 +60,7 @@ describe("Bluesky social provider helpers", () => {
   });
 
   it("selects deterministic provider-specific locales with low-volume seven-language coverage", () => {
-    const providers: SocialProviderName[] = ["mastodon", "bluesky", "x", "linkedin", "facebook", "instagram", "threads"];
+    const providers: SocialProviderName[] = ["mastodon", "bluesky", "x", "linkedin", "facebook", "instagram", "threads", "pinterest"];
     const counts = Object.fromEntries(providers.map((provider) => [
       provider,
       Object.fromEntries(SOCIAL_LOCALES.map((locale) => [locale, 0])),
@@ -82,6 +85,7 @@ describe("Bluesky social provider helpers", () => {
     expect(counts.facebook.en).toBeGreaterThan(counts.facebook.tr);
     expect(counts.instagram.en).toBeGreaterThan(counts.instagram.tr);
     expect(counts.threads.en).toBeGreaterThan(counts.threads.tr);
+    expect(counts.pinterest.en).toBeGreaterThan(counts.pinterest.tr);
   });
 
   it("falls back to the highest-weight available locale", () => {
@@ -213,5 +217,34 @@ describe("Bluesky social provider helpers", () => {
     expect(createBody.get("media_type")).toBe("TEXT");
     expect(createBody.get("text")).toContain("https://joinaireligion.com/content/en/reflection-example");
     expect(mockFetch.mock.calls[2][0]).toBe("https://graph.threads.net/me/threads_publish");
+  });
+
+  it("creates a Pinterest image Pin from the approved locale-specific social card", async () => {
+    mockFetch.mockResolvedValue(new Response(JSON.stringify({ id: "pin-123" }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    const result = await publishSocialPost(
+      "pinterest",
+      "A careful reflection\n\nA concise summary for readers.\n\nhttps://joinaireligion.com/content/en/reflection-example",
+      "pinterest-idempotency-key",
+    );
+
+    expect(result).toEqual({
+      provider: "pinterest",
+      externalId: "pin-123",
+      externalUrl: "https://www.pinterest.com/pin/pin-123/",
+    });
+    const [url, request] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.pinterest.com/v5/pins");
+    expect((request.headers as Record<string, string>).Authorization).toBe("Bearer pinterest-test-token");
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.board_id).toBe("123456789");
+    expect(body.link).toBe("https://joinaireligion.com/content/en/reflection-example");
+    expect(body.media_source).toEqual({
+      source_type: "image_url",
+      url: "https://joinaireligion.com/social-card/en/reflection-example.jpg",
+    });
   });
 });

@@ -13,9 +13,9 @@ Production release observed: `8676e57`
 | Bounded social publisher | `LIVE` | Production timer is enabled and active. A successful systemd result may also mean a safe skip, so provider delivery records/public posts are the publication evidence. |
 | Mastodon / Mastoturk | Live publication verified | Public profile `https://mastoturk.org/@joinaireligion` existed with one post at the audit time. The adapter requires `MASTODON_BASE_URL` and `MASTODON_ACCESS_TOKEN`. |
 | Bluesky | Live publication verified | Public profile `https://bsky.app/profile/joinaireligion.bsky.social` existed with English, French, and Chinese posts. The adapter requires `BLUESKY_SERVICE_URL`, `BLUESKY_IDENTIFIER`, and `BLUESKY_APP_PASSWORD`. |
-| X | Adapter only; account not verified | The provider supports `X_BEARER_TOKEN` for listening and `X_USER_ACCESS_TOKEN` for publishing. `https://x.com/joinaireligion` returned 404 at audit time. |
+| X | Adapter only; account not verified | The provider supports OAuth 1.0a owner tokens or `X_USER_ACCESS_TOKEN`; paid API access was deferred by the owner on 2026-07-29. |
 | LinkedIn | Adapter only; live configuration not verified | The provider supports `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN`, and `LINKEDIN_VERSION`. No production account/delivery evidence was available to the restricted deployment operator. |
-| Pinterest | Account exists; no adapter | `https://www.pinterest.com/joinaireligion/` resolved to a profile. Pinterest is absent from `SocialProviderName`, environment configuration, composer channels, and publisher delivery handling. |
+| Pinterest | Account exists; adapter ready but disabled | Image Pin creation, locale-specific copy, social-card media, delivery records, and provider gating are implemented. Trial/Standard API access and credentials remain outstanding. |
 | YouTube | Not implemented | No provider adapter, environment contract, media pipeline, OAuth flow, or delivery type exists. |
 | Facebook and Instagram | Not implemented | No Meta Graph provider, environment contract, container/publish polling, or delivery type exists. |
 

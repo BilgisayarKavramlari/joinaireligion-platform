@@ -8,11 +8,11 @@ This file stores public, non-secret account identifiers and connection state onl
 | --- | --- | --- | --- |
 | Mastodon / MastoTurk | Live: `@joinaireligion@mastoturk.org` | Live publishing verified | Routine token health only |
 | Bluesky | Live: `joinaireligion.bsky.social` | Live publishing verified | Routine app-password health only |
-| Pinterest | Public profile previously verified: `joinaireligion` | Adapter not implemented | Pinterest developer/OAuth connection |
+| Pinterest | Public profile previously verified: `joinaireligion` | Image Pin adapter implemented and verified behind `PINTEREST_PUBLISHING_ENABLED`; credentials absent | Business-account check, Trial Access OAuth/demo, then Standard Access review |
 | YouTube | Owner-created channel: `@JoinAIReligion`; channel ID `UCumLEY1yAl6SHoEISqVCO9Q` | Video pipeline and OAuth not implemented | Google Cloud project, API audit, one-time OAuth |
 | Facebook | Live Page: `joinaireligion` | Live publishing verified | Routine Page-token health only |
 | Instagram | Live Professional account: `joinaireligion` | Live image publishing verified | Routine Page-token and asset-link health only |
-| X | Brand account tab exists but its public handle is not independently verified | Text adapter exists behind `X_PUBLISHING_ENABLED`; credentials absent | Verify handle, select an X API plan, create app, grant `tweet.write` OAuth access |
+| X | Brand account tab exists but its public handle is not independently verified | Text adapter exists behind `X_PUBLISHING_ENABLED`; credentials absent; owner deferred paid API access | Revisit only if pay-per-use API spending is approved |
 | LinkedIn | No Join AI Religion organization Page verified | Text adapter exists behind `LINKEDIN_PUBLISHING_ENABLED`; credentials absent | Create organization Page and obtain Community Management access |
 | Threads | Live: `@joinaireligion` | Live text publishing verified; long-lived user token installed and hourly provider switch enabled | Routine token-expiry monitoring and refresh |
 | TikTok | Not opened | Adapter not implemented | Create Business account, then Content Posting API review |

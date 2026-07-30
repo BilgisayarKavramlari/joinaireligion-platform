@@ -844,6 +844,7 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
           facebook: `${variant.title}\n\n${variant.summary}\n\nRead: ${contentUrl}`,
           instagram: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}\n\n#ReflectiveLearning #ResponsibleAI`,
           threads: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 500, "\n\n"),
+          pinterest: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}`,
         },
       };
     });
@@ -909,8 +910,11 @@ function readSocialDrafts(payload: unknown): Array<{
     const threads = typeof channels.threads === "string"
       ? channels.threads
       : (x.includes(contentUrl) ? x : buildRequiredUrlSocialCopy(x, contentUrl, 500, "\n\n"));
+    const pinterest = typeof channels.pinterest === "string"
+      ? channels.pinterest
+      : `${linkedin}\n\n${contentUrl}`;
     if (!linkedin || !x || !mastodon) return [];
-    return [{ locale: locale as SocialLocale, contentUrl, channels: { linkedin, x, mastodon, bluesky, facebook, instagram, threads } }];
+    return [{ locale: locale as SocialLocale, contentUrl, channels: { linkedin, x, mastodon, bluesky, facebook, instagram, threads, pinterest } }];
   });
 }
 
@@ -919,7 +923,7 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   if (!Array.isArray(deliveries)) return [];
   return deliveries.flatMap((delivery) => {
     const record = asRecord(delivery);
-    if (!(["mastodon", "x", "linkedin", "facebook", "instagram", "threads", "bluesky"] as string[]).includes(String(record.provider))) return [];
+    if (!(["mastodon", "x", "linkedin", "facebook", "instagram", "threads", "pinterest", "bluesky"] as string[]).includes(String(record.provider))) return [];
     if (record.status !== "PUBLISHED" && record.status !== "FAILED") return [];
     const locale = typeof record.locale === "string" && (SOCIAL_LOCALES as readonly string[]).includes(record.locale)
       ? record.locale as SocialLocale
