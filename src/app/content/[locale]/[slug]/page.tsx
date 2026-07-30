@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PublicHeader } from "@/components/PublicHeader";
 import { ContentEngagement } from "@/components/content/ContentEngagement";
 import { decodeContentRouteSegment } from "@/lib/content-routing";
 import { db } from "@/lib/db";
@@ -80,7 +79,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
   const faqData = faq.length ? { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } })) } : null;
 
   return (
-    <><PublicHeader /><main style={{ minHeight: "100vh", padding: "3.5rem 1.5rem 6rem", background: "radial-gradient(circle at 20% 0%, rgba(20,184,166,.1), transparent 35%), var(--bg-base)" }}>
+    <main style={{ minHeight: "100vh", padding: "3.5rem 1.5rem 6rem", background: "radial-gradient(circle at 20% 0%, rgba(20,184,166,.1), transparent 35%), var(--bg-base)" }}>
       <article style={{ maxWidth: 780, margin: "0 auto" }}>
         <Link href="/content" style={{ color: "var(--gold)", textDecoration: "none" }}>← All insights</Link>
         <p style={{ marginTop: "2rem", color: "var(--gold)", fontSize: ".65rem", letterSpacing: ".2em", textTransform: "uppercase" }}>{variant.contentItem.category} · {variant.locale.toUpperCase()}</p>
@@ -95,6 +94,6 @@ export default async function ContentDetailPage({ params }: PageProps) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
         {faqData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqData).replace(/</g, "\\u003c") }} />}
       </article>
-    </main></>
+    </main>
   );
 }

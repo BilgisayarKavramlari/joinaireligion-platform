@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PublicHeader } from "@/components/PublicHeader";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -27,7 +26,7 @@ export default async function ContentIndexPage() {
   });
 
   return (
-    <><PublicHeader /><main style={{ minHeight: "100vh", padding: "4rem 1.5rem 6rem", background: "radial-gradient(circle at 50% 0%, rgba(107,33,168,.16), transparent 42%), var(--bg-base)" }}>
+    <main style={{ minHeight: "100vh", padding: "4rem 1.5rem 6rem", background: "radial-gradient(circle at 50% 0%, rgba(107,33,168,.16), transparent 42%), var(--bg-base)" }}>
       <div style={{ maxWidth: 1050, margin: "0 auto" }}>
         <p style={{ color: "var(--gold)", letterSpacing: ".32em", textTransform: "uppercase", fontSize: ".7rem" }}>Living Külliyat</p>
         <h1 className="font-sacred" style={{ color: "var(--gold-light)", fontSize: "clamp(2.1rem,6vw,4.4rem)", margin: ".4rem 0" }}>Insights & Reflections</h1>
@@ -57,6 +56,6 @@ export default async function ContentIndexPage() {
           {items.length === 0 && <p style={{ color: "var(--text-muted)" }}>The first independently reviewed reflection is being prepared.</p>}
         </div>
       </div>
-    </main></>
+    </main>
   );
 }

@@ -4,6 +4,8 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSession } from "@/contexts/SessionContext";
+import { buildLandingFooterLinks } from "@/lib/public-navigation";
 
 /* ═══════════════════════════════════════════════════════
    SACRED GEOMETRY — Rotating SVG Mandala
@@ -496,7 +498,17 @@ function TraditionStar() {
 ═══════════════════════════════════════════════════════ */
 export default function LandingPage() {
   const { t } = useLanguage();
+  const { user, status: sessionStatus } = useSession();
   const L = t.landing;
+  const footerLinks = buildLandingFooterLinks({
+    pricing: t.nav.pricing,
+    donate: t.nav.donate,
+    promptGuide: t.nav.promptGuide,
+    updates: "Updates",
+    account: t.nav.account,
+    login: t.auth.login,
+    register: t.nav.register,
+  }, user ? "authenticated" : sessionStatus);
 
   const [xpVisible, setXpVisible] = useState(false);
   const consoleRef = useRef<HTMLDivElement>(null);
@@ -995,14 +1007,7 @@ export default function LandingPage() {
           {L.footerDesc}
         </p>
         <div style={{ display: "flex", gap: "1.5rem", justifyContent: "center", flexWrap: "wrap" }}>
-          {[
-            [t.nav.pricing, "/pricing"],
-            [t.nav.donate, "/donate"],
-            [t.nav.promptGuide, "/prompt-guide"],
-            ["Updates", "/updates"],
-            [t.auth.login, "/login"],
-            [t.nav.register, "/register"],
-          ].map(([label, href]) => (
+          {footerLinks.map(([label, href]) => (
             <Link key={href} href={href} className="nav-link" style={{ fontSize: "0.72rem" }}>{label}</Link>
           ))}
         </div>

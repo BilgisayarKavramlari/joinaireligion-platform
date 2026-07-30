@@ -81,11 +81,18 @@ export function slugify(value: string): string {
 
 function scoreVariant(variant: LocalizedContentVariant): number {
   let score = 100;
+  // Han-script copy conveys the same information with substantially fewer
+  // characters than space-delimited Latin/Cyrillic copy. Keep the safety and
+  // completeness checks identical, but use equivalent length floors so valid
+  // Simplified Chinese content is not systematically quarantined.
+  const minimumSummaryLength = variant.locale === "zh" ? 20 : 40;
+  const minimumBodyLength = variant.locale === "zh" ? 300 : 500;
+  const minimumSeoDescriptionLength = variant.locale === "zh" ? 25 : 50;
   if (variant.title.length < 10 || variant.title.length > 120) score -= 20;
-  if (variant.summary.length < 40 || variant.summary.length > 320) score -= 15;
-  if (variant.bodyMarkdown.length < 500) score -= 30;
+  if (variant.summary.length < minimumSummaryLength || variant.summary.length > 320) score -= 15;
+  if (variant.bodyMarkdown.length < minimumBodyLength) score -= 30;
   if (variant.seoTitle.length < 10 || variant.seoTitle.length > 70) score -= 10;
-  if (variant.seoDescription.length < 50 || variant.seoDescription.length > 180) score -= 10;
+  if (variant.seoDescription.length < minimumSeoDescriptionLength || variant.seoDescription.length > 180) score -= 10;
   if (variant.faqBlocks.length < 2) score -= 10;
   return Math.max(0, score);
 }
