@@ -45,7 +45,7 @@ const privacyCopy = {
         title: "2. Private journals and practice data",
         body: [
           "Personal journal entries, private practice notes, routine schedules, and check-ins are private account data. They are not public posts and are not used for advertising, SEO, social-media publishing, or public content generation.",
-          "Before private journal or private-note features are enabled, sensitive free-text fields must be protected with encryption and excluded from routine administrator views. Administrators do not receive routine access to their contents. Narrow, logged access may occur only when you request support, when needed to investigate a security incident, or when required by law.",
+          "Private journal and personal-plan free text is protected with authenticated encryption and excluded from routine administrator views. Administrators do not receive routine access to its contents. Narrow, logged access may occur only when you request support, when needed to investigate a security incident, or when required by law.",
         ],
       },
       {

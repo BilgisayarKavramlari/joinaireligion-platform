@@ -7,7 +7,7 @@ We log limited platform events for service delivery, quality, safety, fraud prev
 - **Public content:** published educational articles and explicitly public metadata.
 - **Operational data:** timestamps, delivery states, aggregate counters, error categories, and hashed identifiers needed to operate or secure the service.
 - **Private account data:** profile and onboarding answers, practice schedules, check-ins, support requests, guided-reflection submissions, and AI conversations.
-- **Sensitive private writing:** private journal entries and private practice-note text. These fields require the strongest access boundary and must be encrypted before the feature is enabled.
+- **Sensitive private writing:** private journal entries, personal-plan descriptions, and private practice-note text. These fields use application-level authenticated encryption and the strongest access boundary.
 
 Religious or philosophical worldview data and writing that may reveal health, trauma, or other intimate circumstances must be treated as sensitive personal data even when the user did not label it that way.
 
@@ -35,7 +35,7 @@ Religious or philosophical worldview data and writing that may reveal health, tr
 - Deletion removes content from active systems through an auditable, idempotent deletion job. Protected backups expire according to the backup-retention schedule; private writing must not be copied into a longer-lived analytics or agent store.
 - Billing, fraud-prevention, and legally required records must be separated from private writing and retained only for their independent purpose.
 - Export must produce user-readable journal files and structured check-in data without including another user's data, internal secrets, or unrelated operational logs. Export links must be authenticated, short-lived, and single-user scoped.
-- Until self-service export or deletion controls exist, verified requests from the registered email address must be handled through the published legal contact path.
+- Self-service export, deletion, and 30-day, 90-day, 365-day, or keep-until-deleted controls are available in the personal journey interface. Verified legal-contact requests remain available as a fallback.
 
 ## AI processing and derived data
 

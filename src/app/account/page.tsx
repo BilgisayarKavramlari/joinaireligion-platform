@@ -7,6 +7,7 @@ import { SacredPage, SacredCard, XPBar, StatBox } from "@/components/ui/SacredPa
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
 import { LEVEL_XP_THRESHOLDS } from "@/lib/journey-types";
+import { getJourneyPlannerCopy } from "@/lib/journey-planner-copy";
 
 // ─── Level display names (matches LEVEL_XP_THRESHOLDS, 1-indexed) ─────────────
 const LEVEL_NAMES: Record<number, string> = {
@@ -36,7 +37,8 @@ function xpMaxForLevel(currentLevel: number): number {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AccountPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const plannerCopy = getJourneyPlannerCopy(lang);
   const router = useRouter();
   const { user, status } = useSession();
 
@@ -68,6 +70,7 @@ export default function AccountPage() {
     { href: "/account/profile",     icon: "⚗️",  label: t.account.profile,      desc: t.account.profileDesc      },
     { href: "/account/billing",     icon: "💎",  label: t.account.membership,   desc: t.account.membershipDesc   },
     { href: "/prompt-guide",        icon: "🧭",  label: t.account.yourJourney,  desc: t.account.yourJourneyDesc  },
+    { href: "/account/journey",     icon: "📅",  label: plannerCopy.navTitle,    desc: plannerCopy.navDescription },
     { href: "/account/support",     icon: "💬",  label: t.account.support,      desc: t.account.supportDesc      },
     { href: "/account/invoices",    icon: "📜",  label: t.account.invoices,     desc: t.account.invoicesDesc     },
     { href: "/account/preferences", icon: "🌐",  label: t.account.preferences,  desc: t.account.preferencesDesc  },

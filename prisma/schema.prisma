@@ -124,6 +124,24 @@ enum ContentModerationOutcome {
   REJECT
 }
 
+enum PersonalActivityType {
+  MEDITATION
+  YOGA
+  READING
+  LESSON
+  PRACTICE
+  JOURNAL
+  REFLECTION
+  OTHER
+}
+
+enum PersonalPlanStatus {
+  PLANNED
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
 /// Origin of an XP award or deduction recorded in XpLedger.
 enum XpSource {
   PRACTICE_RESPONSE
@@ -180,6 +198,8 @@ model User {
   userLessons    UserLesson[]
   lessonAttempts LessonAttempt[]
   sessions       Session[]
+  personalPlans  PersonalPlan[]
+  privateNotes   PrivateNote[]
 
   // ── Journey automation relations ────────────────────────────────────────────
   practiceMessages    PracticeMessage[]
@@ -383,6 +403,43 @@ model UserPracticeLog {
 
   @@index([userId, completedAt])
   @@index([practiceId])
+}
+
+/// User-owned calendar item. Descriptive text is encrypted at application
+/// level; only the schedule and bounded activity/status enums remain queryable.
+model PersonalPlan {
+  id                String               @id @default(cuid())
+  userId            String
+  activityType      PersonalActivityType
+  status            PersonalPlanStatus   @default(PLANNED)
+  scheduledFor      DateTime
+  durationMins      Int?
+  encryptedPayload  String
+  encryptionVersion Int                  @default(1)
+  completedAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scheduledFor])
+  @@index([userId, status, scheduledFor])
+}
+
+/// Encrypted personal journal/note. Routine administrators and background
+/// agents have no relation or query path to its plaintext.
+model PrivateNote {
+  id                String    @id @default(cuid())
+  userId            String
+  encryptedPayload  String
+  encryptionVersion Int       @default(1)
+  aiAccessEnabled   Boolean   @default(false)
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+  @@index([expiresAt])
 }
 
 model JourneyLevel {

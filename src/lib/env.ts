@@ -55,6 +55,7 @@ export const env = {
   BLUESKY_SERVICE_URL: readEnv("BLUESKY_SERVICE_URL"),
   BLUESKY_IDENTIFIER: readEnv("BLUESKY_IDENTIFIER"),
   BLUESKY_APP_PASSWORD: readEnv("BLUESKY_APP_PASSWORD"),
+  PRIVATE_DATA_ENCRYPTION_KEY: readEnv("PRIVATE_DATA_ENCRYPTION_KEY"),
 };
 
 export function requireEnv(key: keyof typeof env): string {
