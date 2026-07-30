@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import * as auth from "@/lib/auth";
 
 const SUPPORTED_UI_LOCALES = new Set(["en", "tr", "es", "de", "fr", "ar", "ru", "zh"]);
-const SUPPORTED_EMAIL_LOCALES = new Set(["en", "tr", "es", "de", "fr", "ru", "zh"]);
+const SUPPORTED_EMAIL_LOCALES = new Set(["en", "tr", "es", "de", "fr", "ar", "ru", "zh"]);
 
 async function currentSession() {
   return typeof auth.getCurrentUserFromCookies === "function"

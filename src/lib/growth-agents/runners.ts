@@ -93,6 +93,7 @@ const LOCALE_NAMES: Record<SupportedContentLocale, string> = {
   es: "Spanish",
   de: "German",
   fr: "French",
+  ar: "Arabic",
   ru: "Russian",
   zh: "Simplified Chinese",
 };

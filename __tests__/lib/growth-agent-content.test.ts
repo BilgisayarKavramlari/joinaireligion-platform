@@ -23,7 +23,7 @@ describe("growth agent content safety", () => {
     const gate = assessContentVariants(variants);
 
     expect(variants.map((variant) => variant.locale)).toEqual([...SUPPORTED_CONTENT_LOCALES]);
-    expect(SUPPORTED_CONTENT_LOCALES).toEqual(["en", "tr", "es", "de", "fr", "ru", "zh"]);
+    expect(SUPPORTED_CONTENT_LOCALES).toEqual(["en", "tr", "es", "de", "fr", "ar", "ru", "zh"]);
     expect(gate.status).toBe("QUARANTINED");
     expect(gate.outcome).toBe("QUARANTINE");
     expect(gate.reasons).toContain("ai_generation_fallback");
@@ -71,6 +71,14 @@ describe("growth agent content safety", () => {
     const chineseIndex = SUPPORTED_CONTENT_LOCALES.indexOf("zh");
     chinese[chineseIndex] = { ...chinese[chineseIndex], bodyMarkdown: `${chinese[chineseIndex].bodyMarkdown} 保证开悟` };
     expect(assessContentVariants(chinese).outcome).toBe("REJECT");
+  });
+
+  it("applies the deterministic risk gate to Arabic", () => {
+    const variants = SUPPORTED_CONTENT_LOCALES.map(buildFallbackVariant);
+    const arabicIndex = SUPPORTED_CONTENT_LOCALES.indexOf("ar");
+    variants[arabicIndex] = { ...variants[arabicIndex], bodyMarkdown: `${variants[arabicIndex].bodyMarkdown} استنارة مضمونة` };
+
+    expect(assessContentVariants(variants).outcome).toBe("REJECT");
   });
 
   it("preserves Cyrillic and Han characters in localized slugs", () => {

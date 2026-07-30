@@ -73,7 +73,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
   return (
     <main style={{ minHeight: "100vh", padding: "3.5rem 1.5rem 6rem", background: "radial-gradient(circle at 20% 0%, rgba(20,184,166,.1), transparent 35%), var(--bg-base)" }}>
-      <article style={{ maxWidth: 780, margin: "0 auto" }}>
+      <article lang={variant.locale} dir={variant.locale === "ar" ? "rtl" : "ltr"} style={{ maxWidth: 780, margin: "0 auto" }}>
         <Link href="/content" style={{ color: "var(--gold)", textDecoration: "none" }}>← {copy.allInsights}</Link>
         <p style={{ marginTop: "2rem", color: "var(--gold)", fontSize: ".65rem", letterSpacing: ".2em", textTransform: "uppercase" }}>{variant.contentItem.category} · {variant.locale.toUpperCase()}</p>
         <h1 className="font-sacred" style={{ color: "var(--gold-light)", fontSize: "clamp(2rem,7vw,4rem)", lineHeight: 1.12 }}>{variant.title}</h1>

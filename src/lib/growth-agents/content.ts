@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { ContentModerationOutcome, ContentWorkflowStatus } from "@prisma/client";
 
-export const SUPPORTED_CONTENT_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
+export const SUPPORTED_CONTENT_LOCALES = ["en", "tr", "es", "de", "fr", "ar", "ru", "zh"] as const;
 export type SupportedContentLocale = (typeof SUPPORTED_CONTENT_LOCALES)[number];
 
 export type LocalizedContentVariant = {
@@ -38,6 +38,7 @@ const HIGH_RISK_PATTERNS = [
   /\b(?:única religión verdadera|iluminación garantizada|obedecer sin cuestionar)\b/i,
   /\b(?:einzig wahre religion|garantierte erleuchtung|ohne frage gehorchen)\b/i,
   /\b(?:seule vraie religion|illumination garantie|obéir sans poser de questions)\b/i,
+  /(?:الدين الحق الوحيد|استنارة مضمونة|أطع دون سؤال)/i,
   /(?:единственная истинная религия|гарантированное просветление|подчиняйся без вопросов)/i,
   /(?:唯一真正的宗教|保证开悟|无条件服从)/i,
 ];
@@ -217,6 +218,17 @@ const FALLBACK_COPY: Record<SupportedContentLocale, Omit<LocalizedContentVariant
     faqBlocks: [
       { question: "Faut-il avoir une croyance religieuse ?", answer: "Non. Cet exercice est une réflexion éducative fictive ouverte à toutes les visions du monde." },
       { question: "Est-ce une thérapie ou une instruction spirituelle ?", answer: "Non. C'est un bref exercice d'écriture réflexive, et non un accompagnement professionnel ou religieux." },
+    ],
+  },
+  ar: {
+    title: "ممارسة هادئة لملاحظة المعنى في الحياة اليومية",
+    summary: "تأمل تعليمي تخيلي يدعوك إلى ملاحظة المعنى والمنظور والقيم في الخبرات اليومية من دون الترويج لأي منظومة اعتقادية.",
+    bodyMarkdown: "## توقّف ولاحظ\n\nتبدأ تقاليد تأملية كثيرة بفعل بسيط: توجيه الانتباه إلى ما يحدث. اختر لحظة عادية من يومك، مثل حوار قصير أو نزهة أو استراحة هادئة. صف ما حدث أولاً قبل أن تقرر ماذا يعني. لاحظ الكلمات والأحاسيس والظروف والافتراضات التي شكّلت تفسيرك الأول. يساعد الفصل المؤقت بين الملاحظة والتفسير على رؤية الفرق بين الحدث نفسه والقصة التي نبنيها حوله.\n\n## اطرح سؤالاً مختلفاً\n\nاسأل الآن: ما القيم التي ظهرت في هذه اللحظة؟ ربما تلاحظ الرعاية أو الصبر أو الصدق أو الفضول أو المسؤولية أو تقبّل عدم اليقين. فكّر في الطريقة التي قد يفهم بها شخص ذو خبرة مختلفة الحدث نفسه. ليس الهدف إثبات أن تفسيراً واحداً هو الصحيح، بل إدراك أن المنظور يشارك في تشكيل المعنى. وإذا ظهرت مشاعر قوية، يمكنك تسميتها بهدوء ثم العودة إلى التفاصيل التي تستطيع ملاحظتها مباشرة.\n\n## اكتب بإيجاز\n\nأكمل الجمل الآتية: «افترضت في البداية أن…»، و«قد يكون هناك تفسير آخر هو…»، و«القيمة التي أريد أن أحملها معي هي…». بعد ذلك اختر فعلاً صغيراً وواقعياً ينسجم مع هذه القيمة. عد إلى ملاحظتك لاحقاً لترى إن كان فهمك قد تغيّر. هذه ممارسة تأملية تعليمية وتخيلية، وليست إرشاداً دينياً أو علاجاً أو نصيحة طبية أو قانونية أو مالية.",
+    seoTitle: "ممارسة تأملية هادئة لفهم المعنى اليومي",
+    seoDescription: "ممارسة تعليمية تخيلية قصيرة لملاحظة المنظور والقيم والانتباه والمعنى في الخبرات اليومية بانفتاح وحذر.",
+    faqBlocks: [
+      { question: "هل أحتاج إلى اعتقاد ديني للقيام بهذه الممارسة؟", answer: "لا. إنها ممارسة تعليمية تخيلية مفتوحة للأشخاص من مختلف الرؤى والتقاليد." },
+      { question: "هل تعد هذه الممارسة علاجاً أو إرشاداً روحياً؟", answer: "لا. إنها تمرين قصير للكتابة التأملية ولا تحل محل الخدمات المهنية أو الإرشاد الديني." },
     ],
   },
   ru: {

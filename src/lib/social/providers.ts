@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { env } from "@/lib/env";
 
 export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "pinterest" | "bluesky";
-export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
+export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ar", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
 export const SOCIAL_LANGUAGE_POLICY_VERSION = "v3";
 
@@ -16,6 +16,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "es", weight: 3 },
     { locale: "de", weight: 3 },
     { locale: "fr", weight: 3 },
+    { locale: "ar", weight: 3 },
     { locale: "ru", weight: 3 },
     { locale: "zh", weight: 3 },
   ],
@@ -25,6 +26,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "es", weight: 2 },
     { locale: "de", weight: 2 },
     { locale: "fr", weight: 2 },
+    { locale: "ar", weight: 2 },
     { locale: "ru", weight: 2 },
     { locale: "zh", weight: 2 },
   ],
@@ -34,6 +36,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "es", weight: 2 },
     { locale: "de", weight: 2 },
     { locale: "fr", weight: 2 },
+    { locale: "ar", weight: 2 },
     { locale: "ru", weight: 2 },
     { locale: "zh", weight: 2 },
   ],
@@ -43,6 +46,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "es", weight: 2 },
     { locale: "de", weight: 2 },
     { locale: "fr", weight: 2 },
+    { locale: "ar", weight: 2 },
     { locale: "ru", weight: 2 },
     { locale: "zh", weight: 2 },
   ],
@@ -55,6 +59,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "es", weight: 2 },
     { locale: "de", weight: 2 },
     { locale: "fr", weight: 2 },
+    { locale: "ar", weight: 2 },
     { locale: "ru", weight: 2 },
     { locale: "zh", weight: 2 },
   ],

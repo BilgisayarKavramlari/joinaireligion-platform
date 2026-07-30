@@ -34,6 +34,19 @@ describe("notification email renderer", () => {
     expect(email.text).toContain("/content/de/verantwortungsvolle-reflexion");
   });
 
+  it("renders Arabic article mail as RTL and keeps the Arabic route", () => {
+    const email = renderContentPublishedEmail({
+      ...base,
+      locale: "ar",
+      articleTitle: "تأمل جديد",
+      articleSummary: "مقدمة تعليمية قصيرة.",
+      articleSlug: "تأمل-جديد",
+    });
+
+    expect(email.html).toContain('lang="ar" dir="rtl"');
+    expect(email.text).toContain("/content/ar/");
+  });
+
   it("escapes untrusted display and title values", () => {
     const email = renderLessonReadyEmail({
       ...base,

@@ -16,7 +16,7 @@ const LANG_OPTIONS: { code: LangCode; label: string }[] = [
   { code: "ru", label: "🇷🇺 Русский" },
   { code: "zh", label: "🇨🇳 简体中文" },
 ];
-const EMAIL_LANG_OPTIONS = LANG_OPTIONS.filter((option) => option.code !== "ar");
+const EMAIL_LANG_OPTIONS = LANG_OPTIONS;
 
 const EMAIL_COPY: Record<LangCode, {
   heading: string;

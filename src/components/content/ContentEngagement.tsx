@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { getContentCopy } from "@/lib/content-copy";
 
 type Props = {
   contentItemId: string;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function ContentEngagement({ contentItemId, locale, initialLikes }: Props) {
+  const copy = getContentCopy(locale);
   const [likes, setLikes] = useState(initialLikes);
   const [voted, setVoted] = useState<"like" | "dislike" | null>(null);
   const startedAt = useRef(Date.now());
@@ -56,11 +58,11 @@ export function ContentEngagement({ contentItemId, locale, initialLikes }: Props
 
   return (
     <aside style={{ marginTop: "2.5rem", padding: "1.1rem", border: "1px solid var(--border-gold)", borderRadius: "1rem", background: "rgba(201,162,39,.04)" }}>
-      <p style={{ color: "var(--text-muted)", fontSize: ".78rem", marginTop: 0 }}>Was this reflection useful?</p>
+      <p style={{ color: "var(--text-muted)", fontSize: ".78rem", marginTop: 0 }}>{copy.engagementPrompt}</p>
       <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", alignItems: "center" }}>
-        <button type="button" onClick={() => void vote("like")} disabled={Boolean(voted)} className="btn-sacred btn-sacred-ghost" style={{ padding: ".45rem .8rem" }}>Useful · {likes}</button>
-        <button type="button" onClick={() => void vote("dislike")} disabled={Boolean(voted)} className="btn-sacred btn-sacred-ghost" style={{ padding: ".45rem .8rem" }}>Not useful</button>
-        <Link href="/register" onClick={() => void record("cta")} className="btn-sacred btn-sacred-gold" style={{ marginLeft: "auto", padding: ".45rem .8rem" }}>Begin a journey</Link>
+        <button type="button" onClick={() => void vote("like")} disabled={Boolean(voted)} className="btn-sacred btn-sacred-ghost" style={{ padding: ".45rem .8rem" }}>{copy.useful} · {likes}</button>
+        <button type="button" onClick={() => void vote("dislike")} disabled={Boolean(voted)} className="btn-sacred btn-sacred-ghost" style={{ padding: ".45rem .8rem" }}>{copy.notUseful}</button>
+        <Link href="/register" onClick={() => void record("cta")} className="btn-sacred btn-sacred-gold" style={{ marginInlineStart: "auto", padding: ".45rem .8rem" }}>{copy.beginJourney}</Link>
       </div>
     </aside>
   );
