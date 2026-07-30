@@ -32,8 +32,8 @@ const DEFAULT_MODEL = "gpt-4o-mini";
 // whole idempotent job later instead of multiplying latency inside the SDK.
 const TIMEOUT_MS = 120_000;
 // Multilingual article JSON includes a full body, SEO fields, and FAQ blocks.
-// 800 tokens can truncate otherwise valid Cyrillic and CJK translations.
-const MAX_TOKENS = 2_400;
+// Short caps can truncate long-form source articles and valid Cyrillic/CJK translations.
+const MAX_TOKENS = 8_000;
 
 // ─── Lazy singleton ───────────────────────────────────────────────────────────
 
