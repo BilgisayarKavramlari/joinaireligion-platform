@@ -26,7 +26,10 @@ export type ContentGateResult = {
 };
 
 const HIGH_RISK_PATTERNS = [
-  /\b(?:medical|legal|financial) (?:advice|diagnosis|treatment|guarantee)\b/i,
+  // A disclosure such as "this is not legal advice" is protective copy, not a
+  // high-risk claim. Only flag these categories when they are paired with an
+  // affirmative promise that automated editorial content must never make.
+  /\b(?:guaranteed|personalized|definitive) (?:medical|legal|financial) (?:advice|diagnosis|treatment|guarantee)\b/i,
   /\b(?:cure|heal|treat) (?:depression|anxiety|trauma|disease|illness)\b/i,
   /\b(?:one true religion|superior religion|inferior belief|only path to salvation)\b/i,
   /\b(?:obey without question|submit to us|give us control|guaranteed enlightenment)\b/i,

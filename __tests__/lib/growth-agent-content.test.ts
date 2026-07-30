@@ -39,6 +39,21 @@ describe("growth agent content safety", () => {
     expect(gate.riskLevel).toBe("HIGH");
   });
 
+  it("allows protective professional-advice disclaimers", () => {
+    const variants = SUPPORTED_CONTENT_LOCALES.map((locale) => ({
+      ...buildFallbackVariant(locale),
+      source: "openai" as const,
+    }));
+    variants[0] = {
+      ...variants[0],
+      bodyMarkdown: `${variants[0].bodyMarkdown}\n\nThis is educational content, not legal advice.`,
+    };
+
+    const gate = assessContentVariants(variants);
+    expect(gate.outcome).toBe("PASS");
+    expect(gate.reasons).not.toContain("high_risk_claim_detected");
+  });
+
   it("applies the deterministic risk gate to non-English variants", () => {
     const variants = SUPPORTED_CONTENT_LOCALES.map(buildFallbackVariant);
     variants[1] = { ...variants[1], bodyMarkdown: `${variants[1].bodyMarkdown} garantili aydınlanma` };
