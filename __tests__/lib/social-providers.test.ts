@@ -194,6 +194,25 @@ describe("Bluesky social provider helpers", () => {
     expect(mockFetch.mock.calls[2][0].toString()).toBe("https://graph.facebook.com/v25.0/instagram-1/media_publish");
   });
 
+  it("preserves Unicode slugs when building an Instagram social card URL", async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "container-2" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "media-2" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ permalink: "https://www.instagram.com/p/media-2/" }), { status: 200 }));
+
+    await publishSocialPost(
+      "instagram",
+      "Düşünce\n\nhttps://joinaireligion.com/content/tr/tanıdık-olmayan-geleneklere-saygılı-yaklaşmak",
+      "instagram-unicode-idempotency-key",
+    );
+
+    const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
+    expect(createBody.get("image_url")).toBe(
+      "https://joinaireligion.com/social-card/tr/tan%C4%B1d%C4%B1k-olmayan-geleneklere-sayg%C4%B1l%C4%B1-yakla%C5%9Fmak.jpg",
+    );
+  });
+
   it("creates, waits for, and publishes a Threads text container", async () => {
     mockFetch
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "threads-container-1" }), { status: 200 }))

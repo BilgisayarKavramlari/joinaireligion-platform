@@ -519,15 +519,22 @@ function metaGraphUrl(path: string): URL {
 }
 
 function requiredContentUrl(text: string): URL {
-  const match = text.match(/https:\/\/joinaireligion\.com\/content\/[a-z]{2}\/[a-z0-9-]+/i);
+  const match = text.match(/https:\/\/joinaireligion\.com\/content\/[a-z]{2}\/[^\s?#]+/iu);
   if (!match) throw new Error("Social publication has no approved Join AI Religion content URL");
-  return new URL(match[0]);
+  const parsed = new URL(match[0]);
+  const parts = parsed.pathname.split("/").filter(Boolean);
+  if (parsed.hostname !== "joinaireligion.com" || parts.length !== 3 || parts[0] !== "content") {
+    throw new Error("Social publication has an invalid Join AI Religion content URL");
+  }
+  return parsed;
 }
 
 function socialCardUrl(contentUrl: URL): string {
   const parts = contentUrl.pathname.split("/").filter(Boolean);
   if (parts.length !== 3 || parts[0] !== "content") throw new Error("Social content URL has an invalid route");
-  return `${contentUrl.origin}/social-card/${encodeURIComponent(parts[1])}/${encodeURIComponent(parts[2])}.jpg`;
+  const locale = decodeURIComponent(parts[1]);
+  const slug = decodeURIComponent(parts[2]);
+  return `${contentUrl.origin}/social-card/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}.jpg`;
 }
 
 async function publishFacebook(text: string): Promise<SocialPublicationResult> {
