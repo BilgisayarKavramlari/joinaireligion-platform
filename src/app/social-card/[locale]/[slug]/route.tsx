@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ locale: string; slug: string }> };
 
 const THEMES: Record<string, { primary: string; secondary: string; symbol: string }> = {
-  meditation: { primary: "#8b5cf6", secondary: "#14b8a6", symbol: "◉" },
-  reflection: { primary: "#a855f7", secondary: "#0ea5e9", symbol: "◇" },
-  journaling: { primary: "#c9a227", secondary: "#f97316", symbol: "✦" },
-  values: { primary: "#14b8a6", secondary: "#3b82f6", symbol: "△" },
-  responsible_ai: { primary: "#7c3aed", secondary: "#06b6d4", symbol: "⌁" },
-  comparative_culture: { primary: "#c9a227", secondary: "#8b5cf6", symbol: "◎" },
+  meditation: { primary: "#8b5cf6", secondary: "#14b8a6", symbol: "O" },
+  reflection: { primary: "#a855f7", secondary: "#0ea5e9", symbol: "<>" },
+  journaling: { primary: "#c9a227", secondary: "#f97316", symbol: "+" },
+  values: { primary: "#14b8a6", secondary: "#3b82f6", symbol: "^" },
+  responsible_ai: { primary: "#7c3aed", secondary: "#06b6d4", symbol: "AI" },
+  comparative_culture: { primary: "#c9a227", secondary: "#8b5cf6", symbol: "O" },
 };
 
 const CARD_COPY: Record<string, { series: string; action: string }> = {
@@ -81,7 +81,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       </div>
       <div style={{ position: "absolute", left: "0", top: "0", width: "100%", height: "12px", display: "flex", background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, #c9a227)` }} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: "24px", zIndex: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
         <div
           style={{
             width: "78px",
@@ -106,14 +106,14 @@ export async function GET(request: Request, { params }: RouteContext) {
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", maxWidth: preset === "pinterest" ? "820px" : "930px", zIndex: 1 }}>
+      <div style={{ display: "flex", flexDirection: "column", maxWidth: preset === "pinterest" ? "820px" : "930px" }}>
         <div style={{ display: "flex", alignSelf: "flex-start", color: "#f6e7a8", background: `${theme.primary}44`, border: `2px solid ${theme.primary}88`, borderRadius: "999px", padding: "10px 18px", fontSize: "16px", letterSpacing: "3px", textTransform: "uppercase" }}>
           {variant.contentItem.category.replaceAll("_", " ")} · {variant.locale.toUpperCase()}
         </div>
         <div style={{ marginTop: "26px", fontSize: preset === "pinterest" ? "58px" : "56px", fontWeight: 700, lineHeight: 1.08, textShadow: "0 4px 30px rgba(0,0,0,.6)" }}>
           {variant.title}
         </div>
-        <div style={{ marginTop: "26px", color: "rgba(237,232,220,.78)", fontSize: preset === "pinterest" ? "24px" : "22px", lineHeight: 1.48 }}>
+        <div style={{ display: "flex", marginTop: "26px", color: "rgba(237,232,220,.78)", fontSize: preset === "pinterest" ? "24px" : "22px", lineHeight: 1.48 }}>
           {summary}{variant.summary.length > summary.length ? "…" : ""}
         </div>
         <div style={{ marginTop: "34px", display: "flex", alignItems: "center", gap: "16px", color: "#f6e7a8", fontSize: "14px", letterSpacing: "3px" }}>
