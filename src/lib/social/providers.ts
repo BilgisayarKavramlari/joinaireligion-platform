@@ -84,6 +84,33 @@ export type SocialPublicationResult = {
   externalUrl: string | null;
 };
 
+function parseActivationTimestamp(value: string | undefined): Date | null {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  const parsed = new Date(timestamp);
+  return parsed.toISOString() === value ? parsed : null;
+}
+
+/**
+ * Pinterest is fail-closed on first activation. The exact UTC timestamp is
+ * required so packages prepared before the provider was deliberately enabled
+ * can be audited and archived without being published retroactively.
+ */
+export function socialProviderActivatedAt(provider: SocialProviderName): Date | null {
+  if (provider === "pinterest") return parseActivationTimestamp(env.PINTEREST_ACTIVATED_AT);
+  return null;
+}
+
+export function shouldSkipSocialProviderForActivation(
+  provider: SocialProviderName,
+  packageCreatedAt: Date,
+): boolean {
+  if (provider !== "pinterest") return false;
+  const activatedAt = socialProviderActivatedAt(provider);
+  return !activatedAt || packageCreatedAt.getTime() < activatedAt.getTime();
+}
+
 const LISTENING_QUERIES = [
   "reflective journaling",
   "meaning making",
@@ -219,6 +246,7 @@ export function getConfiguredSocialProviders(): SocialProviderName[] {
     env.PINTEREST_PUBLISHING_ENABLED === "true"
     && env.PINTEREST_ACCESS_TOKEN
     && env.PINTEREST_BOARD_ID
+    && socialProviderActivatedAt("pinterest")
   ) providers.push("pinterest");
   if (env.BLUESKY_IDENTIFIER && env.BLUESKY_APP_PASSWORD) providers.push("bluesky");
   return providers;
@@ -462,6 +490,7 @@ async function publishPinterest(text: string): Promise<SocialPublicationResult> 
     env.PINTEREST_PUBLISHING_ENABLED !== "true"
     || !env.PINTEREST_ACCESS_TOKEN
     || !env.PINTEREST_BOARD_ID
+    || !socialProviderActivatedAt("pinterest")
   ) {
     throw new Error("Pinterest publication is not fully configured");
   }

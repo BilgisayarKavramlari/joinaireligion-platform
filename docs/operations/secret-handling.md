@@ -14,6 +14,9 @@ Operational security reference for managing environment variables, API keys, and
 | `RESEND_API_KEY` | VPS app `.env` only | On any suspected leak; if bounce/spam signals appear |
 | `STRIPE_SECRET_KEY` | VPS app `.env` only | On any suspected leak; via Stripe dashboard immediately |
 | `STRIPE_WEBHOOK_SECRET` | VPS app `.env` only | When webhook endpoint URL changes or key is suspected leaked |
+| `PINTEREST_APP_SECRET` | VPS app `.env` only | On suspected disclosure or Pinterest app-secret reset |
+| `PINTEREST_ACCESS_TOKEN` | VPS app `.env` only | Automatically refreshed weekly; immediately on invalidation or disclosure |
+| `PINTEREST_REFRESH_TOKEN` | VPS app `.env` only | Atomically replaced with every successful refresh; owner OAuth if expired or invalid |
 | `VPS_SSH_KEY` | GitHub Secrets only | When SSH key is rotated or team member leaves |
 
 ---

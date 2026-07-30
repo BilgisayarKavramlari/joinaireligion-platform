@@ -1,0 +1,40 @@
+[Unit]
+Description=JoinAI Pinterest continuous token refresh
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+ConditionPathExists=/opt/apps/joinaireligion/.env
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=PINTEREST_ENV_FILE=/opt/apps/joinaireligion/.env
+Environment=PINTEREST_LOCK_FILE=/run/joinaireligion/pinterest-token-refresh.lock
+Environment=PINTEREST_RUNTIME_DIR=/run/joinaireligion
+ExecCondition=/bin/bash -c '/usr/bin/grep -q "^PINTEREST_APP_ID=" /opt/apps/joinaireligion/.env && /usr/bin/grep -q "^PINTEREST_APP_SECRET=" /opt/apps/joinaireligion/.env && /usr/bin/grep -q "^PINTEREST_REFRESH_TOKEN=" /opt/apps/joinaireligion/.env'
+ExecStart=/usr/local/sbin/joinai-pinterest-token-refresh
+ExecStartPost=/bin/bash -c 'if /usr/bin/grep -Eq "^PINTEREST_PUBLISHING_ENABLED=\"?true\"?$" /opt/apps/joinaireligion/.env; then cd /opt/apps/joinaireligion && exec /usr/bin/docker compose up -d --no-deps --force-recreate app; fi'
+UMask=0077
+RuntimeDirectory=joinaireligion
+RuntimeDirectoryMode=0700
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/apps/joinaireligion
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

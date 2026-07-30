@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+readonly ENV_FILE="${PINTEREST_ENV_FILE:-/opt/apps/joinaireligion/.env}"
+readonly LOCK_FILE="${PINTEREST_LOCK_FILE:-/run/lock/joinai-pinterest-token-refresh.lock}"
+readonly RUNTIME_DIR="${PINTEREST_RUNTIME_DIR:-/run}"
+readonly TOKEN_URL="https://api.pinterest.com/v5/oauth/token"
+
+log() {
+  printf '[pinterest-token-refresh] %s\n' "$1"
+}
+
+fail() {
+  log "ERROR: $1" >&2
+  exit 1
+}
+
+for command_name in curl jq awk base64 flock stat mktemp cp chmod chown sync; do
+  command -v "${command_name}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command_name}"
+done
+
+[[ -f "${ENV_FILE}" && ! -L "${ENV_FILE}" ]] || fail "Production environment file is unavailable or unsafe."
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"
+}
+file_owner() {
+  stat -c '%u:%g' "$1" 2>/dev/null || stat -f '%u:%g' "$1"
+}
+sync_file() {
+  sync -f "$1" 2>/dev/null || sync
+}
+
+[[ "$(file_mode "${ENV_FILE}")" == "600" ]] || fail "Production environment file must have mode 0600."
+[[ -d "${RUNTIME_DIR}" ]] || fail "Runtime directory is unavailable."
+
+exec 9>"${LOCK_FILE}"
+if ! flock -n 9; then
+  log "SKIP: another token refresh is already running."
+  exit 0
+fi
+
+read_env_value() {
+  local key="$1"
+  local destination="$2"
+  local line value
+  line="$(grep -m1 -E "^${key}=" "${ENV_FILE}" || true)"
+  value="${line#*=}"
+  if [[ "${value}" == \"*\" && "${value}" == *\" ]]; then
+    value="${value:1:${#value}-2}"
+  elif [[ "${value}" == \'*\' && "${value}" == *\' ]]; then
+    value="${value:1:${#value}-2}"
+  fi
+  printf -v "${destination}" '%s' "${value}"
+}
+
+app_id=""
+app_secret=""
+refresh_token=""
+read_env_value PINTEREST_APP_ID app_id
+read_env_value PINTEREST_APP_SECRET app_secret
+read_env_value PINTEREST_REFRESH_TOKEN refresh_token
+
+[[ "${app_id}" =~ ^[0-9]+$ ]] || fail "PINTEREST_APP_ID is missing or invalid."
+[[ -n "${app_secret}" && "${app_secret}" != *$'\n'* && ${#app_secret} -le 8192 ]] || fail "PINTEREST_APP_SECRET is missing or invalid."
+[[ "${refresh_token}" == pinr* && "${refresh_token}" != *$'\n'* && ${#refresh_token} -le 8192 ]] || fail "PINTEREST_REFRESH_TOKEN is missing or invalid."
+
+env_dir="$(dirname "${ENV_FILE}")"
+response_file="$(mktemp "${RUNTIME_DIR%/}/joinai-pinterest-response.XXXXXX")"
+curl_config="$(mktemp "${RUNTIME_DIR%/}/joinai-pinterest-curl.XXXXXX")"
+new_env="$(mktemp "${env_dir%/}/.pinterest-env.XXXXXX")"
+cleanup() {
+  rm -f "${response_file:-}" "${curl_config:-}" "${new_env:-}"
+  unset app_secret refresh_token new_access_token new_refresh_token basic_auth
+}
+trap cleanup EXIT
+
+# Confirm that the destination directory is writable before consuming a
+# rotating refresh token. The real replacement is still built after the API
+# response and renamed over the original file atomically.
+cp -p "${ENV_FILE}" "${new_env}"
+rm -f "${new_env}"
+new_env="$(mktemp "${env_dir%/}/.pinterest-env.XXXXXX")"
+
+basic_auth="$(printf '%s:%s' "${app_id}" "${app_secret}" | base64 | tr -d '\n')"
+{
+  printf 'url = "%s"\n' "${TOKEN_URL}"
+  printf 'request = "POST"\n'
+  printf 'header = "Authorization: Basic %s"\n' "${basic_auth}"
+  printf 'header = "Content-Type: application/x-www-form-urlencoded"\n'
+  printf 'data = "grant_type=refresh_token"\n'
+  printf 'data-urlencode = "refresh_token=%s"\n' "${refresh_token}"
+} > "${curl_config}"
+
+http_code="$(curl \
+  --silent \
+  --show-error \
+  --config "${curl_config}" \
+  --output "${response_file}" \
+  --write-out '%{http_code}')" || fail "Pinterest token endpoint could not be reached."
+
+[[ "${http_code}" == "200" ]] || fail "Pinterest token refresh failed with HTTP ${http_code}."
+
+new_access_token="$(jq -er '.access_token | select(type == "string" and length > 0)' "${response_file}")" \
+  || fail "Pinterest response did not contain a valid access token."
+new_refresh_token="$(jq -er '.refresh_token | select(type == "string" and length > 0)' "${response_file}")" \
+  || fail "Pinterest response did not contain a valid continuous refresh token."
+
+[[ "${new_access_token}" == pina* && "${new_access_token}" != *$'\n'* && ${#new_access_token} -le 8192 ]] \
+  || fail "Pinterest returned an invalid access token format."
+[[ "${new_refresh_token}" == pinr* && "${new_refresh_token}" != *$'\n'* && ${#new_refresh_token} -le 8192 ]] \
+  || fail "Pinterest returned an invalid refresh token format."
+
+quote_env_value() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//\$/\\\$}"
+  value="${value//\`/\\\`}"
+  printf '"%s"' "${value}"
+}
+
+access_line="$(quote_env_value "${new_access_token}")"
+refresh_line="$(quote_env_value "${new_refresh_token}")"
+ACCESS_LINE="${access_line}" REFRESH_LINE="${refresh_line}" awk '
+  BEGIN { access_seen = 0; refresh_seen = 0 }
+  /^PINTEREST_ACCESS_TOKEN=/ {
+    if (!access_seen) print "PINTEREST_ACCESS_TOKEN=" ENVIRON["ACCESS_LINE"]
+    access_seen = 1
+    next
+  }
+  /^PINTEREST_REFRESH_TOKEN=/ {
+    if (!refresh_seen) print "PINTEREST_REFRESH_TOKEN=" ENVIRON["REFRESH_LINE"]
+    refresh_seen = 1
+    next
+  }
+  { print }
+  END {
+    if (!access_seen) print "PINTEREST_ACCESS_TOKEN=" ENVIRON["ACCESS_LINE"]
+    if (!refresh_seen) print "PINTEREST_REFRESH_TOKEN=" ENVIRON["REFRESH_LINE"]
+  }
+' "${ENV_FILE}" > "${new_env}"
+
+chmod 0600 "${new_env}"
+if [[ "$(file_owner "${new_env}")" != "$(file_owner "${ENV_FILE}")" ]]; then
+  chown "$(file_owner "${ENV_FILE}")" "${new_env}"
+fi
+sync_file "${new_env}"
+mv -f "${new_env}" "${ENV_FILE}"
+new_env=""
+sync_file "${ENV_FILE}"
+
+log "Token refresh completed and the production environment was replaced atomically."

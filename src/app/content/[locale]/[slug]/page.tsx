@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContentEngagement } from "@/components/content/ContentEngagement";
+import { ContentRichText } from "@/components/content/ContentRichText";
 import { decodeContentRouteSegment } from "@/lib/content-routing";
 import { db } from "@/lib/db";
 import { SUPPORTED_CONTENT_LOCALES, type SupportedContentLocale } from "@/lib/growth-agents/content";
@@ -48,16 +49,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-function renderMarkdown(markdown: string) {
-  return markdown.split(/\n{2,}/).map((block, index) => {
-    const text = block.trim();
-    if (!text) return null;
-    if (text.startsWith("## ")) return <h2 key={index} className="font-sacred" style={{ color: "var(--gold-light)", marginTop: "2rem" }}>{text.slice(3)}</h2>;
-    if (text.startsWith("# ")) return <h2 key={index} className="font-sacred" style={{ color: "var(--gold-light)" }}>{text.slice(2)}</h2>;
-    return <p key={index} style={{ lineHeight: 1.9, color: "rgba(237,232,220,.78)" }}>{text}</p>;
-  });
-}
-
 export default async function ContentDetailPage({ params }: PageProps) {
   const { locale, slug } = await params;
   const variant = await getVariant(locale, slug);
@@ -90,7 +81,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
         <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", margin: "1.2rem 0 2rem" }}>
           {variant.contentItem.variants.map((item) => <Link key={item.id} href={`/content/${item.locale}/${item.slug}`} style={{ color: item.locale === variant.locale ? "#04000c" : "var(--gold-light)", background: item.locale === variant.locale ? "var(--gold)" : "transparent", border: "1px solid var(--border-gold)", borderRadius: ".35rem", padding: ".25rem .5rem", fontSize: ".7rem", textDecoration: "none" }}>{item.locale.toUpperCase()}</Link>)}
         </div>
-        <section>{renderMarkdown(variant.bodyMarkdown)}</section>
+        <ContentRichText markdown={variant.bodyMarkdown} />
         {faq.length > 0 && <section style={{ marginTop: "2.5rem" }}><h2 className="font-sacred" style={{ color: "var(--gold-light)" }}>{copy.questions}</h2>{faq.map((item) => <details key={item.question} style={{ borderTop: "1px solid var(--border-gold)", padding: ".8rem 0" }}><summary style={{ cursor: "pointer", color: "var(--text-primary)" }}>{item.question}</summary><p style={{ color: "rgba(237,232,220,.65)", lineHeight: 1.7 }}>{item.answer}</p></details>)}</section>}
         <ContentEngagement contentItemId={variant.contentItemId} locale={variant.locale} initialLikes={totals._sum.likes || 0} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />

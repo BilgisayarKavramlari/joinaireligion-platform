@@ -1,0 +1,11 @@
+[Unit]
+Description=JoinAI weekly Pinterest continuous token refresh
+
+[Timer]
+OnCalendar=Mon *-*-* 03:40:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+Unit=joinai-pinterest-token-refresh.service
+
+[Install]
+WantedBy=timers.target

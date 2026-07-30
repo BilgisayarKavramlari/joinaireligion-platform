@@ -34,6 +34,8 @@ import {
   getConfiguredSocialProviders,
   publishSocialPost,
   selectProviderLocale,
+  shouldSkipSocialProviderForActivation,
+  socialProviderActivatedAt,
   socialIdempotencyKey,
   type SocialLocale,
   type SocialProviderName,
@@ -873,13 +875,15 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
 
 export type SocialDelivery = {
   provider: SocialProviderName;
-  status: "PUBLISHED" | "FAILED";
+  status: "PUBLISHED" | "FAILED" | "SKIPPED";
   attemptedAt: string;
   locale?: SocialLocale;
   languagePolicyVersion?: string;
   externalId?: string;
   externalUrl?: string | null;
   error?: string;
+  reason?: string;
+  activationAt?: string;
 };
 
 function readSocialDrafts(payload: unknown): Array<{
@@ -924,7 +928,7 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   return deliveries.flatMap((delivery) => {
     const record = asRecord(delivery);
     if (!(["mastodon", "x", "linkedin", "facebook", "instagram", "threads", "pinterest", "bluesky"] as string[]).includes(String(record.provider))) return [];
-    if (record.status !== "PUBLISHED" && record.status !== "FAILED") return [];
+    if (record.status !== "PUBLISHED" && record.status !== "FAILED" && record.status !== "SKIPPED") return [];
     const locale = typeof record.locale === "string" && (SOCIAL_LOCALES as readonly string[]).includes(record.locale)
       ? record.locale as SocialLocale
       : undefined;
@@ -939,6 +943,8 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
       externalId: typeof record.externalId === "string" ? record.externalId : undefined,
       externalUrl: typeof record.externalUrl === "string" || record.externalUrl === null ? record.externalUrl : undefined,
       error: typeof record.error === "string" ? record.error : undefined,
+      reason: typeof record.reason === "string" ? record.reason : undefined,
+      activationAt: typeof record.activationAt === "string" ? record.activationAt : undefined,
     }];
   });
 }
@@ -981,7 +987,23 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
     const published: SocialDelivery[] = [];
 
     for (const provider of providers) {
-      if (deliveries.some((delivery) => delivery.provider === provider && delivery.status === "PUBLISHED")) continue;
+      if (deliveries.some((delivery) => delivery.provider === provider && (delivery.status === "PUBLISHED" || delivery.status === "SKIPPED"))) continue;
+      if (shouldSkipSocialProviderForActivation(provider, artifact.createdAt)) {
+        deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
+        deliveries.push({
+          provider,
+          status: "SKIPPED",
+          attemptedAt: now.toISOString(),
+          languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+          reason: "before_provider_activation",
+          activationAt: socialProviderActivatedAt(provider)?.toISOString(),
+        });
+        await db.agentArtifact.update({
+          where: { id: artifact.id },
+          data: { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+        });
+        continue;
+      }
       if (provider !== "mastodon" && deliveries.some((delivery) => delivery.provider === provider && delivery.status === "FAILED")) continue;
       deliveries = deliveries.filter((delivery) => delivery.provider !== provider || delivery.status === "PUBLISHED");
       const selectedLocale = selectProviderLocale(provider, artifact.id, drafts.map((draft) => draft.locale));
@@ -1027,7 +1049,11 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
       });
     }
 
-    const completedProviders = new Set(deliveries.filter((delivery) => delivery.status === "PUBLISHED").map((delivery) => delivery.provider));
+    const completedProviders = new Set(
+      deliveries
+        .filter((delivery) => delivery.status === "PUBLISHED" || delivery.status === "SKIPPED")
+        .map((delivery) => delivery.provider),
+    );
     const complete = providers.every((provider) => completedProviders.has(provider));
     await db.agentArtifact.update({
       where: { id: artifact.id },
@@ -1041,6 +1067,9 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
       completedProviders: [...completedProviders],
       artifactId: artifact.id,
       complete,
+      skippedProviders: deliveries
+        .filter((delivery) => delivery.status === "SKIPPED")
+        .map((delivery) => ({ provider: delivery.provider, reason: delivery.reason })),
       failures: deliveries.filter((delivery) => delivery.status === "FAILED").map((delivery) => ({ provider: delivery.provider, error: delivery.error })),
     };
   });

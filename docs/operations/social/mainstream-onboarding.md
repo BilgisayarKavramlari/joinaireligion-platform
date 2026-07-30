@@ -143,10 +143,11 @@ Pinterest uses a two-stage access model. Trial Access is suitable for building a
 - `PINTEREST_REFRESH_TOKEN`
 - `PINTEREST_BOARD_ID`
 - `PINTEREST_PUBLISHING_ENABLED` (starts `false`)
+- `PINTEREST_ACTIVATED_AT` (required exact UTC ISO-8601 watermark, for example `2026-07-29T12:00:00.000Z`)
 
 ### Connection order
 
-Business profile → developer app → Trial Access → OAuth grant → private Trial board/Pin → demo recording → Standard Access review → public board verification → public canary → provider switch → scheduled publishing. Access tokens must be refreshed within 30 days using the continuous refresh token.
+Business profile → developer app → Trial Access → OAuth grant → private Trial board/Pin → demo recording → Standard Access review → public board verification → public canary → activation watermark plus provider switch → scheduled publishing. Access tokens must be refreshed within 30 days using the continuous refresh token. The installed weekly rotation timer updates both rotating tokens atomically; details are in [Pinterest production activation](./pinterest-production.md).
 
 Official references: [Pinterest access tiers](https://developers.pinterest.com/docs/key-concepts/access-tiers/), [Pinterest OAuth](https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/), [Create Pin](https://developers.pinterest.com/docs/api/v5/pins-create/).
 

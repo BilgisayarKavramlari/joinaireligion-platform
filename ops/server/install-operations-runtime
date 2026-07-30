@@ -52,15 +52,21 @@ trap cleanup EXIT
 install -m 0600 -o joinai -g joinai "${cron_tmp}" "${CRON_ENV}"
 
 install -m 0750 -o root -g root "${SOURCE_DIR}/joinai-backup" /usr/local/sbin/joinai-backup
+install -m 0700 -o root -g root "${SOURCE_DIR}/joinai-pinterest-token-refresh" /usr/local/sbin/joinai-pinterest-token-refresh
 install -m 0644 -o root -g root "${SOURCE_DIR}/systemd/joinai-agent@.service" /etc/systemd/system/joinai-agent@.service
-for unit in "${SOURCE_DIR}"/systemd/*.timer "${SOURCE_DIR}/systemd/joinai-backup.service"; do
+for unit in "${SOURCE_DIR}"/systemd/*.timer "${SOURCE_DIR}/systemd/joinai-backup.service" "${SOURCE_DIR}/systemd/joinai-pinterest-token-refresh.service"; do
   install -m 0644 -o root -g root "${unit}" "/etc/systemd/system/$(basename "${unit}")"
 done
 
-if ! command -v nginx >/dev/null 2>&1; then
+packages=()
+command -v nginx >/dev/null 2>&1 || packages+=(nginx)
+command -v curl >/dev/null 2>&1 || packages+=(curl)
+command -v jq >/dev/null 2>&1 || packages+=(jq)
+command -v flock >/dev/null 2>&1 || packages+=(util-linux)
+if (( ${#packages[@]} > 0 )); then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y nginx
+  apt-get install -y "${packages[@]}"
 fi
 if [[ ! -f /etc/nginx/sites-available/joinaireligion ]]; then
   install -m 0644 -o root -g root "${SOURCE_DIR}/nginx-joinaireligion.conf" /etc/nginx/sites-available/joinaireligion
@@ -91,6 +97,7 @@ timers=(
   joinai-revenue-orchestrator.timer
   joinai-system-health.timer
   joinai-backup.timer
+  joinai-pinterest-token-refresh.timer
 )
 systemctl enable --now "${timers[@]}"
 

@@ -21,6 +21,7 @@ jest.mock("@/lib/env", () => ({
     PINTEREST_ACCESS_TOKEN: "pinterest-test-token",
     PINTEREST_BOARD_ID: "123456789",
     PINTEREST_PUBLISHING_ENABLED: "true",
+    PINTEREST_ACTIVATED_AT: "2026-07-29T12:00:00.000Z",
   },
 }));
 
@@ -28,11 +29,14 @@ import {
   SOCIAL_LOCALES,
   buildBlueskyFacets,
   contentLocaleFromText,
+  getConfiguredSocialProviders,
   publishSocialPost,
   selectProviderLocale,
+  shouldSkipSocialProviderForActivation,
   truncateBlueskyText,
   type SocialProviderName,
 } from "@/lib/social/providers";
+import { env } from "@/lib/env";
 import { readSocialDeliveries } from "@/lib/growth-agents/runners";
 
 beforeEach(() => {
@@ -132,6 +136,60 @@ describe("Bluesky social provider helpers", () => {
       languagePolicyVersion: "v1",
       externalId: "status-1",
     }]);
+  });
+
+  it("fails closed when Pinterest activation time is missing or malformed", () => {
+    const original = env.PINTEREST_ACTIVATED_AT;
+    try {
+      (env as { PINTEREST_ACTIVATED_AT?: string }).PINTEREST_ACTIVATED_AT = undefined;
+      expect(getConfiguredSocialProviders()).not.toContain("pinterest");
+      (env as { PINTEREST_ACTIVATED_AT?: string }).PINTEREST_ACTIVATED_AT = "2026-07-29";
+      expect(getConfiguredSocialProviders()).not.toContain("pinterest");
+    } finally {
+      (env as { PINTEREST_ACTIVATED_AT?: string }).PINTEREST_ACTIVATED_AT = original;
+    }
+  });
+
+  it("skips only Pinterest packages created before its activation watermark", () => {
+    expect(shouldSkipSocialProviderForActivation("pinterest", new Date("2026-07-29T11:59:59.999Z"))).toBe(true);
+    expect(shouldSkipSocialProviderForActivation("pinterest", new Date("2026-07-29T12:00:00.000Z"))).toBe(false);
+    expect(shouldSkipSocialProviderForActivation("pinterest", new Date("2026-07-29T12:00:00.001Z"))).toBe(false);
+    expect(shouldSkipSocialProviderForActivation("facebook", new Date("2020-01-01T00:00:00.000Z"))).toBe(false);
+  });
+
+  it("preserves activation skips as auditable completed delivery records", () => {
+    expect(readSocialDeliveries({
+      deliveries: [{
+        provider: "pinterest",
+        status: "SKIPPED",
+        attemptedAt: "2026-07-29T12:00:00.000Z",
+        languagePolicyVersion: "v2",
+        reason: "before_provider_activation",
+        activationAt: "2026-07-29T12:00:00.000Z",
+      }],
+    })).toEqual([{
+      provider: "pinterest",
+      status: "SKIPPED",
+      attemptedAt: "2026-07-29T12:00:00.000Z",
+      languagePolicyVersion: "v2",
+      reason: "before_provider_activation",
+      activationAt: "2026-07-29T12:00:00.000Z",
+    }]);
+  });
+
+  it("blocks direct Pinterest publication when the activation watermark is absent", async () => {
+    const original = env.PINTEREST_ACTIVATED_AT;
+    try {
+      (env as { PINTEREST_ACTIVATED_AT?: string }).PINTEREST_ACTIVATED_AT = undefined;
+      await expect(publishSocialPost(
+        "pinterest",
+        "A careful reflection\n\nhttps://joinaireligion.com/content/en/reflection-example",
+        "pinterest-no-watermark",
+      )).rejects.toThrow("Pinterest publication is not fully configured");
+      expect(mockFetch).not.toHaveBeenCalled();
+    } finally {
+      (env as { PINTEREST_ACTIVATED_AT?: string }).PINTEREST_ACTIVATED_AT = original;
+    }
   });
 
   it("publishes a Facebook Page link post with the approved content URL", async () => {
