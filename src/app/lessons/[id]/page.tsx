@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
 import LessonQuotaCountdown from "@/components/lessons/LessonQuotaCountdown";
+import LessonRichText from "@/components/lessons/LessonRichText";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LessonData {
@@ -30,16 +31,6 @@ interface LessonData {
     reason?: string;
     nextAvailableAt?: string;
   };
-}
-
-function renderText(text: string) {
-  return text.split("\n").map((line, i) => {
-    if (line.startsWith("**") && line.endsWith("**")) {
-      return <p key={i} style={{ fontWeight: 700, color: "var(--gold-light)", marginBottom: "0.6rem" }}>{line.slice(2, -2)}</p>;
-    }
-    if (line.trim() === "") return <div key={i} style={{ height: "0.6rem" }} />;
-    return <p key={i} style={{ color: "rgba(237,232,220,0.78)", lineHeight: 1.85, marginBottom: "0.5rem", fontSize: "0.92rem" }}>{line}</p>;
-  });
 }
 
 export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -184,7 +175,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(201,162,39,0.1)", border: "1px solid var(--border-gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "var(--gold)" }}>◎</div>
             <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gold)", textTransform: "uppercase" }}>{t.lesson.reading}</span>
           </div>
-          <div>{renderText(lesson.readingText)}</div>
+          <LessonRichText text={lesson.readingText} />
           <div style={{ marginTop: "1.8rem", display: "flex", justifyContent: "flex-end" }}>
             <button onClick={() => setTab("practice")} className="btn-sacred btn-sacred-gold" style={{ padding: "0.6rem 1.4rem", fontSize: "0.8rem" }}>
               {t.lesson.practice} →
@@ -200,7 +191,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "#a855f7" }}>△</div>
             <span style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#a855f7", textTransform: "uppercase" }}>{t.lesson.practice}</span>
           </div>
-          <div>{renderText(lesson.practiceDescription)}</div>
+          <LessonRichText text={lesson.practiceDescription} />
 
           {/* Guiding questions */}
           <div style={{ marginTop: "2rem", padding: "1.2rem", borderRadius: "0.75rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(201,162,39,0.12)" }}>

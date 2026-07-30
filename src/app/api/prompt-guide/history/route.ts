@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import * as auth from "@/lib/auth";
+import { dedupeUserLessonsByStep } from "@/lib/lessons/dedupe";
 
 export async function GET() {
   try {
@@ -28,7 +29,7 @@ export async function GET() {
       orderBy: { lesson: { stepNumber: "asc" } },
     });
 
-    const lessons = userLessons.map((ul) => ({
+    const lessons = dedupeUserLessonsByStep(userLessons).map((ul) => ({
       userLessonId: ul.id,
       lessonId: ul.lessonId,
       stepNumber: ul.lesson.stepNumber,

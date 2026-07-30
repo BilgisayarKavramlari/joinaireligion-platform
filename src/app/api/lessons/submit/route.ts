@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import { enforceLearningAccess } from "@/lib/access";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { resolveEntitlements } from "@/lib/membership";
+import { persistPersonalizedLesson } from "@/lib/lessons/personalized";
 
 // Passing thresholds by level
 function passingScore(level: number): number {
@@ -256,7 +257,7 @@ ${promptText.trim()}
       }
 
       // Trigger next lesson generation (async, non-blocking)
-      generateNextLesson(userId, lesson.stepNumber + 1, user, attempt.id).catch(console.error);
+      generateNextLesson(userId, lesson.stepNumber + 1, user).catch(console.error);
     } else {
       // Update status to FAILED (can retry when quota allows)
       await db.userLesson.update({
@@ -283,7 +284,7 @@ ${promptText.trim()}
 }
 
 // Generate next personalized lesson via OpenAI
-async function generateNextLesson(userId: string, nextStep: number, user: { id: string; currentLevel: number; onboarding: { questionKey: string; answer: string }[] }, lastAttemptId: string) {
+async function generateNextLesson(userId: string, nextStep: number, user: { id: string; currentLevel: number; onboarding: { questionKey: string; answer: string }[] }) {
   if (!env.OPENAI_API_KEY) return;
   if (nextStep > 12) return; // max 12 lessons per level
 
@@ -326,8 +327,8 @@ Create Step ${nextStep} lesson JSON with these exact fields:
 {
   "title": "<evocative lesson title>",
   "tradition": ${onboardingMap.tradition ? `"${onboardingMap.tradition}"` : "null"},
-  "readingText": "<400-600 word reading text weaving wisdom from their tradition with universal contemplative themes. Use **bold** for section headers>",
-  "practiceDescription": "<200-350 word practice instructions with phases labeled **Phase 1**, **Phase 2**, etc.>",
+  "readingText": "<400-600 word reading text weaving wisdom from their tradition with universal contemplative themes. Put every **bold section header** on its own line and leave a blank line between paragraphs>",
+  "practiceDescription": "<200-350 word practice instructions. Put each **Phase 1**, **Phase 2**, etc. label on its own line and leave a blank line between phases>",
   "questions": [
     {"id": "q1", "text": "<question 1 tailored to their profile>", "type": "experience"},
     {"id": "q2", "text": "<question 2>", "type": "reflection"},
@@ -352,23 +353,15 @@ Create Step ${nextStep} lesson JSON with these exact fields:
     const content = JSON.parse(raw.choices?.[0]?.message?.content || "{}");
 
     if (content.title && content.readingText) {
-      const newLesson = await db.lesson.create({
-        data: {
-          stepNumber: nextStep,
-          levelRequired: user.currentLevel,
-          title: content.title,
-          tradition: content.tradition || null,
-          readingText: content.readingText,
-          practiceDescription: content.practiceDescription,
-          questions: content.questions || [],
-          isTemplate: false,
-          forUserId: userId,
-        },
-      });
-
-      // Add to user's lesson list
-      await db.userLesson.create({
-        data: { userId, lessonId: newLesson.id, status: "PENDING" },
+      await persistPersonalizedLesson({
+        userId,
+        stepNumber: nextStep,
+        levelRequired: user.currentLevel,
+        title: content.title,
+        tradition: content.tradition || null,
+        readingText: content.readingText,
+        practiceDescription: content.practiceDescription || "",
+        questions: content.questions || [],
       });
     }
   } catch (e) {

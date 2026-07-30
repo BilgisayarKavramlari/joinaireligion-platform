@@ -13,6 +13,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     const lesson = await db.lesson.findUnique({ where: { id } });
     if (!lesson) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (lesson.forUserId && lesson.forUserId !== userId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     // Get or create UserLesson
     let userLesson = await db.userLesson.findUnique({ where: { userId_lessonId: { userId, lessonId: id } } });

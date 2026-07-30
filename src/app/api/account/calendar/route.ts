@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/access";
 import { decryptPrivatePayload } from "@/lib/private-data";
 import type { PersonalPlanPayload } from "@/lib/journey-planner";
+import { dedupeUserLessonsByStep } from "@/lib/lessons/dedupe";
 
 const MAX_RANGE_MS = 370 * 86_400_000;
 
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
           ],
         },
         orderBy: { createdAt: "asc" },
-        select: { id: true, status: true, startedAt: true, completedAt: true, createdAt: true, lesson: { select: { title: true } } },
+        select: { id: true, status: true, startedAt: true, completedAt: true, createdAt: true, lesson: { select: { title: true, stepNumber: true } } },
       }),
       db.practiceMessage.findMany({
         where: { userId: user.id, scheduledDate: { gte: from, lt: to }, generationStatus: { not: "FAILED" } },
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
             completedAt: log.completedAt.toISOString(),
             editable: false,
           })),
-          ...lessons.map((lesson) => ({
+          ...dedupeUserLessonsByStep(lessons).map((lesson) => ({
             id: `lesson:${lesson.id}`,
             source: "LESSON",
             activityType: "LESSON",

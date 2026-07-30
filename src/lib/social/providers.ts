@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "pinterest" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
-export const SOCIAL_LANGUAGE_POLICY_VERSION = "v1";
+export const SOCIAL_LANGUAGE_POLICY_VERSION = "v2";
 
 type LocaleWeight = { locale: SocialLocale; weight: number };
 
@@ -55,13 +55,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "zh", weight: 2 },
   ],
   instagram: [
-    { locale: "en", weight: 70 },
-    { locale: "tr", weight: 20 },
-    { locale: "es", weight: 2 },
-    { locale: "de", weight: 2 },
-    { locale: "fr", weight: 2 },
-    { locale: "ru", weight: 2 },
-    { locale: "zh", weight: 2 },
+    { locale: "en", weight: 100 },
   ],
   threads: [
     { locale: "en", weight: 75 },
@@ -73,13 +67,7 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "zh", weight: 2 },
   ],
   pinterest: [
-    { locale: "en", weight: 85 },
-    { locale: "tr", weight: 5 },
-    { locale: "es", weight: 2 },
-    { locale: "de", weight: 2 },
-    { locale: "fr", weight: 2 },
-    { locale: "ru", weight: 2 },
-    { locale: "zh", weight: 2 },
+    { locale: "en", weight: 100 },
   ],
 };
 
@@ -498,7 +486,7 @@ async function publishPinterest(text: string): Promise<SocialPublicationResult> 
       link: contentUrl.toString(),
       media_source: {
         source_type: "image_url",
-        url: socialCardUrl(contentUrl),
+        url: socialCardUrl(contentUrl, "pinterest"),
       },
     }),
     signal: timeoutSignal(),
@@ -529,12 +517,14 @@ function requiredContentUrl(text: string): URL {
   return parsed;
 }
 
-function socialCardUrl(contentUrl: URL): string {
+function socialCardUrl(contentUrl: URL, preset?: "instagram" | "pinterest"): string {
   const parts = contentUrl.pathname.split("/").filter(Boolean);
   if (parts.length !== 3 || parts[0] !== "content") throw new Error("Social content URL has an invalid route");
   const locale = decodeURIComponent(parts[1]);
   const slug = decodeURIComponent(parts[2]);
-  return `${contentUrl.origin}/social-card/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}.jpg`;
+  const card = new URL(`${contentUrl.origin}/social-card/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}.jpg`);
+  if (preset) card.searchParams.set("preset", preset);
+  return card.toString();
 }
 
 async function publishFacebook(text: string): Promise<SocialPublicationResult> {
@@ -565,7 +555,7 @@ async function publishInstagram(text: string): Promise<SocialPublicationResult> 
   }
   const contentUrl = requiredContentUrl(text);
   const createBody = new URLSearchParams({
-    image_url: socialCardUrl(contentUrl),
+    image_url: socialCardUrl(contentUrl, "instagram"),
     caption: text.slice(0, 2_200),
     access_token: env.META_PAGE_ACCESS_TOKEN,
   });

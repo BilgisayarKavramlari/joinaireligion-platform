@@ -544,6 +544,7 @@ model InvoiceRecord {
 
 model Lesson {
   id                  String       @id @default(cuid())
+  generationKey       String?      @unique
   stepNumber          Int
   isTemplate          Boolean      @default(false)
   forUserId           String?

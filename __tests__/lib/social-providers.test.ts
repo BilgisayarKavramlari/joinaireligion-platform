@@ -75,7 +75,9 @@ describe("Bluesky social provider helpers", () => {
         const locale = selectProviderLocale(provider, seed);
         if (locale) counts[provider][locale] += 1;
       }
-      for (const locale of SOCIAL_LOCALES) expect(counts[provider][locale]).toBeGreaterThan(0);
+      if (provider !== "instagram" && provider !== "pinterest") {
+        for (const locale of SOCIAL_LOCALES) expect(counts[provider][locale]).toBeGreaterThan(0);
+      }
     }
 
     expect(counts.mastodon.tr).toBeGreaterThan(counts.mastodon.en);
@@ -83,9 +85,11 @@ describe("Bluesky social provider helpers", () => {
     expect(counts.x.en).toBeGreaterThan(counts.x.tr);
     expect(counts.linkedin.en).toBeGreaterThan(counts.linkedin.tr);
     expect(counts.facebook.en).toBeGreaterThan(counts.facebook.tr);
-    expect(counts.instagram.en).toBeGreaterThan(counts.instagram.tr);
+    expect(counts.instagram.en).toBe(2_000);
+    expect(counts.instagram.tr).toBe(0);
     expect(counts.threads.en).toBeGreaterThan(counts.threads.tr);
-    expect(counts.pinterest.en).toBeGreaterThan(counts.pinterest.tr);
+    expect(counts.pinterest.en).toBe(2_000);
+    expect(counts.pinterest.tr).toBe(0);
   });
 
   it("falls back to the highest-weight available locale", () => {
@@ -190,7 +194,7 @@ describe("Bluesky social provider helpers", () => {
       externalUrl: "https://www.instagram.com/p/media-1/",
     });
     const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
-    expect(createBody.get("image_url")).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi.jpg");
+    expect(createBody.get("image_url")).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi.jpg?preset=instagram");
     expect(mockFetch.mock.calls[2][0].toString()).toBe("https://graph.facebook.com/v25.0/instagram-1/media_publish");
   });
 
@@ -209,7 +213,7 @@ describe("Bluesky social provider helpers", () => {
 
     const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
     expect(createBody.get("image_url")).toBe(
-      "https://joinaireligion.com/social-card/tr/tan%C4%B1d%C4%B1k-olmayan-geleneklere-sayg%C4%B1l%C4%B1-yakla%C5%9Fmak.jpg",
+      "https://joinaireligion.com/social-card/tr/tan%C4%B1d%C4%B1k-olmayan-geleneklere-sayg%C4%B1l%C4%B1-yakla%C5%9Fmak.jpg?preset=instagram",
     );
   });
 
@@ -263,7 +267,7 @@ describe("Bluesky social provider helpers", () => {
     expect(body.link).toBe("https://joinaireligion.com/content/en/reflection-example");
     expect(body.media_source).toEqual({
       source_type: "image_url",
-      url: "https://joinaireligion.com/social-card/en/reflection-example.jpg",
+      url: "https://joinaireligion.com/social-card/en/reflection-example.jpg?preset=pinterest",
     });
   });
 });

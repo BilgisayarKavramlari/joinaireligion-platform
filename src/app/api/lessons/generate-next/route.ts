@@ -18,6 +18,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { enforceLearningAccess } from "@/lib/access";
+import { persistPersonalizedLesson } from "@/lib/lessons/personalized";
 
 const MAX_STEPS_PER_LEVEL = 12;
 
@@ -60,20 +61,16 @@ export async function POST(req: NextRequest) {
       const template = await db.lesson.findFirst({ where: { stepNumber: 1, isTemplate: true, forUserId: null } });
       if (!template) return NextResponse.json({ ok: false, reason: "No template lesson found." });
 
-      const fallback = await db.lesson.create({
-        data: {
-          stepNumber: nextStep,
-          levelRequired: 1,
-          title: `${template.title} — Step ${nextStep}`,
-          tradition: template.tradition,
-          readingText: template.readingText,
-          practiceDescription: template.practiceDescription,
-          questions: template.questions as Prisma.InputJsonValue,
-          isTemplate: false,
-          forUserId: userId,
-        },
+      const fallback = await persistPersonalizedLesson({
+        userId,
+        stepNumber: nextStep,
+        levelRequired: 1,
+        title: `${template.title} — Step ${nextStep}`,
+        tradition: template.tradition,
+        readingText: template.readingText,
+        practiceDescription: template.practiceDescription,
+        questions: template.questions as Prisma.InputJsonValue,
       });
-      await db.userLesson.create({ data: { userId, lessonId: fallback.id, status: "PENDING" } });
       return NextResponse.json({ ok: true, lessonId: fallback.id, stepNumber: fallback.stepNumber, title: fallback.title });
     }
 
@@ -117,8 +114,8 @@ Generate Step ${nextStep} as a JSON object with these exact fields:
 {
   "title": "<evocative 4–8 word title referencing their tradition or a universal symbol>",
   "tradition": ${onboardingMap.tradition ? `"${onboardingMap.tradition}"` : "null"},
-  "readingText": "<400–650 word reading that weaves wisdom from their tradition with universal contemplative themes. Open with a paradox or teaching. Use **bold** for section headers. End with a 1-line invitation to practice.>",
-  "practiceDescription": "<200–350 word step-by-step practice with phases labeled **Phase 1: Name**, **Phase 2: Name**, etc. Specify duration for each phase. End with guidance on what to write in their prompt.>",
+  "readingText": "<400–650 word reading that weaves wisdom from their tradition with universal contemplative themes. Open with a paradox or teaching. Put every **bold section header** on its own line, leave a blank line between paragraphs, and end with a 1-line invitation to practice.>",
+  "practiceDescription": "<200–350 word step-by-step practice. Put each label such as **Phase 1: Name** on its own line and leave a blank line between phases. Specify duration for each phase. End with guidance on what to write in their prompt.>",
   "questions": [
     {"id": "q1", "text": "<experience question — what they noticed or felt>", "type": "experience"},
     {"id": "q2", "text": "<reflection question — connecting to their tradition or past>", "type": "reflection"},
@@ -171,22 +168,15 @@ Generate Step ${nextStep} as a JSON object with these exact fields:
     }
 
     // ── 6. Save lesson + UserLesson ───────────────────────────────────────────
-    const newLesson = await db.lesson.create({
-      data: {
-        stepNumber:           nextStep,
-        levelRequired:        user.currentLevel,
-        title:                content.title,
-        tradition:            content.tradition ?? onboardingMap.tradition ?? null,
-        readingText:          content.readingText,
-        practiceDescription:  content.practiceDescription,
-        questions:            (content.questions ?? []) as object,
-        isTemplate:           false,
-        forUserId:            userId,
-      },
-    });
-
-    await db.userLesson.create({
-      data: { userId, lessonId: newLesson.id, status: "PENDING" },
+    const newLesson = await persistPersonalizedLesson({
+      userId,
+      stepNumber: nextStep,
+      levelRequired: user.currentLevel,
+      title: content.title,
+      tradition: content.tradition ?? onboardingMap.tradition ?? null,
+      readingText: content.readingText,
+      practiceDescription: content.practiceDescription,
+      questions: (content.questions ?? []) as Prisma.InputJsonValue,
     });
 
     // Log activity
