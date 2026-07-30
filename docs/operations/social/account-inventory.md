@@ -8,7 +8,7 @@ This file stores public, non-secret account identifiers and connection state onl
 | --- | --- | --- | --- |
 | Mastodon / MastoTurk | Live: `@joinaireligion@mastoturk.org` | Live publishing verified | Routine token health only |
 | Bluesky | Live: `joinaireligion.bsky.social` | Live publishing verified | Routine app-password health only |
-| Pinterest | Public profile previously verified: `joinaireligion` | Image Pin adapter implemented and verified behind `PINTEREST_PUBLISHING_ENABLED`; credentials absent | Business-account check, Trial Access OAuth/demo, then Standard Access review |
+| Pinterest | Public profile previously verified: `joinaireligion`; developer app `Join AI Religion Social Publisher` (`App ID 1595764`) | Image Pin adapter implemented and verified behind `PINTEREST_PUBLISHING_ENABLED`; Trial Access request pending; credentials absent | Wait for Trial approval, then complete OAuth/demo and request Standard Access |
 | YouTube | Owner-created channel: `@JoinAIReligion`; channel ID `UCumLEY1yAl6SHoEISqVCO9Q` | Video pipeline and OAuth not implemented | Google Cloud project, API audit, one-time OAuth |
 | Facebook | Live Page: `joinaireligion` | Live publishing verified | Routine Page-token health only |
 | Instagram | Live Professional account: `joinaireligion` | Live image publishing verified | Routine Page-token and asset-link health only |
