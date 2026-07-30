@@ -27,7 +27,10 @@ import { env } from "@/lib/env";
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const DEFAULT_MODEL = "gpt-4o-mini";
-const TIMEOUT_MS = 30_000;
+// Long-form multilingual JSON can legitimately take longer than a short chat
+// completion. Keep one bounded attempt and let the scheduled worker retry the
+// whole idempotent job later instead of multiplying latency inside the SDK.
+const TIMEOUT_MS = 120_000;
 // Multilingual article JSON includes a full body, SEO fields, and FAQ blocks.
 // 800 tokens can truncate otherwise valid Cyrillic and CJK translations.
 const MAX_TOKENS = 2_400;
@@ -47,7 +50,7 @@ function getClient(): OpenAI {
     _client = new OpenAI({
       apiKey: env.OPENAI_API_KEY,
       timeout: TIMEOUT_MS,
-      maxRetries: 1,
+      maxRetries: 0,
     });
   }
   return _client;
