@@ -209,8 +209,11 @@ function parseGeneratedVariant(
   const bodyMarkdown = String(record.bodyMarkdown || "").trim();
   const seoTitle = String(record.seoTitle || "").trim();
   const seoDescription = String(record.seoDescription || "").trim();
-  const faqBlocks = parseFaqBlocks(record.faqBlocks);
-  if (!title || !summary || !bodyMarkdown || !seoTitle || !seoDescription || !faqBlocks) return null;
+  // Some long translations omit the optional FAQ array even when the article
+  // body is complete. Use the locale's reviewed safety FAQ instead of
+  // discarding an otherwise valid full-length translation.
+  const faqBlocks = parseFaqBlocks(record.faqBlocks) ?? buildFallbackVariant(locale).faqBlocks;
+  if (!title || !summary || !bodyMarkdown || !seoTitle || !seoDescription) return null;
 
   return {
     locale,
@@ -602,8 +605,56 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
       result.variant ? [] : [`${missingLocales[index]}:${result.error || "translation_failed"}`]
     );
     const newVariants = translated.flatMap((result) => result.variant ? [result.variant] : []);
+    const remainsPublished = candidate.status === ContentWorkflowStatus.PUBLISHED;
     if (errors.length > 0 || newVariants.length !== missingLocales.length) {
-      return { backfilled: 0, contentItemId: candidate.id, missingLocales, errors: errors.map(safeError) };
+      if (newVariants.length > 0) {
+        const partialCombined = [...storedVariantsToGateInput(candidate.variants), ...newVariants];
+        const partialGate = assessContentVariants(partialCombined);
+        await db.$transaction([
+          ...newVariants.map((variant) => db.contentVariant.create({
+            data: {
+              contentItemId: candidate.id,
+              locale: variant.locale,
+              title: variant.title,
+              slug: variant.slug,
+              summary: variant.summary,
+              bodyMarkdown: variant.bodyMarkdown,
+              seoTitle: variant.seoTitle,
+              seoDescription: variant.seoDescription,
+              faqBlocks: asInputJson(variant.faqBlocks),
+              qualityScore: partialGate.localeScores[variant.locale],
+              publishedAt: remainsPublished ? candidate.publishedAt || now : null,
+            },
+          })),
+          db.contentItem.update({
+            where: { id: candidate.id },
+            data: {
+              aggregateMetrics: asInputJson({
+                ...asRecord(candidate.aggregateMetrics),
+                localeCoverage: partialCombined.length,
+                localeRepairPending: true,
+              }),
+            },
+          }),
+          db.contentModerationDecision.create({
+            data: {
+              contentItemId: candidate.id,
+              agentRunId,
+              outcome: ContentModerationOutcome.QUARANTINE,
+              riskLevel: "LOW",
+              reasons: asInputJson(["locale_backfill_partial_retry_required", ...errors.map(safeError)]),
+              qualityScores: asInputJson(partialGate.localeScores),
+            },
+          }),
+        ]);
+      }
+      return {
+        backfilled: newVariants.length,
+        partial: newVariants.length > 0,
+        contentItemId: candidate.id,
+        missingLocales,
+        errors: errors.map(safeError),
+      };
     }
 
     const combined = [
@@ -622,7 +673,6 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
       };
     }
 
-    const remainsPublished = candidate.status === ContentWorkflowStatus.PUBLISHED;
     await db.$transaction([
       ...newVariants.map((variant) => db.contentVariant.create({
         data: {
@@ -650,6 +700,7 @@ export async function runContentLocaleBackfill(now = new Date()): Promise<Growth
             ...asRecord(candidate.aggregateMetrics),
             qualityScore: gate.qualityScore,
             localeCoverage: combined.length,
+            localeRepairPending: false,
           }),
         },
       }),
