@@ -22,6 +22,33 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.2.1",
+    status: "released",
+    releasedAt: "2026-07-30",
+    copy: {
+      en: {
+        title: "Personal journey tools and clear lesson timing",
+        summary: "A privacy-focused release for planning personal practice and knowing exactly when the next reflection can be submitted.",
+        highlights: [
+          "A personal calendar combining lesson history, completed practices, and future plans",
+          "Encrypted private notes with export, deletion, and configurable retention",
+          "Quick check-ins for meditation, yoga, reading, and reflection",
+          "A live day, hour, minute, and second countdown to the next lesson reflection submission",
+        ],
+      },
+      tr: {
+        title: "Kişisel yolculuk araçları ve net ders zamanlaması",
+        summary: "Kişisel pratikleri planlamak ve sonraki yansımanın ne zaman gönderilebileceğini tam olarak görmek için gizlilik odaklı bir sürüm.",
+        highlights: [
+          "Ders geçmişini, tamamlanan pratikleri ve gelecek planlarını birleştiren kişisel takvim",
+          "Dışa aktarma, silme ve ayarlanabilir saklama süresi sunan şifreli özel notlar",
+          "Meditasyon, yoga, okuma ve düşünme için hızlı aktivite kayıtları",
+          "Sonraki ders yansımasına gün, saat, dakika ve saniye gösteren canlı geri sayım",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.2.0",
     status: "released",
     releasedAt: "2026-07-29",

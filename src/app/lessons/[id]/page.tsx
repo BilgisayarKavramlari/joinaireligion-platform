@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SacredPage, SacredCard, SacredHeading, SacredAlert } from "@/components/ui/SacredPage";
+import LessonQuotaCountdown from "@/components/lessons/LessonQuotaCountdown";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LessonData {
@@ -44,7 +45,7 @@ function renderText(text: string) {
 export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [lesson,   setLesson]   = useState<LessonData | null>(null);
   const [prompt,   setPrompt]   = useState("");
   const [tab,      setTab]      = useState<"reading" | "practice" | "submit">("reading");
@@ -54,26 +55,28 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   const [error,    setError]    = useState("");
   const [generating, setGenerating] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/lessons/${id}`)
-      .then(async (r) => {
-        if (r.status === 403) {
-          const blocked = await r.json().catch(() => null);
-          if (blocked?.next) {
-            router.push(blocked.next);
-            return null;
-          }
-        }
-        return r.ok ? r.json() : null;
-      })
-      .then((d) => {
-        if (d === undefined) return;
-        if (!d) { router.push("/lessons"); return; }
-        setLesson(d);
-        if (d.lastAttempt) setResult(d.lastAttempt);
-        setLoading(false);
-      });
+  const loadLesson = useCallback(async () => {
+    const response = await fetch(`/api/lessons/${id}`, { cache: "no-store" });
+    if (response.status === 403) {
+      const blocked = await response.json().catch(() => null);
+      if (blocked?.next) {
+        router.push(blocked.next);
+        return;
+      }
+    }
+    if (!response.ok) {
+      router.push("/lessons");
+      return;
+    }
+    const data = await response.json();
+    setLesson(data);
+    if (data.lastAttempt) setResult(data.lastAttempt);
+    setLoading(false);
   }, [id, router]);
+
+  useEffect(() => {
+    void loadLesson();
+  }, [loadLesson]);
 
   async function goToNextLesson() {
     setGenerating(true);
@@ -104,8 +107,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       if (!res.ok) { setError(data.error || "Submission failed."); setSending(false); return; }
       setResult({ score: data.score, passed: data.passed, feedback: data.feedback });
       // Refresh lesson data for quota/status
-      const updated = await fetch(`/api/lessons/${id}`).then((r) => r.json());
-      setLesson(updated);
+      await loadLesson();
     } catch {
       setError("Connection error. Please try again.");
     }
@@ -227,6 +229,21 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
             <SacredAlert
               text={lesson.quota.reason || "You have used your prompt attempts for this period."}
               tone="error"
+            />
+          )}
+          {!lesson.quota.canSubmit && lesson.quota.nextAvailableAt && (
+            <LessonQuotaCountdown
+              nextAvailableAt={lesson.quota.nextAvailableAt}
+              locale={lang}
+              title={t.lesson.nextSubmissionIn}
+              availableAt={t.lesson.availableAgainAt}
+              units={{
+                days: t.lesson.countdownDays,
+                hours: t.lesson.countdownHours,
+                minutes: t.lesson.countdownMinutes,
+                seconds: t.lesson.countdownSeconds,
+              }}
+              onExpired={loadLesson}
             />
           )}
 

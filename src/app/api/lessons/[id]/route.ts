@@ -49,41 +49,39 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const periodEnd = new Date(quota.periodEnd);
         if (quota.usedAttempts >= quota.maxAttempts && now < periodEnd) {
           canSubmit = false;
+          nextAvailableAt = periodEnd.toISOString();
           if (hasDailyAccess) {
-            // Paid: reset daily
-            const tomorrow = new Date(now);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(0, 0, 0, 0);
-            reason = "You've used your prompt attempt for today. Come back tomorrow.";
-            nextAvailableAt = tomorrow.toISOString();
+            reason = "You've used your daily prompt attempt. The countdown shows when your 24-hour period ends.";
           } else {
             reason = `You've used your free attempt this week. Upgrade to Initiate for daily access, or return ${periodEnd.toLocaleDateString()}.`;
-            nextAvailableAt = periodEnd.toISOString();
           }
         }
       }
     }
 
-    return NextResponse.json({
-      id: lesson.id,
-      stepNumber: lesson.stepNumber,
-      title: lesson.title,
-      tradition: lesson.tradition,
-      readingText: lesson.readingText,
-      practiceDescription: lesson.practiceDescription,
-      questions: lesson.questions,
-      userLesson: {
-        id: userLesson.id,
-        status: userLesson.status,
-        xpEarned: userLesson.xpEarned,
+    return NextResponse.json(
+      {
+        id: lesson.id,
+        stepNumber: lesson.stepNumber,
+        title: lesson.title,
+        tradition: lesson.tradition,
+        readingText: lesson.readingText,
+        practiceDescription: lesson.practiceDescription,
+        questions: lesson.questions,
+        userLesson: {
+          id: userLesson.id,
+          status: userLesson.status,
+          xpEarned: userLesson.xpEarned,
+        },
+        lastAttempt: lastAttempt ? {
+          score: lastAttempt.score,
+          passed: lastAttempt.passed,
+          feedback: lastAttempt.feedback || "",
+        } : null,
+        quota: { canSubmit, reason, nextAvailableAt },
       },
-      lastAttempt: lastAttempt ? {
-        score: lastAttempt.score,
-        passed: lastAttempt.passed,
-        feedback: lastAttempt.feedback || "",
-      } : null,
-      quota: { canSubmit, reason, nextAvailableAt },
-    });
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     console.error("lesson_get_error", error);
     return NextResponse.json({ error: "Failed to load lesson." }, { status: 500 });

@@ -56,7 +56,9 @@ describe("public product updates", () => {
     const text = extractText(UpdatesContent()).replace(/\s+/g, " ").trim();
 
     expect(text).toContain("Güncellemeler");
+    expect(text).toContain("v0.2.1");
     expect(text).toContain("v0.2.0");
+    expect(text).toContain("canlı geri sayım");
     expect(text).toContain("Yayınlandı");
     expect(text).not.toContain("Planlandı");
   });

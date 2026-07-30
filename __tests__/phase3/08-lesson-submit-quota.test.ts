@@ -200,6 +200,8 @@ describe("POST /api/lessons/submit", () => {
     expect(res.status).toBe(429);
     const body = await jsonBody(res);
     expect(body.error).toMatch(/daily|tomorrow/i);
+    expect(body.nextAvailableAt).toBe(tomorrowEnd.toISOString());
+    expect(Number(res.headers.get("Retry-After"))).toBeGreaterThan(0);
   });
 
   it("allows paid user when daily period has expired", async () => {

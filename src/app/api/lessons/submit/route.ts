@@ -84,11 +84,17 @@ export async function POST(req: NextRequest) {
     const quota = user.lessonQuota;
 
     if (quota && quota.usedAttempts >= quota.maxAttempts && now < new Date(quota.periodEnd)) {
-      return NextResponse.json({
-        error: hasDailyAccess
-          ? "You've used your daily prompt attempt. Come back tomorrow."
-          : "You've used your free attempt this week. Upgrade to Initiate for daily access.",
-      }, { status: 429 });
+      const nextAvailableAt = new Date(quota.periodEnd);
+      const retryAfter = Math.max(1, Math.ceil((nextAvailableAt.getTime() - now.getTime()) / 1_000));
+      return NextResponse.json(
+        {
+          error: hasDailyAccess
+            ? "You've used your daily prompt attempt. Your next attempt unlocks when the 24-hour period ends."
+            : "You've used your free attempt this week. Upgrade to Initiate for daily access.",
+          nextAvailableAt: nextAvailableAt.toISOString(),
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } },
+      );
     }
 
     // Ensure UserLesson exists
