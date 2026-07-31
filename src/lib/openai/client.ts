@@ -66,8 +66,17 @@ export function isOpenAIEnabled(): boolean {
   return Boolean(env.OPENAI_API_KEY);
 }
 
-export async function createOpenAISpeech(input: string): Promise<{ audio: Uint8Array | null; error: string | null }> {
-  if (!isOpenAIEnabled()) return { audio: null, error: "OPENAI_API_KEY not configured" };
+type SpeechResult = {
+  audio: Uint8Array | null;
+  error: string | null;
+  model: "gpt-4o-mini-tts" | "tts-1" | null;
+  voice: "marin" | "alloy" | null;
+};
+
+export async function createOpenAISpeech(input: string): Promise<SpeechResult> {
+  if (!isOpenAIEnabled()) {
+    return { audio: null, error: "OPENAI_API_KEY not configured", model: null, voice: null };
+  }
   try {
     const response = await getClient().audio.speech.create({
       model: "gpt-4o-mini-tts",
@@ -76,10 +85,39 @@ export async function createOpenAISpeech(input: string): Promise<{ audio: Uint8A
       instructions: "Speak calmly, clearly, and warmly at a measured pace. Sound educational and reflective, never prophetic, therapeutic, or authoritative. Briefly pause between sections.",
       response_format: "mp3",
     });
-    return { audio: new Uint8Array(await response.arrayBuffer()), error: null };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { audio: null, error: message.slice(0, 500) };
+    return {
+      audio: new Uint8Array(await response.arrayBuffer()),
+      error: null,
+      model: "gpt-4o-mini-tts",
+      voice: "marin",
+    };
+  } catch (preferredError) {
+    // Some OpenAI projects do not yet have access to gpt-4o-mini-tts. Keep the
+    // publisher operational with the broadly available TTS model while
+    // recording the actual model and voice in the public episode metadata.
+    try {
+      const response = await getClient().audio.speech.create({
+        model: "tts-1",
+        voice: "alloy",
+        input,
+        response_format: "mp3",
+      });
+      return {
+        audio: new Uint8Array(await response.arrayBuffer()),
+        error: null,
+        model: "tts-1",
+        voice: "alloy",
+      };
+    } catch (fallbackError) {
+      const preferredMessage = preferredError instanceof Error ? preferredError.message : String(preferredError);
+      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      return {
+        audio: null,
+        error: `Preferred TTS failed: ${preferredMessage}; fallback TTS failed: ${fallbackMessage}`.slice(0, 500),
+        model: null,
+        voice: null,
+      };
+    }
   }
 }
 
