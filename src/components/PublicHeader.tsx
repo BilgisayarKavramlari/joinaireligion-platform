@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
 import type { LangCode } from "@/lib/i18n/dict";
+import { VisualThemePicker } from "@/components/VisualThemePicker";
 
 const LANG_LIST: { code: LangCode; flag: string; name: string }[] = [
   { code: "en", flag: "🇬🇧", name: "English" },
@@ -63,7 +64,7 @@ export function PublicHeader() {
       style={{
         position: "sticky", top: 0, zIndex: 50,
         borderBottom: scrolled ? "1px solid var(--border-gold)" : "1px solid transparent",
-        background: scrolled ? "rgba(4,0,12,0.92)" : "rgba(4,0,12,0.55)",
+        background: scrolled ? "var(--header-bg-solid)" : "var(--header-bg)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         transition: "background 0.3s, border-color 0.3s",
@@ -101,6 +102,7 @@ export function PublicHeader() {
         <nav style={{ display: "flex", alignItems: "center", gap: "0.15rem" }} className="header-desktop-nav">
           {[
             ["Insights", "/content"],
+            ["Audio", "/podcast"],
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],
@@ -111,6 +113,8 @@ export function PublicHeader() {
 
         {/* Right actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+
+          <VisualThemePicker />
 
           {/* Language selector */}
           <div ref={langRef} style={{ position: "relative" }}>
@@ -138,7 +142,7 @@ export function PublicHeader() {
               <div id="public-language-menu" role="menu" style={{
                 position: "absolute", right: 0, top: "calc(100% + 8px)", width: 160,
                 borderRadius: "0.85rem", border: "1px solid var(--border-gold)",
-                background: "rgba(6,2,14,0.97)", backdropFilter: "blur(16px)",
+                background: "var(--menu-bg)", backdropFilter: "blur(16px)",
                 boxShadow: "0 20px 50px rgba(0,0,0,0.75), 0 0 28px var(--gold-glow)",
                 overflow: "hidden", zIndex: 200,
               }}>
@@ -222,7 +226,7 @@ export function PublicHeader() {
               <div id="public-account-menu" role="menu" style={{
                 position: "absolute", right: 0, top: "calc(100% + 8px)", width: 190,
                 borderRadius: "0.85rem", border: "1px solid var(--border-gold)",
-                background: "rgba(6,2,14,0.97)", backdropFilter: "blur(16px)",
+                background: "var(--menu-bg)", backdropFilter: "blur(16px)",
                 boxShadow: "0 20px 50px rgba(0,0,0,0.75), 0 0 28px var(--gold-glow)",
                 overflow: "hidden", zIndex: 100,
               }}>
@@ -276,6 +280,7 @@ export function PublicHeader() {
         }}>
           {[
             ["Insights", "/content"],
+            ["Audio", "/podcast"],
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],

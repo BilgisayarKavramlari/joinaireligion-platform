@@ -21,7 +21,7 @@ export type AgentExecutionMode =
   | "SAFE_REPAIR"
   | "INACTIVE";
 
-type AgentScheduleKind = "daily_utc" | "hourly" | "interval_hours" | "manual";
+type AgentScheduleKind = "daily_utc" | "weekly_utc" | "hourly" | "interval_hours" | "manual";
 
 interface AgentSchedule {
   kind: AgentScheduleKind;
@@ -30,6 +30,7 @@ interface AgentSchedule {
   hour?: number;
   minute?: number;
   intervalHours?: number;
+  weekday?: number;
 }
 
 export interface AutonomousDecisionLogContract {
@@ -271,6 +272,23 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     },
   },
   {
+    agentName: "podcast-publisher",
+    title: "Reflective Audio Publisher",
+    description: "Creates a weekly English audio edition from independently reviewed published content and exposes only completed MP3 episodes in the podcast RSS feed.",
+    lifecycle: "IMPLEMENTED",
+    mode: "LIVE",
+    schedule: { kind: "weekly_utc", label: "Sundays at 16:10 UTC", cron: "10 16 * * 0", weekday: 0, hour: 16, minute: 10 },
+    backlogLabel: "completed podcast episodes",
+    policy: {
+      autonomyLevel: 3,
+      allowedActions: ["read published English content", "generate disclosed AI narration", "write audio to persistent uploads", "publish standards-based podcast RSS metadata"],
+      forbiddenActions: ["narrate unpublished content", "imitate a person", "hide AI voice disclosure", "delete source content or prior episodes"],
+      escalationConditions: ["audio generation repeatedly fails", "source content becomes unpublished", "storage write fails", "feed metadata becomes invalid"],
+      defaultSafeBoundaries: ["published content only", "one episode per source item", "built-in voice only", "clear AI disclosure", "idempotent publication"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
     agentName: "social-listener",
     title: "Public Social Listener",
     description: "Collects public aggregate trend counts and hashtags without retaining raw post text or private messages.",
@@ -402,6 +420,14 @@ function getNextScheduledRun(schedule: AgentSchedule, now: Date): string | null 
     return next.toISOString();
   }
 
+  if (schedule.kind === "weekly_utc") {
+    next.setUTCHours(schedule.hour ?? 0, schedule.minute ?? 0, 0, 0);
+    const daysUntilTarget = ((schedule.weekday ?? 0) - next.getUTCDay() + 7) % 7;
+    next.setUTCDate(next.getUTCDate() + daysUntilTarget);
+    if (next <= now) next.setUTCDate(next.getUTCDate() + 7);
+    return next.toISOString();
+  }
+
   next.setUTCHours(schedule.hour ?? 0, schedule.minute ?? 0, 0, 0);
   if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
   return next.toISOString();
@@ -420,6 +446,8 @@ function isRunFresh(latestRun: AgentRunSummary | null, schedule: AgentSchedule, 
       return ageMs <= ((schedule.intervalHours ?? 1) + 1) * 60 * 60 * 1000;
     case "daily_utc":
       return ageMs <= 36 * 60 * 60 * 1000;
+    case "weekly_utc":
+      return ageMs <= 8 * 24 * 60 * 60 * 1000;
     case "manual":
       return latestRun.status === AgentRunStatus.SUCCESS;
   }
@@ -525,6 +553,7 @@ async function fetchBacklogs(): Promise<BacklogRecord> {
     contentLocaleBacklog,
     publishableDrafts,
     publishedContent,
+    podcastEpisodes,
     socialSnapshots,
     socialDrafts,
     adsReports,
@@ -547,6 +576,7 @@ async function fetchBacklogs(): Promise<BacklogRecord> {
     }),
     db.contentItem.count({ where: { status: ContentWorkflowStatus.DRAFT } }),
     db.contentItem.count({ where: { status: ContentWorkflowStatus.PUBLISHED } }),
+    db.agentArtifact.count({ where: { agentName: "podcast-publisher", artifactType: "PODCAST_EPISODE", status: AgentArtifactStatus.READY } }),
     db.agentArtifact.count({ where: { agentName: "social-listener", status: AgentArtifactStatus.READY } }),
     db.agentArtifact.count({ where: { agentName: "social-listener-draft", status: AgentArtifactStatus.READY } }),
     db.agentArtifact.count({ where: { agentName: "ads-reporting", status: AgentArtifactStatus.READY } }),
@@ -564,6 +594,7 @@ async function fetchBacklogs(): Promise<BacklogRecord> {
     "content-locale-backfill": contentLocaleBacklog,
     "content-publisher": publishableDrafts,
     "content-performance": publishedContent,
+    "podcast-publisher": podcastEpisodes,
     "social-listener": socialSnapshots,
     "social-listener-draft": socialDrafts,
     "social-publisher": socialDrafts,

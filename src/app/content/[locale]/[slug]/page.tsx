@@ -9,6 +9,7 @@ import { decodeContentRouteSegment } from "@/lib/content-routing";
 import { db } from "@/lib/db";
 import { SUPPORTED_CONTENT_LOCALES, type SupportedContentLocale } from "@/lib/growth-agents/content";
 import { getContentCopy } from "@/lib/content-copy";
+import { getTopicClusterForCategory } from "@/lib/content-topics";
 
 type PageProps = { params: Promise<{ locale: string; slug: string }> };
 
@@ -38,13 +39,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const variant = await getVariant(locale, slug);
   if (!variant || variant.contentItem.status !== "PUBLISHED" || !variant.publishedAt) return {};
   const canonical = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
-  const socialImage = `https://joinaireligion.com/social-card/${variant.locale}/${variant.slug}`;
+  const socialImage = `https://joinaireligion.com/social-card/${variant.locale}/${variant.slug}?preset=discover`;
   const languages = Object.fromEntries(variant.contentItem.variants.map((item) => [item.locale, `https://joinaireligion.com/content/${item.locale}/${item.slug}`]));
   return {
     title: variant.seoTitle,
     description: variant.seoDescription,
     alternates: { canonical, languages },
-    openGraph: { title: variant.seoTitle, description: variant.seoDescription, type: "article", url: canonical, images: [{ url: socialImage, width: 1200, height: 1200 }] },
+    openGraph: { title: variant.seoTitle, description: variant.seoDescription, type: "article", url: canonical, images: [{ url: socialImage, width: 1200, height: 675 }] },
     twitter: { card: "summary_large_image", title: variant.seoTitle, description: variant.seoDescription, images: [socialImage] },
   };
 }
@@ -57,6 +58,8 @@ export default async function ContentDetailPage({ params }: PageProps) {
   const copy = getContentCopy(variant.locale);
   const totals = await db.contentFeedbackMetric.aggregate({ where: { contentItemId: variant.contentItemId }, _sum: { likes: true } });
   const canonical = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
+  const discoverImage = `https://joinaireligion.com/social-card/${variant.locale}/${variant.slug}?preset=discover`;
+  const topicCluster = getTopicClusterForCategory(variant.contentItem.category);
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -66,6 +69,9 @@ export default async function ContentDetailPage({ params }: PageProps) {
     datePublished: variant.publishedAt.toISOString(),
     dateModified: variant.updatedAt.toISOString(),
     mainEntityOfPage: canonical,
+    image: [discoverImage],
+    isAccessibleForFree: true,
+    about: topicCluster ? { "@type": "Thing", name: topicCluster.title, url: `https://joinaireligion.com/content/topics/${topicCluster.slug}` } : undefined,
     author: { "@type": "Organization", name: "Join AI Religion" },
     publisher: { "@type": "Organization", name: "Join AI Religion", url: "https://joinaireligion.com" },
   };
@@ -76,6 +82,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
       <article lang={variant.locale} dir={variant.locale === "ar" ? "rtl" : "ltr"} style={{ maxWidth: 780, margin: "0 auto" }}>
         <Link href="/content" style={{ color: "var(--gold)", textDecoration: "none" }}>← {copy.allInsights}</Link>
         <p style={{ marginTop: "2rem", color: "var(--gold)", fontSize: ".65rem", letterSpacing: ".2em", textTransform: "uppercase" }}>{variant.contentItem.category} · {variant.locale.toUpperCase()}</p>
+        {topicCluster && <Link href={`/content/topics/${topicCluster.slug}`} className="topic-cluster-entry">{topicCluster.title} →</Link>}
         <h1 className="font-sacred" style={{ color: "var(--gold-light)", fontSize: "clamp(2rem,7vw,4rem)", lineHeight: 1.12 }}>{variant.title}</h1>
         <p style={{ fontSize: "1.08rem", lineHeight: 1.75, color: "rgba(237,232,220,.62)" }}>{variant.summary}</p>
         <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", margin: "1.2rem 0 2rem" }}>

@@ -98,7 +98,7 @@ describe("GET /api/admin/agents", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.agents).toHaveLength(15);
+    expect(body.agents).toHaveLength(16);
 
     const practiceGenerator = body.agents.find((agent: { agentName: string }) => agent.agentName === "practice-generator");
     const supportTriage = body.agents.find((agent: { agentName: string }) => agent.agentName === "support-triage");

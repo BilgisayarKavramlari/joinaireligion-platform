@@ -66,6 +66,23 @@ export function isOpenAIEnabled(): boolean {
   return Boolean(env.OPENAI_API_KEY);
 }
 
+export async function createOpenAISpeech(input: string): Promise<{ audio: Uint8Array | null; error: string | null }> {
+  if (!isOpenAIEnabled()) return { audio: null, error: "OPENAI_API_KEY not configured" };
+  try {
+    const response = await getClient().audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "marin",
+      input,
+      instructions: "Speak calmly, clearly, and warmly at a measured pace. Sound educational and reflective, never prophetic, therapeutic, or authoritative. Briefly pause between sections.",
+      response_format: "mp3",
+    });
+    return { audio: new Uint8Array(await response.arrayBuffer()), error: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { audio: null, error: message.slice(0, 500) };
+  }
+}
+
 /**
  * Calls the OpenAI Chat Completions API in JSON mode.
  *

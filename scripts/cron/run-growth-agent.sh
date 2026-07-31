@@ -3,7 +3,7 @@ set -euo pipefail
 
 AGENT_NAME="${1:-}"
 case "$AGENT_NAME" in
-  seo-kulliyat-draft|content-locale-backfill|content-publisher|content-performance|social-listener|social-listener-draft|social-publisher|ads-reporting|cfo-reporting|revenue-orchestrator|private-note-retention) ;;
+  seo-kulliyat-draft|content-locale-backfill|content-publisher|content-performance|podcast-publisher|social-listener|social-listener-draft|social-publisher|ads-reporting|cfo-reporting|revenue-orchestrator|private-note-retention) ;;
   *) echo "[growth-agent] ERROR: unsupported agent name." >&2; exit 1 ;;
 esac
 

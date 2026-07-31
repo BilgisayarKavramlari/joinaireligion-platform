@@ -2,6 +2,7 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
@@ -543,6 +544,15 @@ export default function LandingPage() {
       <section
         style={{ minHeight: "100vh", position: "relative", display: "flex", alignItems: "center", overflow: "hidden" }}
       >
+        <div aria-hidden className="hero-art">
+          <Image
+            src="/visuals/reflective-horizon-hero.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+          />
+        </div>
         {/* Ambient nebula layers */}
         <div aria-hidden className="nebula-1" style={{
           position: "absolute", top: "-20%", left: "50%", transform: "translateX(-50%)",

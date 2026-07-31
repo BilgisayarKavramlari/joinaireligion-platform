@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI weekly reflective audio publisher
+
+[Timer]
+OnCalendar=Sun *-*-* 16:10:00 UTC
+Persistent=true
+Unit=joinai-agent@podcast-publisher.service
+
+[Install]
+WantedBy=timers.target

@@ -22,6 +22,33 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.2.3",
+    status: "released",
+    releasedAt: "2026-07-30",
+    copy: {
+      en: {
+        title: "Personal themes, connected topics, and Reflective Audio",
+        summary: "A visual and discovery release that makes the experience more personal and every published reflection easier to explore and hear.",
+        highlights: [
+          "Four device-persistent visual themes with accessible reduced-motion behavior",
+          "A new responsive editorial hero image and calmer ambient animation layer",
+          "Discover-ready large article images and public topic-cluster hubs",
+          "A weekly Reflective Audio agent with a standards-based podcast RSS feed and explicit AI-voice disclosure",
+        ],
+      },
+      tr: {
+        title: "Kişisel temalar, bağlantılı konular ve Reflective Audio",
+        summary: "Deneyimi kişiselleştiren; yayımlanan her düşünme yazısını keşfetmeyi ve dinlemeyi kolaylaştıran görsel ve içerik keşfi sürümü.",
+        highlights: [
+          "Cihazda kalıcı dört görsel tema ve erişilebilir hareket azaltma davranışı",
+          "Yeni duyarlı editoryal ana görsel ve daha sakin ortam animasyonları",
+          "Discover uyumlu büyük yazı görselleri ve herkese açık konu kümesi merkezleri",
+          "Standartlara uygun podcast RSS’i ve açık AI-ses bildirimi sunan haftalık Reflective Audio ajanı",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.2.2",
     status: "released",
     releasedAt: "2026-07-30",

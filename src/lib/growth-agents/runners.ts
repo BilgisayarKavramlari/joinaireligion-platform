@@ -11,7 +11,10 @@ import {
 } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { callOpenAIJsonWithError } from "@/lib/openai/client";
+import { callOpenAIJsonWithError, createOpenAISpeech } from "@/lib/openai/client";
+import { buildPodcastScript } from "@/lib/podcast";
+import { mkdir, rename, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 import {
   SUPPORTED_CONTENT_LOCALES,
   assessContentVariants,
@@ -40,12 +43,14 @@ import {
   type SocialLocale,
   type SocialProviderName,
 } from "@/lib/social/providers";
+import { CONTENT_TOPICS, type ContentTopic } from "@/lib/content-topics";
 
 export const GROWTH_AGENT_NAMES = [
   "seo-kulliyat-draft",
   "content-locale-backfill",
   "content-publisher",
   "content-performance",
+  "podcast-publisher",
   "social-listener",
   "social-listener-draft",
   "social-publisher",
@@ -63,29 +68,6 @@ type GrowthAgentResult = {
   agentRunId: string;
   output: RunOutput;
 };
-
-const TOPICS = [
-  { key: "everyday-meaning", title: "Noticing meaning in everyday moments", category: "reflection", contentType: "guided_reflection" },
-  { key: "journaling-perspective", title: "Reflective journaling and the role of perspective", category: "journaling", contentType: "educational_article" },
-  { key: "meditation-attention", title: "Meditation as a cross-cultural attention practice", category: "meditation", contentType: "educational_article" },
-  { key: "respectful-curiosity", title: "Approaching unfamiliar traditions with respectful curiosity", category: "comparative_culture", contentType: "faq" },
-  { key: "values-in-action", title: "Questions for noticing personal values in action", category: "values", contentType: "guided_reflection" },
-  { key: "attention-and-choice", title: "How attention shapes everyday choices", category: "reflection", contentType: "educational_article" },
-  { key: "journaling-uncertainty", title: "Journaling with uncertainty instead of rushing to answers", category: "journaling", contentType: "guided_reflection" },
-  { key: "ritual-and-routine", title: "The difference between reflective ritual and routine", category: "comparative_culture", contentType: "educational_article" },
-  { key: "questions-for-values", title: "Five questions for clarifying values without judging beliefs", category: "values", contentType: "faq" },
-  { key: "digital-pause", title: "A short digital pause for more deliberate attention", category: "meditation", contentType: "guided_reflection" },
-  { key: "symbols-and-meaning", title: "How symbols can support personal reflection", category: "comparative_culture", contentType: "educational_article" },
-  { key: "curiosity-before-certainty", title: "Practicing curiosity before certainty", category: "reflection", contentType: "guided_reflection" },
-  { key: "journaling-patterns", title: "Using journaling to notice recurring patterns", category: "journaling", contentType: "educational_article" },
-  { key: "listening-practice", title: "A reflective listening practice for difficult conversations", category: "values", contentType: "guided_reflection" },
-  { key: "technology-and-meaning", title: "Using AI as a prompt for reflection without giving it authority", category: "responsible_ai", contentType: "faq" },
-  { key: "cross-cultural-care", title: "Reading cross-cultural practices with context and care", category: "comparative_culture", contentType: "educational_article" },
-  { key: "beginner-meditation", title: "A beginner-friendly attention exercise without spiritual claims", category: "meditation", contentType: "guided_reflection" },
-  { key: "values-conflict", title: "Reflecting when two personal values seem to conflict", category: "values", contentType: "guided_reflection" },
-  { key: "meaningful-questions", title: "What makes a reflective question meaningful", category: "reflection", contentType: "faq" },
-  { key: "responsible-ai-reflection", title: "Boundaries for responsible AI-guided reflection", category: "responsible_ai", contentType: "educational_article" },
-] as const;
 
 const LOCALE_NAMES: Record<SupportedContentLocale, string> = {
   en: "English",
@@ -174,14 +156,14 @@ async function selectTopic(now: Date) {
     const score = Number(metrics.engagementScore || 0);
     categoryScores.set(item.category, Math.max(categoryScores.get(item.category) || 0, score));
   }
-  const candidates = TOPICS.filter((topic) => !publishedTopics.has(topic.title));
-  const pool = candidates.length ? candidates : [...TOPICS];
+  const candidates = CONTENT_TOPICS.filter((topic) => !publishedTopics.has(topic.title));
+  const pool = candidates.length ? candidates : [...CONTENT_TOPICS];
   return [...pool].sort((left, right) => {
     const scoreDifference = (categoryScores.get(right.category) || 0) - (categoryScores.get(left.category) || 0);
     if (scoreDifference !== 0) return scoreDifference;
-    const leftIndex = TOPICS.indexOf(left);
-    const rightIndex = TOPICS.indexOf(right);
-    return ((leftIndex - dayNumber) % TOPICS.length + TOPICS.length) % TOPICS.length - ((rightIndex - dayNumber) % TOPICS.length + TOPICS.length) % TOPICS.length;
+    const leftIndex = CONTENT_TOPICS.indexOf(left);
+    const rightIndex = CONTENT_TOPICS.indexOf(right);
+    return ((leftIndex - dayNumber) % CONTENT_TOPICS.length + CONTENT_TOPICS.length) % CONTENT_TOPICS.length - ((rightIndex - dayNumber) % CONTENT_TOPICS.length + CONTENT_TOPICS.length) % CONTENT_TOPICS.length;
   })[0];
 }
 
@@ -231,7 +213,7 @@ function parseGeneratedVariant(
 
 async function generateLocaleVariant(
   locale: SupportedContentLocale,
-  topic: (typeof TOPICS)[number],
+  topic: ContentTopic,
   dateKey: string
 ): Promise<{ variant: LocalizedContentVariant; error: string | null }> {
   const systemPrompt = `You create safe draft content for Join AI Religion, a fictional educational reflective simulation. Write in ${LOCALE_NAMES[locale]}. The platform is not a religion, therapy, medical care, legal advice, or a claim of spiritual superiority. Treat traditions respectfully and avoid unverifiable factual, etymological, doctrinal, health, legal, financial, manipulative, hateful, or superiority claims. Return only one JSON object with title, summary, bodyMarkdown, seoTitle, seoDescription, and faqBlocks (an array of at least two question/answer objects). The body must be 250-350 words, inclusive and educational, and must end with a short fictional-educational disclaimer.`;
@@ -774,6 +756,62 @@ async function createArtifact(input: {
     select: { id: true },
   });
   return { id: created.id, created: true };
+}
+
+export async function runPodcastPublisher(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("podcast-publisher", "PUBLISH_PODCAST_EPISODE", now, async (agentRunId) => {
+    const candidate = await db.contentItem.findFirst({
+      where: { status: ContentWorkflowStatus.PUBLISHED, variants: { some: { locale: "en", publishedAt: { not: null } } } },
+      orderBy: { publishedAt: "desc" },
+      include: { variants: { where: { locale: "en", publishedAt: { not: null } }, take: 1 } },
+    });
+    const variant = candidate?.variants[0];
+    if (!candidate || !variant) return { created: 0, reason: "no-published-english-content" };
+
+    const fingerprint = sha256Fingerprint([`podcast:${candidate.id}:en:v1`]);
+    const existing = await db.agentArtifact.findUnique({ where: { fingerprint }, select: { id: true } });
+    if (existing) return { created: 0, duplicate: true, artifactId: existing.id };
+
+    const script = buildPodcastScript({ title: variant.title, summary: variant.summary, bodyMarkdown: variant.bodyMarkdown });
+    const speech = await createOpenAISpeech(script);
+    if (!speech.audio || speech.audio.length < 1_000) throw new Error(`Podcast audio generation failed: ${safeError(speech.error || "empty audio")}`);
+
+    const uploadDirectory = path.join(process.cwd(), "public", "uploads", "podcast");
+    const fileName = `episode-${candidate.id}.mp3`;
+    const finalPath = path.join(uploadDirectory, fileName);
+    const temporaryPath = `${finalPath}.tmp`;
+    await mkdir(uploadDirectory, { recursive: true });
+    await writeFile(temporaryPath, speech.audio, { mode: 0o644 });
+    await rename(temporaryPath, finalPath);
+    const file = await stat(finalPath);
+    const audioUrl = `https://joinaireligion.com/uploads/podcast/${fileName}`;
+    const articleUrl = `https://joinaireligion.com/content/en/${variant.slug}`;
+
+    const artifact = await createArtifact({
+      agentRunId,
+      agentName: "podcast-publisher",
+      artifactType: "PODCAST_EPISODE",
+      fingerprint,
+      title: variant.title,
+      summary: variant.summary,
+      payload: {
+        guid: `joinai-podcast-${candidate.id}-en-v1`,
+        contentItemId: candidate.id,
+        contentVariantId: variant.id,
+        articleUrl,
+        audioUrl,
+        audioBytes: file.size,
+        publishedAt: now.toISOString(),
+        voiceDisclosure: "AI-generated voice",
+        model: "gpt-4o-mini-tts",
+        voice: "marin",
+      },
+      sourceRefs: { contentItemId: candidate.id, contentVariantId: variant.id },
+      status: AgentArtifactStatus.READY,
+      qualityScore: 100,
+    });
+    return { created: artifact.created ? 1 : 0, artifactId: artifact.id, audioBytes: file.size, articleUrl, audioUrl };
+  });
 }
 
 export async function runContentPerformance(now = new Date()): Promise<GrowthAgentResult> {
@@ -1337,6 +1375,8 @@ export async function runGrowthAgentByName(
       return runContentPublisher(now);
     case "content-performance":
       return runContentPerformance(now);
+    case "podcast-publisher":
+      return runPodcastPublisher(now);
     case "social-listener":
       return runSocialListener(now);
     case "social-listener-draft":

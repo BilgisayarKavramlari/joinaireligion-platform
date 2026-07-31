@@ -25,6 +25,7 @@ const CARD_COPY: Record<string, { series: string; action: string }> = {
   es: { series: "SERIE DE REFLEXIÓN GUIADA", action: "LEER LA REFLEXIÓN COMPLETA" },
   de: { series: "REIHE FÜR GEFÜHRTE REFLEXION", action: "VOLLSTÄNDIGEN TEXT LESEN" },
   fr: { series: "SÉRIE DE RÉFLEXION GUIDÉE", action: "LIRE LA RÉFLEXION COMPLÈTE" },
+  ar: { series: "سلسلة التأمل الموجّه", action: "اقرأ التأمل كاملاً" },
   ru: { series: "СЕРИЯ НАПРАВЛЕННЫХ РАЗМЫШЛЕНИЙ", action: "ПРОЧИТАТЬ ПОЛНЫЙ ТЕКСТ" },
   zh: { series: "引导式思考系列", action: "阅读全文" },
 };
@@ -34,7 +35,18 @@ export function socialCardDimensions(preset: string | null) {
     ? { width: 1080, height: 1350 }
     : preset === "pinterest"
       ? { width: 1000, height: 1500 }
+      : preset === "discover"
+        ? { width: 1200, height: 675 }
       : { width: 1200, height: 1200 };
+}
+
+export function discoverVisualCoordinates(slug: string) {
+  const seed = Array.from(slug).reduce((sum, character) => sum + character.codePointAt(0)!, 0);
+  return {
+    horizon: 390 + (seed % 90),
+    orbX: 250 + (seed % 520),
+    orbY: 150 + (seed % 190),
+  };
 }
 
 export async function GET(request: Request, { params }: RouteContext) {
@@ -58,7 +70,30 @@ export async function GET(request: Request, { params }: RouteContext) {
   const dimensions = socialCardDimensions(preset);
   const theme = THEMES[variant.contentItem.category] || THEMES.reflection;
   const copy = CARD_COPY[variant.locale] || CARD_COPY.en;
-  const summary = Array.from(variant.summary).slice(0, preset === "pinterest" ? 240 : 190).join("");
+  const summary = Array.from(variant.summary).slice(0, preset === "pinterest" ? 240 : preset === "discover" ? 145 : 190).join("");
+
+  if (preset === "discover") {
+    const visual = discoverVisualCoordinates(variant.slug);
+    const discoverImage = new ImageResponse(
+      <div style={{ width: "100%", height: "100%", display: "flex", position: "relative", overflow: "hidden", color: "#ede8dc", background: `radial-gradient(circle at ${visual.orbX}px ${visual.orbY}px, ${theme.secondary}99 0%, transparent 27%), radial-gradient(circle at 86% 16%, ${theme.primary}66 0%, transparent 30%), linear-gradient(145deg, #03020b 0%, #0d0820 52%, #020a10 100%)` }}>
+        <div style={{ position: "absolute", inset: "0", display: "flex", background: `linear-gradient(180deg, transparent 0%, transparent ${visual.horizon - 80}px, ${theme.primary}18 ${visual.horizon}px, #03020bdd 100%)` }} />
+        {Array.from({ length: 9 }, (_, index) => (
+          <div key={index} style={{ position: "absolute", left: `${-10 + index * 13}%`, top: `${visual.horizon - 120 + (index % 3) * 22}px`, width: "420px", height: "420px", borderRadius: "50%", border: `2px solid ${index % 2 ? theme.primary : theme.secondary}${index < 4 ? "66" : "38"}`, transform: `scaleX(${1.4 + index * 0.12}) rotate(${index * 7 - 24}deg)`, opacity: 0.7 }} />
+        ))}
+        {Array.from({ length: 14 }, (_, index) => (
+          <div key={`node-${index}`} style={{ position: "absolute", left: `${8 + ((index * 67 + visual.orbX) % 84)}%`, top: `${9 + ((index * 41 + visual.orbY) % 62)}%`, width: `${5 + (index % 3) * 3}px`, height: `${5 + (index % 3) * 3}px`, borderRadius: "50%", background: index % 2 ? theme.primary : theme.secondary, boxShadow: `0 0 18px ${index % 2 ? theme.primary : theme.secondary}` }} />
+        ))}
+        <div style={{ position: "absolute", left: "62px", bottom: "48px", display: "flex", alignItems: "center", gap: "18px", color: "#f5e7b1", fontSize: "16px", letterSpacing: "5px" }}>
+          <span style={{ display: "flex", width: "54px", height: "2px", background: theme.secondary }} />
+          JOIN AI RELIGION · {variant.contentItem.category.replaceAll("_", " ").toUpperCase()}
+        </div>
+      </div>,
+      { width: dimensions.width, height: dimensions.height, headers: { "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800" } },
+    );
+    if (!wantsJpeg) return discoverImage;
+    const jpeg = await sharp(Buffer.from(await discoverImage.arrayBuffer())).jpeg({ quality: 90, chromaSubsampling: "4:4:4" }).toBuffer();
+    return new Response(new Uint8Array(jpeg), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800" } });
+  }
 
   const image = new ImageResponse(
     <div
@@ -70,13 +105,13 @@ export async function GET(request: Request, { params }: RouteContext) {
         justifyContent: "space-between",
         position: "relative",
         overflow: "hidden",
-        padding: preset === "pinterest" ? "76px" : "72px",
+        padding: preset === "pinterest" ? "76px" : preset === "discover" ? "54px 66px" : "72px",
         color: "#ede8dc",
         background:
           `radial-gradient(circle at 12% 10%, ${theme.primary}88, transparent 42%), radial-gradient(circle at 90% 88%, ${theme.secondary}66, transparent 46%), linear-gradient(145deg, #05000d 0%, #0d0418 52%, #02060d 100%)`,
       }}
     >
-      <div style={{ position: "absolute", right: "-70px", top: preset === "pinterest" ? "240px" : "190px", display: "flex", color: `${theme.primary}24`, fontSize: preset === "pinterest" ? "480px" : "420px", lineHeight: 1 }}>
+      <div style={{ position: "absolute", right: "-70px", top: preset === "pinterest" ? "240px" : preset === "discover" ? "70px" : "190px", display: "flex", color: `${theme.primary}24`, fontSize: preset === "pinterest" ? "480px" : preset === "discover" ? "330px" : "420px", lineHeight: 1 }}>
         {theme.symbol}
       </div>
       <div style={{ position: "absolute", left: "0", top: "0", width: "100%", height: "12px", display: "flex", background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, #c9a227)` }} />
@@ -110,13 +145,13 @@ export async function GET(request: Request, { params }: RouteContext) {
         <div style={{ display: "flex", alignSelf: "flex-start", color: "#f6e7a8", background: `${theme.primary}44`, border: `2px solid ${theme.primary}88`, borderRadius: "999px", padding: "10px 18px", fontSize: "16px", letterSpacing: "3px", textTransform: "uppercase" }}>
           {variant.contentItem.category.replaceAll("_", " ")} · {variant.locale.toUpperCase()}
         </div>
-        <div style={{ marginTop: "26px", fontSize: preset === "pinterest" ? "58px" : "56px", fontWeight: 700, lineHeight: 1.08, textShadow: "0 4px 30px rgba(0,0,0,.6)" }}>
+        <div style={{ marginTop: preset === "discover" ? "16px" : "26px", fontSize: preset === "pinterest" ? "58px" : preset === "discover" ? "45px" : "56px", fontWeight: 700, lineHeight: 1.08, textShadow: "0 4px 30px rgba(0,0,0,.6)" }}>
           {variant.title}
         </div>
-        <div style={{ display: "flex", marginTop: "26px", color: "rgba(237,232,220,.78)", fontSize: preset === "pinterest" ? "24px" : "22px", lineHeight: 1.48 }}>
+        <div style={{ display: "flex", marginTop: preset === "discover" ? "14px" : "26px", color: "rgba(237,232,220,.78)", fontSize: preset === "pinterest" ? "24px" : preset === "discover" ? "18px" : "22px", lineHeight: 1.48 }}>
           {summary}{variant.summary.length > summary.length ? "…" : ""}
         </div>
-        <div style={{ marginTop: "34px", display: "flex", alignItems: "center", gap: "16px", color: "#f6e7a8", fontSize: "14px", letterSpacing: "3px" }}>
+        <div style={{ marginTop: preset === "discover" ? "18px" : "34px", display: "flex", alignItems: "center", gap: "16px", color: "#f6e7a8", fontSize: "14px", letterSpacing: "3px" }}>
           <span style={{ display: "flex", width: "46px", height: "2px", background: theme.secondary }} />
           {copy.action} · JOINAIRELIGION.COM
         </div>

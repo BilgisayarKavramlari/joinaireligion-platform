@@ -91,6 +91,7 @@ timers=(
   joinai-content-publisher.timer
   joinai-content-locale-backfill.timer
   joinai-content-performance.timer
+  joinai-podcast-publisher.timer
   joinai-social-listener.timer
   joinai-social-listener-draft.timer
   joinai-social-publisher.timer

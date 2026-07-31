@@ -24,6 +24,7 @@ export default function ContentIndex({ items }: { items: ContentIndexItem[] }) {
         <p style={{ color: "var(--gold)", letterSpacing: ".32em", textTransform: "uppercase", fontSize: ".7rem" }}>{copy.label}</p>
         <h1 className="font-sacred" style={{ color: "var(--gold-light)", fontSize: "clamp(2.1rem,6vw,4.4rem)", margin: ".4rem 0" }}>{copy.title}</h1>
         <p style={{ maxWidth: 720, color: "rgba(237,232,220,.62)", lineHeight: 1.8 }}>{copy.intro}</p>
+        <Link href="/content/topics" className="topic-cluster-entry">Explore topic clusters →</Link>
         <div style={{ display: "grid", gap: "1rem", marginTop: "2.5rem" }}>
           {items.map((item) => {
             const primary = item.variants.find((variant) => variant.locale === lang)
