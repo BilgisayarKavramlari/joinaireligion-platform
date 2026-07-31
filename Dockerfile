@@ -22,7 +22,9 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+RUN apk add --no-cache espeak-ng ffmpeg \
+  && addgroup -S nodejs \
+  && adduser -S nextjs -G nodejs
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

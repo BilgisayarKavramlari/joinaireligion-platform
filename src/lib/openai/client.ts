@@ -21,6 +21,11 @@
  *   }
  */
 
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import OpenAI from "openai";
 import { env } from "@/lib/env";
 
@@ -34,6 +39,7 @@ const TIMEOUT_MS = 120_000;
 // Multilingual article JSON includes a full body, SEO fields, and FAQ blocks.
 // Short caps can truncate long-form source articles and valid Cyrillic/CJK translations.
 const MAX_TOKENS = 8_000;
+const execFileAsync = promisify(execFile);
 
 // ─── Lazy singleton ───────────────────────────────────────────────────────────
 
@@ -69,13 +75,41 @@ export function isOpenAIEnabled(): boolean {
 type SpeechResult = {
   audio: Uint8Array | null;
   error: string | null;
-  model: "gpt-4o-mini-tts" | "tts-1" | null;
-  voice: "marin" | "alloy" | null;
+  model: "gpt-4o-mini-tts" | "tts-1" | "espeak-ng" | null;
+  voice: "marin" | "alloy" | "en-us" | null;
 };
+
+async function createLocalSpeech(input: string, upstreamError?: string): Promise<SpeechResult> {
+  const directory = await mkdtemp(path.join(tmpdir(), "joinai-speech-"));
+  const wavPath = path.join(directory, "speech.wav");
+  const mp3Path = path.join(directory, "speech.mp3");
+  try {
+    await execFileAsync("espeak-ng", ["-v", "en-us", "-s", "145", "-p", "45", "-w", wavPath, input], {
+      timeout: TIMEOUT_MS,
+      maxBuffer: 1_000_000,
+    });
+    await execFileAsync("ffmpeg", [
+      "-loglevel", "error", "-nostdin", "-y", "-i", wavPath,
+      "-codec:a", "libmp3lame", "-q:a", "4", mp3Path,
+    ], { timeout: TIMEOUT_MS, maxBuffer: 1_000_000 });
+    return {
+      audio: new Uint8Array(await readFile(mp3Path)),
+      error: null,
+      model: "espeak-ng",
+      voice: "en-us",
+    };
+  } catch (localError) {
+    const localMessage = localError instanceof Error ? localError.message : String(localError);
+    const combined = [upstreamError, `local TTS failed: ${localMessage}`].filter(Boolean).join("; ");
+    return { audio: null, error: combined.slice(0, 500), model: null, voice: null };
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
 
 export async function createOpenAISpeech(input: string): Promise<SpeechResult> {
   if (!isOpenAIEnabled()) {
-    return { audio: null, error: "OPENAI_API_KEY not configured", model: null, voice: null };
+    return createLocalSpeech(input, "OPENAI_API_KEY not configured");
   }
   try {
     const response = await getClient().audio.speech.create({
@@ -111,12 +145,10 @@ export async function createOpenAISpeech(input: string): Promise<SpeechResult> {
     } catch (fallbackError) {
       const preferredMessage = preferredError instanceof Error ? preferredError.message : String(preferredError);
       const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      return {
-        audio: null,
-        error: `Preferred TTS failed: ${preferredMessage}; fallback TTS failed: ${fallbackMessage}`.slice(0, 500),
-        model: null,
-        voice: null,
-      };
+      return createLocalSpeech(
+        input,
+        `Preferred TTS failed: ${preferredMessage}; fallback TTS failed: ${fallbackMessage}`
+      );
     }
   }
 }
