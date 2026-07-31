@@ -152,6 +152,10 @@ export function MeaningMapExperience() {
     return (Object.keys(counts) as Orientation[]).sort((a, b) => counts[b] - counts[a])[0];
   }, [answers, copy.questions.length]);
 
+  useEffect(() => {
+    if (result) window.scrollTo({ top: 0, behavior: "auto" });
+  }, [result]);
+
   function choose(value: Orientation) {
     if (!started.current) { started.current = true; track("start", lang); }
     const nextAnswers = [...answers.slice(0, step), value];
