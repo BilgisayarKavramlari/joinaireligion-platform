@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { FeedbackButton } from "@/components/ui/FeedbackButton";
 import { VisualThemeProvider } from "@/contexts/VisualThemeContext";
+import { PwaRuntime } from "@/components/PwaRuntime";
 
 const cinzel = Cinzel({
   subsets: ["latin"],
@@ -24,6 +25,7 @@ export const metadata: Metadata = {
       "application/rss+xml": [
         { url: "https://joinaireligion.com/feed.xml", title: "Insights & Reflections" },
         { url: "https://joinaireligion.com/podcast.xml", title: "Reflective Audio Podcast" },
+        { url: "https://joinaireligion.com/video.xml", title: "Reflective Video" },
       ],
       "application/atom+xml": "https://joinaireligion.com/atom.xml",
       "application/feed+json": "https://joinaireligion.com/feed.json",
@@ -54,12 +56,17 @@ try {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={cinzel.variable} data-theme="cosmos" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: themeBootScript }} /></head>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <meta name="theme-color" content="#120725" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+      </head>
       <body>
         <VisualThemeProvider>
           <LanguageProvider>
             <SessionProvider>
               <PublicHeader />
+              <PwaRuntime />
               {children}
               <FeedbackButton />
             </SessionProvider>

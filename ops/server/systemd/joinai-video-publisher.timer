@@ -1,0 +1,10 @@
+[Unit]
+Description=JoinAI weekly reflective video publisher
+
+[Timer]
+OnCalendar=Sun *-*-* 16:30:00 UTC
+Persistent=true
+Unit=joinai-agent@video-publisher.service
+
+[Install]
+WantedBy=timers.target

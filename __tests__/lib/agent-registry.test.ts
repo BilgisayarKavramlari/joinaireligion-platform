@@ -58,4 +58,12 @@ describe("agent registry policy foundation", () => {
     expect(performance?.policy.forbiddenActions).toContain("profile individual users");
     expect(socialPublisher?.policy.forbiddenActions).toContain("spend advertising money");
   });
+
+  it("keeps reflective video downstream of completed public audio", () => {
+    const videoPublisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "video-publisher");
+    expect(videoPublisher?.lifecycle).toBe("IMPLEMENTED");
+    expect(videoPublisher?.mode).toBe("LIVE");
+    expect(videoPublisher?.policy.allowedActions).toContain("read ready podcast artifacts");
+    expect(videoPublisher?.policy.forbiddenActions).toContain("include private user material");
+  });
 });

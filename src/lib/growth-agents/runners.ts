@@ -13,6 +13,7 @@ import {
 import { db } from "@/lib/db";
 import { callOpenAIJsonWithError, createOpenAISpeech } from "@/lib/openai/client";
 import { buildPodcastScript } from "@/lib/podcast";
+import { generateReflectiveVideo } from "@/lib/video-generator";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -51,6 +52,7 @@ export const GROWTH_AGENT_NAMES = [
   "content-publisher",
   "content-performance",
   "podcast-publisher",
+  "video-publisher",
   "social-listener",
   "social-listener-draft",
   "social-publisher",
@@ -814,6 +816,47 @@ export async function runPodcastPublisher(now = new Date()): Promise<GrowthAgent
   });
 }
 
+export async function runVideoPublisher(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("video-publisher", "PUBLISH_VIDEO_EPISODE", now, async (agentRunId) => {
+    const podcasts = await db.agentArtifact.findMany({
+      where: { agentName: "podcast-publisher", artifactType: "PODCAST_EPISODE", status: AgentArtifactStatus.READY },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    let source = null as (typeof podcasts)[number] | null;
+    let fingerprint = "";
+    for (const podcast of podcasts) {
+      const candidateFingerprint = sha256Fingerprint([`video:${podcast.id}:v1`]);
+      const existing = await db.agentArtifact.findUnique({ where: { fingerprint: candidateFingerprint }, select: { id: true } });
+      if (!existing) { source = podcast; fingerprint = candidateFingerprint; break; }
+    }
+    if (!source) return { created: 0, reason: podcasts.length ? "no-video-backlog" : "no-ready-podcast" };
+
+    const payload = asRecord(source.payload);
+    const audioUrl = typeof payload.audioUrl === "string" ? payload.audioUrl : "";
+    const articleUrl = typeof payload.articleUrl === "string" ? payload.articleUrl : "";
+    if (!audioUrl.startsWith("https://joinaireligion.com/uploads/podcast/") || !articleUrl.startsWith("https://joinaireligion.com/content/en/")) {
+      throw new Error("Podcast artifact contains an invalid source URL");
+    }
+    const outputFileName = `reflection-${source.id}.mp4`;
+    const media = await generateReflectiveVideo({ audioFileName: path.basename(new URL(audioUrl).pathname), outputFileName });
+    const videoUrl = `https://joinaireligion.com/uploads/video/${outputFileName}`;
+    const thumbnailUrl = "https://joinaireligion.com/visuals/reflective-video-cover.jpg";
+    const artifact = await createArtifact({
+      agentRunId, agentName: "video-publisher", artifactType: "VIDEO_EPISODE", fingerprint,
+      title: source.title, summary: source.summary || "A short educational reflection from Join AI Religion.",
+      payload: {
+        guid: `joinai-video-${source.id}-v1`, articleUrl, audioUrl, videoUrl, thumbnailUrl,
+        videoBytes: media.bytes, durationSeconds: media.durationSeconds, width: 1280, height: 720,
+        publishedAt: now.toISOString(), disclosure: "AI-assisted visual and AI-generated voice", sourcePodcastArtifactId: source.id,
+      },
+      sourceRefs: { podcastArtifactId: source.id, contentItemId: payload.contentItemId },
+      status: AgentArtifactStatus.READY, qualityScore: 100,
+    });
+    return { created: artifact.created ? 1 : 0, artifactId: artifact.id, videoBytes: media.bytes, durationSeconds: media.durationSeconds, videoUrl };
+  });
+}
+
 export async function runContentPerformance(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("content-performance", "AGGREGATE_CONTENT_PERFORMANCE", now, async (agentRunId) => {
     const items = await db.contentItem.findMany({
@@ -1377,6 +1420,8 @@ export async function runGrowthAgentByName(
       return runContentPerformance(now);
     case "podcast-publisher":
       return runPodcastPublisher(now);
+    case "video-publisher":
+      return runVideoPublisher(now);
     case "social-listener":
       return runSocialListener(now);
     case "social-listener-draft":

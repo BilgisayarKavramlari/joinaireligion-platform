@@ -14,6 +14,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...TOPIC_CLUSTERS.map((cluster) => ({ url: `${baseUrl}/content/topics/${cluster.slug}`, changeFrequency: "weekly" as const, priority: 0.75 })),
     { url: `${baseUrl}/pricing`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/podcast`, changeFrequency: "weekly", priority: 0.75 },
+    { url: `${baseUrl}/videos`, changeFrequency: "weekly", priority: 0.75 },
+    { url: `${baseUrl}/meaning-map`, changeFrequency: "monthly", priority: 0.85 },
     { url: `${baseUrl}/donate`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/updates`, changeFrequency: "weekly", priority: 0.5 },
   ];
