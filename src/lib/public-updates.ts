@@ -22,6 +22,33 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.3.0",
+    status: "released",
+    releasedAt: "2026-07-31",
+    copy: {
+      en: {
+        title: "Private Meaning Map, installable PWA, and Reflective Video",
+        summary: "A privacy-first reflection and media release designed for useful discovery without personal profiling.",
+        highlights: [
+          "An eight-language Meaning Map that works without an account and never sends answers or results to the server",
+          "An installable PWA with a public offline shell that excludes account, private, authentication, and API routes",
+          "A weekly Reflective Video agent that publishes only from reviewed public source material",
+          "Mobile-safe navigation, direct MP4 playback, Media RSS, and a dedicated video sitemap",
+        ],
+      },
+      tr: {
+        title: "Özel Anlam Haritası, kurulabilir PWA ve Reflective Video",
+        summary: "Kişisel profilleme yapmadan yararlı keşif sunmak için tasarlanan, gizlilik öncelikli düşünme ve medya sürümü.",
+        highlights: [
+          "Hesap gerektirmeyen ve yanıtları ya da sonuçları sunucuya göndermeyen sekiz dilli Anlam Haritası",
+          "Hesap, özel alan, kimlik doğrulama ve API yollarını dışarıda bırakan herkese açık çevrimdışı kabuğa sahip kurulabilir PWA",
+          "Yalnızca incelenmiş herkese açık kaynaklardan yayın yapan haftalık Reflective Video ajanı",
+          "Mobil uyumlu gezinme, doğrudan MP4 oynatma, Media RSS ve özel video site haritası",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.2.3",
     status: "released",
     releasedAt: "2026-07-30",
