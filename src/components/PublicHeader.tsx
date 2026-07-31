@@ -116,7 +116,7 @@ export function PublicHeader() {
         {/* Right actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
 
-          <VisualThemePicker />
+          <div className="header-desktop-theme"><VisualThemePicker /></div>
 
           {/* Language selector */}
           <div ref={langRef} style={{ position: "relative" }}>
@@ -176,7 +176,7 @@ export function PublicHeader() {
           </div>
 
           {/* User dropdown */}
-          <div style={{ position: "relative" }}>
+          <div className="header-desktop-account" style={{ position: "relative" }}>
             <button
               onClick={() => {
                 if (sessionFailed) {
@@ -251,7 +251,7 @@ export function PublicHeader() {
           </div>
 
           {anonymous && (
-            <Link href="/register" className="btn-sacred btn-sacred-gold" style={{ padding: "0.42rem 1rem", fontSize: "0.7rem" }}>
+            <Link href="/register" className="btn-sacred btn-sacred-gold header-desktop-register" style={{ padding: "0.42rem 1rem", fontSize: "0.7rem" }}>
               {t.nav.beginJourney}
             </Link>
           )}
@@ -306,6 +306,9 @@ export function PublicHeader() {
               {t.nav.signOut}
             </button>
           )}
+          <div style={{ padding: "0.5rem 0", borderTop: "1px solid rgba(201,162,39,0.15)" }}>
+            <VisualThemePicker />
+          </div>
           {/* Mobile language selector */}
           <div style={{ paddingTop: "0.5rem", borderTop: "1px solid rgba(201,162,39,0.15)", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
             {LANG_LIST.map((l) => (
@@ -330,7 +333,11 @@ export function PublicHeader() {
       <style>{`
         @media (max-width: 768px) {
           .header-desktop-nav { display: none !important; }
+          .header-desktop-theme, .header-desktop-account, .header-desktop-register { display: none !important; }
           .header-mobile-btn  { display: block !important; }
+        }
+        @media (max-width: 420px) {
+          .header-mobile-btn { padding: 0.32rem 0.55rem !important; }
         }
       `}</style>
     </header>
