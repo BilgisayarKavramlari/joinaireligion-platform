@@ -512,6 +512,8 @@ async function publishPinterest(text: string): Promise<SocialPublicationResult> 
     .filter((line) => line && line !== contentUrl.toString() && !line.startsWith("#"));
   const title = Array.from(copyLines[0] || "Join AI Religion reflection").slice(0, 100).join("");
   const description = Array.from(copyLines.slice(1).join(" ") || title).slice(0, 800).join("");
+  const imageUrl = socialCardUrl(contentUrl, "pinterest");
+  await ensureSocialCardReady(imageUrl);
   const response = await fetch("https://api.pinterest.com/v5/pins", {
     method: "POST",
     headers: {
@@ -526,7 +528,7 @@ async function publishPinterest(text: string): Promise<SocialPublicationResult> 
       link: contentUrl.toString(),
       media_source: {
         source_type: "image_url",
-        url: socialCardUrl(contentUrl, "pinterest"),
+        url: imageUrl,
       },
     }),
     signal: timeoutSignal(),
@@ -567,6 +569,37 @@ function socialCardUrl(contentUrl: URL, preset?: "instagram" | "pinterest"): str
   return card.toString();
 }
 
+async function ensureSocialCardReady(imageUrl: string): Promise<void> {
+  const response = await fetch(imageUrl, {
+    headers: { Accept: "image/jpeg,image/*;q=0.8" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(35_000),
+  });
+  if (!response.ok) throw new Error(`Social card preflight failed with HTTP ${response.status}`);
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    throw new Error("Social card preflight returned a non-image response");
+  }
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength < 1_024) throw new Error("Social card preflight returned an incomplete image");
+}
+
+async function providerHttpError(label: string, response: Response): Promise<Error> {
+  let detail = "";
+  try {
+    const payload = await response.json() as { error?: { message?: unknown; code?: unknown; error_subcode?: unknown } };
+    const message = typeof payload.error?.message === "string"
+      ? payload.error.message.replace(/https?:\/\/\S+/g, "[redacted-url]").slice(0, 180)
+      : "";
+    const code = typeof payload.error?.code === "number" ? `code ${payload.error.code}` : "";
+    const subcode = typeof payload.error?.error_subcode === "number" ? `subcode ${payload.error.error_subcode}` : "";
+    detail = [message, code, subcode].filter(Boolean).join("; ");
+  } catch {
+    // Provider bodies are optional; status remains sufficient for a safe log.
+  }
+  return new Error(`${label} failed with HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
+}
+
 async function publishFacebook(text: string): Promise<SocialPublicationResult> {
   if (env.FACEBOOK_PUBLISHING_ENABLED !== "true" || !env.META_PAGE_ID || !env.META_PAGE_ACCESS_TOKEN) {
     throw new Error("Facebook publication is not fully configured");
@@ -594,8 +627,10 @@ async function publishInstagram(text: string): Promise<SocialPublicationResult> 
     throw new Error("Instagram publication is not fully configured");
   }
   const contentUrl = requiredContentUrl(text);
+  const imageUrl = socialCardUrl(contentUrl, "instagram");
+  await ensureSocialCardReady(imageUrl);
   const createBody = new URLSearchParams({
-    image_url: socialCardUrl(contentUrl, "instagram"),
+    image_url: imageUrl,
     caption: text.slice(0, 2_200),
     access_token: env.META_PAGE_ACCESS_TOKEN,
   });
@@ -605,7 +640,7 @@ async function publishInstagram(text: string): Promise<SocialPublicationResult> 
     body: createBody,
     signal: timeoutSignal(),
   });
-  if (!createResponse.ok) throw new Error(`Instagram container creation failed with HTTP ${createResponse.status}`);
+  if (!createResponse.ok) throw await providerHttpError("Instagram container creation", createResponse);
   const created = await createResponse.json() as { id?: string };
   if (!created.id) throw new Error("Instagram container creation returned no id");
 
