@@ -103,6 +103,16 @@ export default function AutonomyActions() {
         {loading === "Safe Repair" ? "Repairing…" : "🔧 Run Safe Repair"}
       </button>
 
+      <button
+        style={loading === "Retry Social Publishing" ? { ...BTN_REPAIR, cursor: "default" } : BTN_REPAIR}
+        onClick={() => run("Retry Social Publishing", "/api/admin/autonomy/social-publisher", "POST")}
+        disabled={!!loading}
+        aria-busy={loading === "Retry Social Publishing"}
+        title="Retries only unfinished providers; already-published deliveries remain idempotently skipped."
+      >
+        {loading === "Retry Social Publishing" ? "Retrying…" : "↻ Retry Social Publishing"}
+      </button>
+
       {/* Practice generation dry-run */}
       <button
         style={loading === "Generate (dry-run)" ? BTN_ACTIVE : BTN}

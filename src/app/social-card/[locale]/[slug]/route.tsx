@@ -1,12 +1,16 @@
 import { ImageResponse } from "next/og";
 import React from "react";
 import sharp from "sharp";
+import crypto from "crypto";
+import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import { decodeContentRouteSegment } from "@/lib/content-routing";
 import { db } from "@/lib/db";
 import { SUPPORTED_CONTENT_LOCALES, type SupportedContentLocale } from "@/lib/growth-agents/content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const SOCIAL_CARD_CACHE_DIR = "/tmp/joinaireligion-social-card-cache-v3";
 
 type RouteContext = { params: Promise<{ locale: string; slug: string }> };
 
@@ -49,6 +53,37 @@ export function discoverVisualCoordinates(slug: string) {
   };
 }
 
+function socialCardCachePath(locale: string, slug: string, preset: string | null): string {
+  const key = crypto.createHash("sha256").update(`${locale}|${slug}|${preset || "default"}`).digest("hex");
+  return `${SOCIAL_CARD_CACHE_DIR}/${key}.jpg`;
+}
+
+async function readCachedJpeg(path: string): Promise<Response | null> {
+  try {
+    const jpeg = await readFile(path);
+    return new Response(new Uint8Array(jpeg), {
+      headers: {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800",
+        "X-JoinAI-Social-Card-Cache": "HIT",
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedJpeg(path: string, jpeg: Buffer): Promise<void> {
+  try {
+    await mkdir(SOCIAL_CARD_CACHE_DIR, { recursive: true, mode: 0o700 });
+    const temporaryPath = `${path}.${crypto.randomUUID()}.tmp`;
+    await writeFile(temporaryPath, jpeg, { mode: 0o600 });
+    await rename(temporaryPath, path);
+  } catch {
+    // Cache writes are best-effort; image delivery must still succeed.
+  }
+}
+
 export async function GET(request: Request, { params }: RouteContext) {
   const raw = await params;
   const locale = decodeContentRouteSegment(raw.locale);
@@ -72,6 +107,11 @@ export async function GET(request: Request, { params }: RouteContext) {
   const copy = CARD_COPY[variant.locale] || CARD_COPY.en;
   const visual = discoverVisualCoordinates(variant.slug);
   const summary = Array.from(variant.summary).slice(0, preset === "pinterest" ? 240 : preset === "discover" ? 145 : 190).join("");
+  const jpegCachePath = socialCardCachePath(locale, slug, preset);
+  if (wantsJpeg) {
+    const cachedJpeg = await readCachedJpeg(jpegCachePath);
+    if (cachedJpeg) return cachedJpeg;
+  }
 
   if (preset === "discover") {
     const discoverImage = new ImageResponse(
@@ -92,7 +132,8 @@ export async function GET(request: Request, { params }: RouteContext) {
     );
     if (!wantsJpeg) return discoverImage;
     const jpeg = await sharp(Buffer.from(await discoverImage.arrayBuffer())).jpeg({ quality: 90, chromaSubsampling: "4:4:4" }).toBuffer();
-    return new Response(new Uint8Array(jpeg), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800" } });
+    await writeCachedJpeg(jpegCachePath, jpeg);
+    return new Response(new Uint8Array(jpeg), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800", "X-JoinAI-Social-Card-Cache": "MISS" } });
   }
 
   const image = new ImageResponse(
@@ -208,10 +249,12 @@ export async function GET(request: Request, { params }: RouteContext) {
   const jpeg = await sharp(Buffer.from(await image.arrayBuffer()))
     .jpeg({ quality: 90, chromaSubsampling: "4:4:4" })
     .toBuffer();
+  await writeCachedJpeg(jpegCachePath, jpeg);
   return new Response(new Uint8Array(jpeg), {
     headers: {
       "Content-Type": "image/jpeg",
       "Cache-Control": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800",
+      "X-JoinAI-Social-Card-Cache": "MISS",
     },
   });
 }

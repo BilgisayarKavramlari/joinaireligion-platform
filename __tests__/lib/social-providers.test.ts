@@ -266,6 +266,7 @@ describe("Bluesky social provider helpers", () => {
 
   it("creates, waits for, and publishes an Instagram image container", async () => {
     mockFetch
+      .mockResolvedValueOnce(new Response(new Uint8Array(2_048), { status: 200, headers: { "Content-Type": "image/jpeg" } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "container-1" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "media-1" }), { status: 200 }))
@@ -282,13 +283,15 @@ describe("Bluesky social provider helpers", () => {
       externalId: "media-1",
       externalUrl: "https://www.instagram.com/p/media-1/",
     });
-    const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
+    expect(mockFetch.mock.calls[0][0]).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi.jpg?preset=instagram");
+    const createBody = mockFetch.mock.calls[1][1].body as URLSearchParams;
     expect(createBody.get("image_url")).toBe("https://joinaireligion.com/social-card/tr/ornek-yazi.jpg?preset=instagram");
-    expect(mockFetch.mock.calls[2][0].toString()).toBe("https://graph.facebook.com/v25.0/instagram-1/media_publish");
+    expect(mockFetch.mock.calls[3][0].toString()).toBe("https://graph.facebook.com/v25.0/instagram-1/media_publish");
   });
 
   it("preserves Unicode slugs when building an Instagram social card URL", async () => {
     mockFetch
+      .mockResolvedValueOnce(new Response(new Uint8Array(2_048), { status: 200, headers: { "Content-Type": "image/jpeg" } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "container-2" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "media-2" }), { status: 200 }))
@@ -300,7 +303,7 @@ describe("Bluesky social provider helpers", () => {
       "instagram-unicode-idempotency-key",
     );
 
-    const createBody = mockFetch.mock.calls[0][1].body as URLSearchParams;
+    const createBody = mockFetch.mock.calls[1][1].body as URLSearchParams;
     expect(createBody.get("image_url")).toBe(
       "https://joinaireligion.com/social-card/tr/tan%C4%B1d%C4%B1k-olmayan-geleneklere-sayg%C4%B1l%C4%B1-yakla%C5%9Fmak.jpg?preset=instagram",
     );
@@ -332,10 +335,12 @@ describe("Bluesky social provider helpers", () => {
   });
 
   it("creates a Pinterest image Pin from the approved locale-specific social card", async () => {
-    mockFetch.mockResolvedValue(new Response(JSON.stringify({ id: "pin-123" }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    }));
+    mockFetch
+      .mockResolvedValueOnce(new Response(new Uint8Array(2_048), { status: 200, headers: { "Content-Type": "image/jpeg" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "pin-123" }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }));
 
     const result = await publishSocialPost(
       "pinterest",
@@ -348,7 +353,8 @@ describe("Bluesky social provider helpers", () => {
       externalId: "pin-123",
       externalUrl: "https://www.pinterest.com/pin/pin-123/",
     });
-    const [url, request] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(mockFetch.mock.calls[0][0]).toBe("https://joinaireligion.com/social-card/en/reflection-example.jpg?preset=pinterest");
+    const [url, request] = mockFetch.mock.calls[1] as [string, RequestInit];
     expect(url).toBe("https://api.pinterest.com/v5/pins");
     expect((request.headers as Record<string, string>).Authorization).toBe("Bearer pinterest-test-token");
     const body = JSON.parse(String(request.body)) as Record<string, unknown>;

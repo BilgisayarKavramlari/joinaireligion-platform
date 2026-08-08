@@ -7,11 +7,11 @@ Scope: public account state, publishing reliability, language, visuals, safety, 
 
 | Channel | Public state | Latest verified activity | Primary gap |
 | --- | --- | --- | --- |
-| Instagram `@joinaireligion` | 2 posts, 2 followers; 8 and 9 views; 0 interactions, saves, shares, profile visits, or link taps | 2026-07-29 | Queue stopped; static feed only; profile has no visible bio/site link |
-| Threads `@joinaireligion` | 3 posts, 0 followers | 2026-07-30 | Queue stopped; profile setup incomplete |
-| Facebook `joinaireligion` | 1 follower | 2026-07-29 | Queue stopped; low publication evidence |
-| Mastodon `@joinaireligion@mastoturk.org` | 3 posts, 6 followers | 2026-07-30 | Queue stopped; strongest early engagement but no continued cadence |
-| Bluesky `joinaireligion.bsky.social` | 5 posts, 1 follower | 2026-07-30 | Queue stopped; link-only format dominates |
+| Instagram `@joinaireligion` | 2 posts, 2 followers; 8 and 9 views; 0 interactions, saves, shares, profile visits, or link taps; bio restored | 2026-07-29 | Media delivery remained the only failed provider in the first recovery run |
+| Threads `@joinaireligion` | 4 posts, 0 followers; bio, site link, and brand avatar restored | 2026-08-08 14:25 UTC | Delivery restored; grow a conversation baseline |
+| Facebook `joinaireligion` | 1 follower; provider API recorded a successful new link post | 2026-08-08 14:25 UTC | Public logged-out page cache did not expose the new post during immediate verification |
+| Mastodon `@joinaireligion@mastoturk.org` | 4 posts, 6 followers | 2026-08-08 14:25 UTC | Delivery restored; strongest early audience base |
+| Bluesky `joinaireligion.bsky.social` | 6 posts, 1 follower | 2026-08-08 14:25 UTC | Delivery restored; link-led format dominates |
 | Pinterest `joinaireligion` | 0 public Pins | No public Pin | Standard API access/production activation not verified |
 | YouTube `@JoinAIReligion` | 0 public videos | No public upload | External upload/OAuth adapter absent |
 
@@ -28,6 +28,12 @@ The repaired contract is:
 - one published content item receives at most one social package;
 - the latest genuinely published content is selected by `publishedAt`;
 - autonomy health reports package count, oldest age, last-run progress, and configured provider names without exposing credentials.
+
+## Live recovery result
+
+PR #28 deployed commit `67328e6`. The first post-deploy publisher run reduced the READY backlog from ten packages to one without burst publishing: nine stale/superseded packages were archived, and Mastodon, Facebook, Threads, and Bluesky recorded successful deliveries for the newest 2026-08-08 article. Instagram alone remained FAILED.
+
+The Instagram recovery adds a server-side JPEG cache and a complete image preflight before the Meta container request. This removes the roughly 16-second cold-render delay from Meta's own media download. A same-origin, admin-session-only retry route runs the normal publisher with a failed-provider retry override; already-published providers remain skipped by their persisted delivery records and idempotency contract.
 
 ## Channel roles and format cadence
 

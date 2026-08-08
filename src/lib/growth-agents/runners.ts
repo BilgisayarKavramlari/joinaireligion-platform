@@ -1191,7 +1191,10 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   });
 }
 
-export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentResult> {
+export async function runSocialPublisher(
+  now = new Date(),
+  options: { forceRetryFailedProviders?: boolean } = {},
+): Promise<GrowthAgentResult> {
   return executeAgent("social-publisher", "PUBLISH_APPROVED_SOCIAL_PACKAGE", now, async () => {
     if (env.SOCIAL_PUBLISHING_ENABLED !== "true") {
       return { published: 0, skipped: true, reason: "social_publishing_disabled" };
@@ -1310,7 +1313,7 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
         continue;
       }
       const previousFailure = deliveries.find((delivery) => delivery.provider === provider && delivery.status === "FAILED");
-      if (previousFailure && !isSocialDeliveryRetryDue(previousFailure, now)) continue;
+      if (previousFailure && !options.forceRetryFailedProviders && !isSocialDeliveryRetryDue(previousFailure, now)) continue;
       if ((previousFailure?.attemptCount ?? (previousFailure ? 1 : 0)) >= SOCIAL_MAX_DELIVERY_ATTEMPTS) {
         deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
         deliveries.push({
