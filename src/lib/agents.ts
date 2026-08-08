@@ -49,6 +49,26 @@ export interface AgentPolicyBoundary {
   decisionLog: AutonomousDecisionLogContract;
 }
 
+export interface AgentGovernanceRole {
+  roleName: "EMA" | "FLA";
+  title: string;
+  responsibility: string;
+  autonomyLevel: AutonomyLevel;
+  requiresRoutineHumanApproval: false;
+  allowedActions: string[];
+  hardBoundaries: string[];
+}
+
+export interface OwnerOverrideContract {
+  version: "2026-08-07";
+  source: "explicit-owner-command";
+  projectPolicyPrecedence: "highest";
+  mayBeInferred: false;
+  mustBeScopeBound: true;
+  mustBeLogged: true;
+  notes: string[];
+}
+
 export interface AgentDefinition {
   agentName: string;
   title: string;
@@ -116,6 +136,63 @@ export const AUTONOMY_LEVELS: Record<AutonomyLevel, { label: string; description
   3: { label: "Bounded External Execution", description: "Explicitly approved external actions within hard guardrails." },
   4: { label: "Strategic Autonomy", description: "Cross-agent orchestration inside owner-defined caps." },
 };
+
+export const OWNER_OVERRIDE_CONTRACT: OwnerOverrideContract = {
+  version: "2026-08-07",
+  source: "explicit-owner-command",
+  projectPolicyPrecedence: "highest",
+  mayBeInferred: false,
+  mustBeScopeBound: true,
+  mustBeLogged: true,
+  notes: [
+    "A direct owner command overrides project-level agent priorities and policies for the stated target and scope.",
+    "FLA records and routes the command; it must never invent, broaden, or silently extend an override.",
+    "An owner override does not disclose secrets, bypass platform safety requirements, or authorize unrelated actions.",
+  ],
+};
+
+export const AGENT_GOVERNANCE_ROLES: AgentGovernanceRole[] = [
+  {
+    roleName: "EMA",
+    title: "EMA — Executive Orchestrator",
+    responsibility: "Owns performance outcomes and coordinates all registered agents without routine human approval.",
+    autonomyLevel: 4,
+    requiresRoutineHumanApproval: false,
+    allowedActions: [
+      "prioritize, sequence, pause, resume, and retry registered agent work",
+      "take initiative to meet owner-defined performance criteria inside configured caps",
+      "apply reversible internal repairs and create audited follow-up work",
+      "invoke already-enabled external actions through their provider-specific safety gates",
+    ],
+    hardBoundaries: [
+      "obey explicit owner commands routed through FLA",
+      "do not expand or rewrite its own authority",
+      "do not read, reveal, rotate, or persist secret values",
+      "do not perform irreversible deletion, uncapped spending, or unreviewed production schema changes without an explicit scope-bound owner command",
+      "do not use private belief or journal data for targeting, public content, or social distribution",
+    ],
+  },
+  {
+    roleName: "FLA",
+    title: "FLA — Owner Liaison",
+    responsibility: "Owns communication from the project owner and converts direct owner commands into scoped, logged instructions for EMA and downstream agents.",
+    autonomyLevel: 1,
+    requiresRoutineHumanApproval: false,
+    allowedActions: [
+      "receive and summarize owner commands",
+      "record an explicit owner override with its target, scope, and timestamp",
+      "route owner priorities and corrections to EMA",
+      "ask the owner only when a material ambiguity cannot be resolved safely",
+      "return concise operating status and genuine decision requests",
+    ],
+    hardBoundaries: [
+      "do not infer or fabricate an owner command",
+      "do not broaden an override beyond the owner's stated scope",
+      "do not impersonate the owner in external communication",
+      "do not expose secrets or private user content in summaries or logs",
+    ],
+  },
+];
 
 export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
@@ -243,7 +320,7 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     description: "Adds independently reviewed Russian and Simplified Chinese variants to already-published content without changing or deleting existing variants.",
     lifecycle: "IMPLEMENTED",
     mode: "LIVE",
-    schedule: { kind: "manual", label: "Manual repair run when a locale is added" },
+    schedule: { kind: "hourly", label: "Hourly at :10", cron: "10 * * * *", minute: 10 },
     backlogLabel: "published items missing Russian or Chinese",
     policy: {
       autonomyLevel: 2,

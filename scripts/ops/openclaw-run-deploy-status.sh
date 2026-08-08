@@ -3,7 +3,7 @@
 #
 # OpenClaw — deployment status probe.
 #
-# Calls GET /api/admin/autonomy/deploy-status and emits JSON to stdout.
+# Calls GET /api/cron/deploy-status and emits JSON to stdout.
 # Returns current git commit, build timestamp, DB connectivity, last agent
 # runs, generation mode, and email mode.
 #
@@ -44,19 +44,22 @@ if [[ -z "$CRON_SECRET" ]]; then
   echo '{"error":"CRON_SECRET is not set","status":"CONFIG_ERROR"}' >&2; exit 1
 fi
 
-ENDPOINT="${APP_URL%/}/api/admin/autonomy/deploy-status"
+ENDPOINT="${APP_URL%/}/api/cron/deploy-status"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
   echo '{"dryRun":true,"endpoint":"'"$ENDPOINT"'","wouldUse":"Bearer ***"}'
   exit 0
 fi
 
-RESPONSE="$(
-  curl --silent --show-error --max-time 30 \
+if RESPONSE="$(
+  curl --silent --show-error --fail-with-body --max-time 30 \
     -H "Authorization: Bearer ${CRON_SECRET}" \
     "$ENDPOINT" 2>&1
-)"
-CURL_EXIT=$?
+)"; then
+  CURL_EXIT=0
+else
+  CURL_EXIT=$?
+fi
 
 if [[ $CURL_EXIT -ne 0 ]]; then
   echo '{"error":"curl failed (exit '"$CURL_EXIT"')","status":"NETWORK_ERROR"}' >&2

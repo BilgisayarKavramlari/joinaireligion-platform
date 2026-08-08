@@ -10,7 +10,7 @@ Operational reference for configuring and managing the scheduled job pipeline on
 VPS crontab
   ├─ 06:00 UTC  generate-practices.sh        → POST /api/cron/generate-practices
   ├─ 07:00 UTC  send-practice-emails.sh      → POST /api/cron/send-practice-emails
-  ├─ 07:30 UTC  autonomy-health.sh           → GET  /api/admin/autonomy/health
+  ├─ 07:30 UTC  autonomy-health.sh           → GET  /api/cron/autonomy-health
   ├─ 07:35 UTC  autonomy-repair.sh           → POST /api/cron/autonomy-repair
   ├─ */1  UTC   score-practice-responses.sh  → POST /api/cron/score-practice-responses
   └─ */5  UTC   system-health.sh             → GET  /api/health
@@ -42,7 +42,7 @@ sudo chown -R joinai:joinai /opt/joinaireligion/scripts
 ```bash
 sudo mkdir -p /etc/joinaireligion
 sudo tee /etc/joinaireligion/cron.env > /dev/null <<'EOF'
-APP_URL=https://joinaireligion.com
+APP_URL=http://127.0.0.1:3001
 CRON_SECRET=REPLACE_WITH_YOUR_CRON_SECRET
 ALERT_EMAIL=ops@joinaireligion.com
 EOF
@@ -231,7 +231,7 @@ A result with zero rows confirms idempotency is intact.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `APP_URL` | Yes | — | Base URL, e.g. `https://joinaireligion.com` |
+| `APP_URL` | Yes | — | Local application URL, normally `http://127.0.0.1:3001`; this stays inside the hardened systemd network boundary. |
 | `CRON_SECRET` | Yes | — | Shared secret; must match the app's `CRON_SECRET` |
 | `EMAIL_MODE` | No | `LIVE` | `LIVE`, `LOG_ONLY`, or `DRY_RUN` for email delivery script |
 | `ALERT_EMAIL` | No | — | Address to notify if `system-health.sh` fails |
@@ -309,7 +309,7 @@ The two autonomy scripts provide OpenClaw's daily self-check and repair loop.
 
 ### 9.1 autonomy-health.sh
 
-Calls `GET /api/admin/autonomy/health` and logs structured JSON.  Exits 2 on CRITICAL status and optionally emails `ALERT_EMAIL`.
+Calls `GET /api/cron/autonomy-health` with the cron token and logs structured JSON. Exits 2 on CRITICAL status and optionally emails `ALERT_EMAIL`.
 
 ```bash
 # Dry-run

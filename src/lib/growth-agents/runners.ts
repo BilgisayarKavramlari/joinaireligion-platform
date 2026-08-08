@@ -11,6 +11,8 @@ import {
 } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { buildAgentDecisionLog } from "@/lib/agent-decision-log";
+import { AGENT_DEFINITIONS } from "@/lib/agents";
 import { callOpenAIJsonWithError, createOpenAISpeech } from "@/lib/openai/client";
 import { buildPodcastScript } from "@/lib/podcast";
 import { generateReflectiveVideo } from "@/lib/video-generator";
@@ -100,6 +102,7 @@ async function executeAgent(
   now: Date,
   work: (agentRunId: string) => Promise<RunOutput>
 ): Promise<GrowthAgentResult> {
+  const definition = AGENT_DEFINITIONS.find((candidate) => candidate.agentName === agentName);
   const run = await db.agentRun.create({
     data: {
       agentName,
@@ -113,26 +116,61 @@ async function executeAgent(
 
   try {
     const output = await work(run.id);
+    const completedAt = new Date();
+    const storedOutput = {
+      ...output,
+      decisionLog: buildAgentDecisionLog({
+        agentName,
+        action: taskType,
+        autonomyLevel: definition?.policy.autonomyLevel ?? 0,
+        allowedByPolicy: Boolean(definition),
+        policyRule: definition
+          ? `registry:${agentName}:${definition.mode}:autonomy-${definition.policy.autonomyLevel}`
+          : "agent-not-registered",
+        riskLevel: definition ? "LOW" : "HIGH",
+        escalated: !definition,
+        inputSummary: "Scheduled bounded agent execution with internal identifiers only.",
+        outputSummary: `Completed with output fields: ${Object.keys(output).sort().slice(0, 20).join(", ") || "none"}.`,
+        occurredAt: completedAt.toISOString(),
+      }),
+    };
     await db.agentRun.update({
       where: { id: run.id },
       data: {
         status: AgentRunStatus.SUCCESS,
-        completedAt: new Date(),
+        completedAt,
         durationMs: Date.now() - now.getTime(),
-        output: asInputJson(output),
+        output: asInputJson(storedOutput),
       },
     });
-    return { ok: true, agentName, agentRunId: run.id, output };
+    return { ok: true, agentName, agentRunId: run.id, output: storedOutput };
   } catch (error) {
     const errorMessage = safeError(error);
+    const completedAt = new Date();
     await db.agentRun.update({
       where: { id: run.id },
       data: {
         status: AgentRunStatus.FAILED,
-        completedAt: new Date(),
+        completedAt,
         durationMs: Date.now() - now.getTime(),
         errorMessage,
-        output: { failed: true },
+        output: asInputJson({
+          failed: true,
+          decisionLog: buildAgentDecisionLog({
+            agentName,
+            action: taskType,
+            autonomyLevel: definition?.policy.autonomyLevel ?? 0,
+            allowedByPolicy: Boolean(definition),
+            policyRule: definition
+              ? `registry:${agentName}:${definition.mode}:autonomy-${definition.policy.autonomyLevel}`
+              : "agent-not-registered",
+            riskLevel: definition ? "MEDIUM" : "HIGH",
+            escalated: !definition,
+            inputSummary: "Scheduled bounded agent execution with internal identifiers only.",
+            outputSummary: "Execution failed; review the redacted AgentRun error.",
+            occurredAt: completedAt.toISOString(),
+          }),
+        }),
       },
     });
     throw new Error(`${agentName} failed: ${errorMessage}`);

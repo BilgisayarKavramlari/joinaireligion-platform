@@ -41,6 +41,7 @@ The platform is not:
 - Completion and streak mechanics, if used, must evaluate the user's chosen action only and remain separable from the meaning or quality of what they wrote.
 - Private journaling is not continuously monitored and must not be represented as therapy, diagnosis, medical care, or a crisis-monitoring service.
 - Personal-plan and private-note descriptive fields are encrypted at application level. Content, social, growth, SEO, and routine administrator queries do not include these tables or plaintext fields.
+- Private-note retention is user-selected: keep until deletion, 30 days, 90 days, or one year. The default is keep until the user deletes it; expired notes are removed when that user next opens the notes surface.
 
 ## AI-Assisted Reflection
 

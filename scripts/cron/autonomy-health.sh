@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/cron/autonomy-health.sh
 #
-# OpenClaw daily health probe.  Calls GET /api/admin/autonomy/health and
+# OpenClaw daily health probe.  Calls GET /api/cron/autonomy-health and
 # logs the structured JSON result.  If status is WARNING or CRITICAL,
 # logs all non-OK findings to stderr for alerting.
 #
@@ -40,7 +40,7 @@ if [[ -z "$CRON_SECRET" ]]; then
   echo "[autonomy-health] ERROR: CRON_SECRET is not set." >&2; exit 1
 fi
 
-ENDPOINT="${APP_URL%/}/api/admin/autonomy/health"
+ENDPOINT="${APP_URL%/}/api/cron/autonomy-health"
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 echo "[autonomy-health] START $TIMESTAMP"
@@ -52,16 +52,20 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
   exit 0
 fi
 
-RESPONSE="$(
+if RESPONSE="$(
   curl \
     --silent \
     --show-error \
+    --fail-with-body \
     --max-time 30 \
     --retry 1 \
     -H "Authorization: Bearer ${CRON_SECRET}" \
     "$ENDPOINT" 2>&1
-)"
-CURL_EXIT=$?
+)"; then
+  CURL_EXIT=0
+else
+  CURL_EXIT=$?
+fi
 
 if [[ $CURL_EXIT -ne 0 ]]; then
   echo "[autonomy-health] FAIL $TIMESTAMP — curl error (exit $CURL_EXIT): $RESPONSE" >&2

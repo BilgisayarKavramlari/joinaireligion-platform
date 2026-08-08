@@ -33,7 +33,7 @@ All scripts live in `scripts/ops/`.  They:
 scripts/ops/openclaw-run-health.sh
 ```
 
-Calls `GET /api/admin/autonomy/health`.  Returns the full structured health report as JSON.  Run this first in every daily loop.
+Calls `GET /api/cron/autonomy-health`. Returns the full structured health report as JSON. Run this first in every daily loop.
 
 **Interpreting output:**
 - `"status": "OK"` → log result, no further action.
@@ -88,7 +88,7 @@ Calls `POST /api/cron/autonomy-repair`.  Applies all safe, idempotent data corre
 scripts/ops/openclaw-run-deploy-status.sh
 ```
 
-Calls `GET /api/admin/autonomy/deploy-status`.  Returns the running git commit, build timestamp, DB connectivity, last agent runs, generation mode, and email mode.  Run after every GitHub Actions deployment to confirm the new version is live.
+Calls `GET /api/cron/deploy-status`. Returns the running git commit, build timestamp, DB connectivity, all registered agents' last runs, generation mode, and email mode. Run after every GitHub Actions deployment to confirm the new version is live.
 
 **Example output:**
 ```json
@@ -113,7 +113,7 @@ Calls `GET /api/admin/autonomy/deploy-status`.  Returns the running git commit, 
 scripts/ops/openclaw-run-email-status.sh
 ```
 
-Calls `GET /api/admin/autonomy/health` (for last-run finding) and `POST /api/cron/send-practice-emails?mode=DRY_RUN` (for queue depth preview).  **Makes no mutations.**  Run to diagnose email delivery issues without triggering any real sends.
+Calls `GET /api/cron/autonomy-health` (for last-run finding) and `POST /api/cron/send-practice-emails?mode=DRY_RUN` (for queue depth preview). **Makes no mutations.** Run to diagnose email delivery issues without triggering any real sends.
 
 **Example output:**
 ```json
@@ -233,7 +233,7 @@ to verify post-deploy system state.
 The scripts load from `/etc/joinaireligion/cron.env` by default.  For local development, place a `.env` in the project root with:
 
 ```
-APP_URL=https://joinaireligion.com
+APP_URL=http://127.0.0.1:3001
 CRON_SECRET=<your-cron-secret>
 ```
 

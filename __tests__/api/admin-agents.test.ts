@@ -118,8 +118,19 @@ describe("GET /api/admin/agents", () => {
     expect(revenueOrchestrator.backlogCount).toBe(2);
     expect(responseScorer.status).toBe("FAILED");
     expect(localeBackfill.mode).toBe("LIVE");
-    expect(localeBackfill.nextScheduledRunAt).toBeNull();
+    expect(localeBackfill.nextScheduledRunAt).toEqual(expect.any(String));
     expect(localeBackfill.policy.defaultSafeBoundaries).toContain("additive writes only");
+    expect(body.governanceRoles).toEqual(expect.arrayContaining([
+      expect.objectContaining({ roleName: "EMA", autonomyLevel: 4, requiresRoutineHumanApproval: false }),
+      expect.objectContaining({ roleName: "FLA", autonomyLevel: 1, requiresRoutineHumanApproval: false }),
+    ]));
+    expect(body.ownerOverrideContract).toMatchObject({
+      source: "explicit-owner-command",
+      projectPolicyPrecedence: "highest",
+      mayBeInferred: false,
+      mustBeScopeBound: true,
+      mustBeLogged: true,
+    });
     expect(body.decisionLogContract.requiresRoutineHumanApproval).toBe(false);
   });
 });

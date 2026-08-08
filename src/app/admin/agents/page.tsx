@@ -4,7 +4,12 @@ import type React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin";
-import { AUTONOMY_LEVELS, getAgentRegistrySnapshot } from "@/lib/agents";
+import {
+  AGENT_GOVERNANCE_ROLES,
+  AUTONOMY_LEVELS,
+  OWNER_OVERRIDE_CONTRACT,
+  getAgentRegistrySnapshot,
+} from "@/lib/agents";
 
 const S = {
   page: { padding: "2rem", fontFamily: "system-ui, sans-serif", color: "#ede8dc", maxWidth: "1240px", margin: "0 auto" } as React.CSSProperties,
@@ -94,6 +99,30 @@ export default async function AdminAgentsPage() {
           <div style={{ fontFamily: "Georgia,serif", fontSize: "1.8rem", color: failed > 0 ? "#e05050" : "#ede8dc" }}>{failed}</div>
         </div>
       </div>
+
+      <section style={{ marginBottom: "1.8rem" }}>
+        <div style={S.sectionH}>Governance Roles</div>
+        <div style={S.grid}>
+          {AGENT_GOVERNANCE_ROLES.map((role) => (
+            <div key={role.roleName} style={S.card}>
+              <div style={{ color: "#f0d47a", fontWeight: 700, marginBottom: "0.35rem" }}>{role.title}</div>
+              <div style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.65)", lineHeight: 1.5 }}>{role.responsibility}</div>
+              <div style={{ fontSize: "0.72rem", color: "rgba(237,232,220,0.45)", marginTop: "0.55rem" }}>
+                Level {role.autonomyLevel} · no routine approval
+              </div>
+            </div>
+          ))}
+          <div style={S.card}>
+            <div style={{ color: "#f0d47a", fontWeight: 700, marginBottom: "0.35rem" }}>Owner Override</div>
+            <div style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.65)", lineHeight: 1.5 }}>
+              Explicit owner commands have the highest project-policy precedence for their stated target and scope.
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "rgba(237,232,220,0.45)", marginTop: "0.55rem" }}>
+              Inferred: {OWNER_OVERRIDE_CONTRACT.mayBeInferred ? "yes" : "no"} · logged: {OWNER_OVERRIDE_CONTRACT.mustBeLogged ? "yes" : "no"}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section style={{ marginBottom: "1.8rem" }}>
         <div style={S.sectionH}>Autonomy Levels</div>

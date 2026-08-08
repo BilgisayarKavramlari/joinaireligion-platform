@@ -28,6 +28,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireAdminSession } from "@/lib/admin";
+import { AGENT_DEFINITIONS } from "@/lib/agents";
 
 // ─── Auth (same pattern as health endpoint) ────────────────────────────────
 
@@ -51,11 +52,7 @@ interface AgentRunSummary {
 
 // ─── Route handler ──────────────────────────────────────────────────────────
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  if (!(await isAuthorized(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function buildDeployStatusReport() {
   const checkedAt = new Date().toISOString();
 
   // ── DB connectivity ─────────────────────────────────────────────────────
@@ -68,12 +65,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // ── Last run per agent ──────────────────────────────────────────────────
-  const agentNames = [
-    "practice-generator",
-    "practice-email-sender",
-    "response-scorer",
-    "autonomy-repair",
-  ];
+  const agentNames = AGENT_DEFINITIONS.map((definition) => definition.agentName);
 
   const lastAgentRuns: Record<string, AgentRunSummary | null> = {};
 
@@ -119,22 +111,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const emailSendingEnabled = env.EMAIL_SENDING_ENABLED === "true";
   const emailMode: "LIVE" | "LOG_ONLY" = emailSendingEnabled ? "LIVE" : "LOG_ONLY";
 
-  return NextResponse.json(
-    {
-      checkedAt,
-      gitCommit,
-      buildTimestamp,
-      appVersion,
-      dbConnected,
-      generationMode,
-      openaiKeyPresent,
-      emailMode,
-      emailSendingEnabled,
-      lastAgentRuns,
-    },
-    {
-      status: 200,
-      headers: { "Cache-Control": "no-store" },
-    }
-  );
+  return {
+    checkedAt,
+    gitCommit,
+    buildTimestamp,
+    appVersion,
+    dbConnected,
+    generationMode,
+    openaiKeyPresent,
+    emailMode,
+    emailSendingEnabled,
+    lastAgentRuns,
+  };
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  if (!(await isAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return NextResponse.json(await buildDeployStatusReport(), {
+    status: 200,
+    headers: { "Cache-Control": "no-store" },
+  });
 }
