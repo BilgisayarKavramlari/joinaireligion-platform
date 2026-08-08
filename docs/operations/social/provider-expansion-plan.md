@@ -1,8 +1,8 @@
 # Social provider expansion plan
 
-Status: audit complete; no external account mutation performed
-Audit date: 2026-07-29
-Production release observed: `8676e57`
+Status: active provider rollout; live state re-audited
+Audit date: 2026-08-08
+Production release observed: `24c544b`
 
 ## Verified current state
 
@@ -15,23 +15,26 @@ Production release observed: `8676e57`
 | Bluesky | Live publication verified | Public profile `https://bsky.app/profile/joinaireligion.bsky.social` existed with English, French, and Chinese posts. The adapter requires `BLUESKY_SERVICE_URL`, `BLUESKY_IDENTIFIER`, and `BLUESKY_APP_PASSWORD`. |
 | X | Adapter only; account not verified | The provider supports OAuth 1.0a owner tokens or `X_USER_ACCESS_TOKEN`; paid API access was deferred by the owner on 2026-07-29. |
 | LinkedIn | Adapter only; live configuration not verified | The provider supports `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN`, and `LINKEDIN_VERSION`. No production account/delivery evidence was available to the restricted deployment operator. |
-| Pinterest | Account exists; adapter ready but disabled | Image Pin creation, locale-specific copy, social-card media, delivery records, and provider gating are implemented. Trial/Standard API access and credentials remain outstanding. |
-| YouTube | Not implemented | No provider adapter, environment contract, media pipeline, OAuth flow, or delivery type exists. |
-| Facebook and Instagram | Not implemented | No Meta Graph provider, environment contract, container/publish polling, or delivery type exists. |
+| Pinterest | Public account exists; public profile has no Pins | Image Pin creation, locale-specific copy, social-card media, delivery records, and provider gating are implemented. Trial access is insufficient for public distribution; Standard access and production credentials remain the gate. |
+| YouTube | Channel exists; external upload is not implemented | The internal video agent creates site-hosted MP4 editions, but no YouTube OAuth/upload adapter or verified public upload exists. |
+| Facebook | Live publication verified; last visible activity was 2026-07-29 | Page link publishing is implemented through the Meta Graph API. Queue retry and backlog protection apply independently to Facebook. |
+| Instagram | Live image publication verified; two posts, both dated 2026-07-29 | Professional-account image publishing, 4:5 social cards, container polling, permalink capture, and multilingual policy are implemented. |
+| Threads | Live publication verified; three posts, last dated 2026-07-30 | Text-container publishing, status polling, permalink capture, and multilingual policy are implemented. |
 
 Production secret values were deliberately not read. The deployment account is restricted to allowlisted status/deploy operations.
 
-## Immediate correction before broader publication
+## Publication reliability correction
 
-The publisher currently chooses one daily locale and sends that same locale to every configured provider. Mastodon also labels every status as English even when its content is another language. This explains the Chinese Mastoturk post and must be corrected before scaling.
+The 2026-08-08 audit found a queue head-of-line failure: a failed non-Mastodon delivery was never retried, the artifact remained `READY`, and the publisher selected that same oldest artifact on every hourly run. Daily composition also created repeated packages for the same latest article. The correction is intentionally provider-independent and backlog-safe.
 
 Required behavior:
 
-1. Choose locale independently for each provider through an explicit, versioned language policy.
-2. Pass the selected locale to each adapter and set the provider language metadata correctly.
-3. Use deterministic weighted selection so retries preserve the same provider/locale decision.
-4. Store `provider`, `locale`, policy version, source item, and external delivery ID in the delivery record.
-5. Add a separate provider enable flag; the global publication switch alone is too broad for staged rollout.
+1. Retry every provider with a bounded 1h/6h schedule and a three-attempt budget.
+2. Keep only the newest fresh package and archive older/superseded packages; packages older than 72 hours are explicitly marked stale.
+3. Suppress publication when the same source item was already delivered to that provider from an earlier package.
+4. Create at most one social package per published content item and order candidates by `publishedAt`.
+5. Store provider, locale, policy version, attempt count, next retry, source item, and external delivery evidence.
+6. Surface stuck-package age and configured-provider names in the authenticated autonomy health report.
 
 Initial weights, subject to aggregate engagement review:
 
@@ -41,9 +44,10 @@ Initial weights, subject to aggregate engagement review:
 | Bluesky | English 80%, other supported languages combined 20%; no single secondary locale above 5% until evidence supports it |
 | X | English 85%, Turkish 10%, other supported languages combined 5% |
 | LinkedIn | English 90%, Turkish 10% |
-| Pinterest | English-first locale-specific boards; never mix unrelated languages on one board |
+| Pinterest | English 80%, Turkish 8%, each remaining supported locale 2%; split into locale boards only after Standard access and measured volume |
 | YouTube | English primary audio; localized captions, titles, descriptions, and playlists before separate-language channels |
-| Facebook/Instagram | English 70%, Turkish 20%, other supported languages combined 10%, adjusted only from aggregate audience data |
+| Facebook | English 70%, Turkish 20%, other supported languages combined 10%, adjusted only from aggregate audience data |
+| Instagram | English 70%, Turkish 18%, each remaining supported locale 2%; keep one account until a 90-day language cohort has enough volume to justify a split |
 
 ## Minimum-interaction implementation order
 

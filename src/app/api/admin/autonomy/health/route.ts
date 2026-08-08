@@ -26,7 +26,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireAdminSession } from "@/lib/admin";
+import { getConfiguredSocialProviders } from "@/lib/social/providers";
 import {
+  AgentArtifactStatus,
   AgentRunStatus,
   DeliveryStatus,
   GenerationStatus,
@@ -390,6 +392,68 @@ async function checkOnboardingAccessIntegrity(findings: Finding[]): Promise<void
   });
 }
 
+async function checkSocialPublishing(findings: Finding[]): Promise<void> {
+  // Some isolated health-route tests provide a deliberately minimal Prisma
+  // mock. Production Prisma always exposes both delegates; skip this optional
+  // subsystem check when the test double does not.
+  if (!db.agentArtifact?.findMany || !db.agentRun?.findFirst) return;
+
+  const [readyPackages, latestPublisherRun] = await Promise.all([
+    db.agentArtifact.findMany({
+      where: {
+        agentName: "social-listener-draft",
+        artifactType: "SOCIAL_DRAFT_PACKAGE",
+        status: AgentArtifactStatus.READY,
+      },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+      select: { createdAt: true },
+    }),
+    db.agentRun.findFirst({
+      where: { agentName: "social-publisher" },
+      orderBy: { startedAt: "desc" },
+      select: { status: true, startedAt: true, output: true },
+    }),
+  ]);
+
+  const oldestReadyAt = readyPackages[0]?.createdAt ?? null;
+  const oldestAgeHours = oldestReadyAt
+    ? Math.round((Date.now() - oldestReadyAt.getTime()) / (60 * 60 * 1_000))
+    : 0;
+  const backlogLevel: FindingLevel = oldestAgeHours > 72 || readyPackages.length >= 3
+    ? "critical"
+    : readyPackages.length > 0
+      ? "warning"
+      : "ok";
+  findings.push({
+    key: "social_package_backlog",
+    level: backlogLevel,
+    message: readyPackages.length === 0
+      ? "No social publication package is stuck in READY state."
+      : `${readyPackages.length} social package(s) are awaiting completion; oldest age is ${oldestAgeHours}h.`,
+    value: { count: readyPackages.length, oldestAgeHours },
+  });
+
+  const output = latestPublisherRun?.output && typeof latestPublisherRun.output === "object" && !Array.isArray(latestPublisherRun.output)
+    ? latestPublisherRun.output as Record<string, unknown>
+    : {};
+  const published = Number(output.published || 0);
+  const failureCount = Array.isArray(output.failures) ? output.failures.length : 0;
+  const progressLevel: FindingLevel = readyPackages.length > 0 && published === 0
+    ? (oldestAgeHours > 72 ? "critical" : "warning")
+    : latestPublisherRun?.status === AgentRunStatus.FAILED
+      ? "critical"
+      : "ok";
+  findings.push({
+    key: "social_publisher_progress",
+    level: progressLevel,
+    message: !latestPublisherRun
+      ? "Social publisher has never run."
+      : `Latest social publisher run at ${latestPublisherRun.startedAt.toISOString()} published ${published} item(s) and reported ${failureCount} provider failure(s).`,
+    value: { published, failureCount, runStatus: latestPublisherRun?.status ?? null },
+  });
+}
+
 function checkConfig(findings: Finding[]): void {
   // Email sending mode
   const emailEnabled = env.EMAIL_SENDING_ENABLED === "true";
@@ -421,6 +485,17 @@ function checkConfig(findings: Finding[]): void {
       value: genMode,
     });
   }
+
+  const socialEnabled = env.SOCIAL_PUBLISHING_ENABLED === "true";
+  const configuredProviders = getConfiguredSocialProviders();
+  findings.push({
+    key: "config_social_publishing",
+    level: socialEnabled && configuredProviders.length === 0 ? "critical" : "ok",
+    message: socialEnabled
+      ? `Social publishing is enabled for ${configuredProviders.length} configured provider(s): ${configuredProviders.join(", ") || "none"}.`
+      : "Social publishing is disabled.",
+    value: { enabled: socialEnabled, providers: configuredProviders },
+  });
 }
 
 // ─── Build recommendations ────────────────────────────────────────────────────
@@ -495,6 +570,13 @@ function buildRecommendations(findings: Finding[]): {
       case "config_openai_mode":
         requiresHumanApproval.push("Set OPENAI_API_KEY in the production environment to enable AI-generated practices.");
         break;
+      case "social_package_backlog":
+      case "social_publisher_progress":
+        safeAutoFixActions.push("social-publisher: archive stale packages, suppress duplicates, and retry eligible provider failures");
+        break;
+      case "config_social_publishing":
+        requiresHumanApproval.push("Restore at least one configured social provider credential before enabling social publishing.");
+        break;
     }
   }
 
@@ -517,6 +599,7 @@ export async function buildAutonomyHealthReport(): Promise<HealthReport> {
       checkUserData(findings),
       checkFeedbackBacklog(findings),
       checkOnboardingAccessIntegrity(findings),
+      checkSocialPublishing(findings),
     ]);
   }
   checkConfig(findings);

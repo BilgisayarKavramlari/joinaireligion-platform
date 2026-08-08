@@ -26,6 +26,8 @@ import { requireAdminSession } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { AgentRunStatus, DeliveryStatus, GenerationStatus } from "@prisma/client";
+import { buildAutonomyHealthReport } from "@/app/api/admin/autonomy/health/route";
+import { buildDeployStatusReport } from "@/app/api/admin/autonomy/deploy-status/route";
 import AutonomyActions from "./AutonomyActions";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -59,48 +61,16 @@ const S = {
 // ─── Data fetchers ────────────────────────────────────────────────────────────
 
 async function fetchDeployStatus() {
-  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const cronSecret = env.CRON_SECRET ?? "";
   try {
-    const res = await fetch(`${appUrl}/api/admin/autonomy/deploy-status`, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return res.json() as Promise<{
-      checkedAt: string;
-      gitCommit: string | null;
-      buildTimestamp: string | null;
-      appVersion: string | null;
-      dbConnected: boolean;
-      generationMode: string;
-      openaiKeyPresent: boolean;
-      emailMode: string;
-      emailSendingEnabled: boolean;
-      lastAgentRuns: Record<string, { status: string; startedAt: string; durationMs: number | null } | null>;
-    }>;
+    return await buildDeployStatusReport();
   } catch {
     return null;
   }
 }
 
 async function fetchHealthReport() {
-  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const cronSecret = env.CRON_SECRET ?? "";
   try {
-    const res = await fetch(`${appUrl}/api/admin/autonomy/health`, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return res.json() as Promise<{
-      status: string;
-      checkedAt: string;
-      findings: { key: string; level: string; message: string; value?: unknown }[];
-      recommendedActions: string[];
-      safeAutoFixActions: string[];
-      requiresHumanApproval: string[];
-    }>;
+    return await buildAutonomyHealthReport();
   } catch {
     return null;
   }
@@ -233,6 +203,8 @@ export default async function AutonomyDashboard() {
             sub={deployStatus?.openaiKeyPresent ? "API key present" : "No OpenAI key"} />
           <StatCard label="Email Mode" value={deployStatus?.emailMode ?? "—"}
             sub={deployStatus?.emailSendingEnabled ? "Live sending active" : "Logging only"} />
+          <StatCard label="Social Publishing" value={deployStatus?.socialPublishingEnabled ? "LIVE" : "DISABLED"}
+            sub={deployStatus?.configuredSocialProviders.join(", ") || "No configured provider"} />
         </div>
         {deployStatus && (
           <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>

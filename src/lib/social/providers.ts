@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "pinterest" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ar", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
-export const SOCIAL_LANGUAGE_POLICY_VERSION = "v3";
+export const SOCIAL_LANGUAGE_POLICY_VERSION = "v4";
 
 type LocaleWeight = { locale: SocialLocale; weight: number };
 
@@ -51,7 +51,14 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "zh", weight: 2 },
   ],
   instagram: [
-    { locale: "en", weight: 100 },
+    { locale: "en", weight: 70 },
+    { locale: "tr", weight: 18 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ar", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
   ],
   threads: [
     { locale: "en", weight: 75 },
@@ -64,7 +71,14 @@ const PROVIDER_LOCALE_WEIGHTS: Record<SocialProviderName, readonly LocaleWeight[
     { locale: "zh", weight: 2 },
   ],
   pinterest: [
-    { locale: "en", weight: 100 },
+    { locale: "en", weight: 80 },
+    { locale: "tr", weight: 8 },
+    { locale: "es", weight: 2 },
+    { locale: "de", weight: 2 },
+    { locale: "fr", weight: 2 },
+    { locale: "ar", weight: 2 },
+    { locale: "ru", weight: 2 },
+    { locale: "zh", weight: 2 },
   ],
 };
 
