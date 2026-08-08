@@ -16,7 +16,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  const requestHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  let originHost = "";
+  try {
+    originHost = origin ? new URL(origin).host.toLowerCase() : "";
+  } catch {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+  if (origin && (!requestHost || originHost !== requestHost)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
 
