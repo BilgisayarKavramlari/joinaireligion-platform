@@ -19,8 +19,8 @@ OpenClaw does not replace Claude Code.  It delegates code-level failures to Clau
 ### OpenClaw may act without human approval on:
 
 - Running any `scripts/ops/openclaw-run-*.sh` script.
-- Calling `GET /api/admin/autonomy/health` to inspect system state.
-- Calling `GET /api/admin/autonomy/deploy-status` to confirm deployment state.
+- Calling `GET /api/cron/autonomy-health` to inspect system state.
+- Calling `GET /api/cron/deploy-status` to confirm deployment state.
 - Calling `POST /api/cron/autonomy-repair` to apply safe repairs:
   - Creating missing `UserJourneyState` rows.
   - Re-queuing `FAILED` practice messages whose generation succeeded.
@@ -137,12 +137,12 @@ OpenClaw must never ask the project owner to type commands into a terminal for r
 
 | Instead of asking the owner to run... | OpenClaw runs... |
 |---|---|
-| `curl .../api/admin/autonomy/health` | `scripts/ops/openclaw-run-health.sh` |
+| `curl .../api/cron/autonomy-health` | `scripts/ops/openclaw-run-health.sh` |
 | `curl -X POST .../api/cron/autonomy-repair` | `scripts/ops/openclaw-run-repair.sh` |
-| `curl .../api/admin/autonomy/deploy-status` | `scripts/ops/openclaw-run-deploy-status.sh` |
+| `curl .../api/cron/deploy-status` | `scripts/ops/openclaw-run-deploy-status.sh` |
 | `curl -X POST .../send-practice-emails?mode=DRY_RUN` | `scripts/ops/openclaw-run-email-status.sh` |
 | `git pull && docker compose up -d --build app` | GitHub Actions workflow (triggered by `git push origin main`) |
-| `docker compose exec app npx prisma db push` | GitHub Actions workflow (automatic post-deploy step) |
+| `docker compose exec app npx prisma db push` | Reviewed, version-controlled migration procedure; never use production `db push` |
 
 If a runner script does not exist for a required operation and the operation is within the safe autonomy boundary, OpenClaw creates a Claude Code task to build the missing script rather than asking the owner for ad-hoc terminal access.
 
@@ -213,7 +213,7 @@ scripts/ops/openclaw-run-health.sh
 source /etc/joinaireligion/cron.env 2>/dev/null || source .env
 curl -s -X GET \
   -H "Authorization: Bearer $CRON_SECRET" \
-  "$APP_URL/api/admin/autonomy/health" | jq '{status, checkedAt, findings: [.findings[] | select(.level != "ok")]}'
+  "$APP_URL/api/cron/autonomy-health" | jq '{status, checkedAt, findings: [.findings[] | select(.level != "ok")]}'
 ```
 
 ### Run safe repair
@@ -237,7 +237,7 @@ scripts/ops/openclaw-run-deploy-status.sh
 
 # Raw:
 source /etc/joinaireligion/cron.env 2>/dev/null || source .env
-curl -s "$APP_URL/api/admin/autonomy/deploy-status" \
+curl -s "$APP_URL/api/cron/deploy-status" \
   -H "Authorization: Bearer $CRON_SECRET" | jq '{gitCommit, buildTimestamp, dbConnected, generationMode, emailMode}'
 ```
 

@@ -30,6 +30,7 @@
     "seed": "node --import jiti/register prisma/seed.ts"
   },
   "overrides": {
+    "nanoid": "3.3.18",
     "next": {
       "postcss": "8.5.23",
       "sharp": "0.35.3"

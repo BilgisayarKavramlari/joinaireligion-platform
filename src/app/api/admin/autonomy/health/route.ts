@@ -43,7 +43,7 @@ interface Finding {
   value?: unknown;
 }
 
-interface HealthReport {
+export interface HealthReport {
   status: "OK" | "WARNING" | "CRITICAL";
   checkedAt: string;
   findings: Finding[];
@@ -470,7 +470,7 @@ function buildRecommendations(findings: Finding[]): {
           );
         } else {
           recommendedActions.push(
-            "XP ledger integrity check returned a query error — verify database schema is fully migrated (run: npx prisma db push)."
+            "XP ledger integrity check returned a query error — review migration status and apply only reviewed, version-controlled migrations; do not use prisma db push in production."
           );
         }
         break;
@@ -503,11 +503,7 @@ function buildRecommendations(findings: Finding[]): {
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  if (!(await isAuthorized(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function buildAutonomyHealthReport(): Promise<HealthReport> {
   const findings: Finding[] = [];
   const checkedAt = new Date().toISOString();
 
@@ -546,7 +542,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     requiresHumanApproval: [...new Set(requiresHumanApproval)],
   };
 
-  return NextResponse.json(report, {
+  return report;
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  if (!(await isAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return NextResponse.json(await buildAutonomyHealthReport(), {
     status: 200,
     headers: { "Cache-Control": "no-store" },
   });

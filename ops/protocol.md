@@ -2,6 +2,8 @@
 
 This document defines the four agent roles, their permissions, the task lifecycle, and the hard rules that govern all development work on this platform.
 
+FLA and EMA are project-level governance roles, separate from the coding/test/review execution roles below. Their command precedence and owner-override rules are defined in `docs/operations/agent-governance.md`. EMA delegates code work through this protocol; it does not bypass secret handling, test, migration, backup, or rollback safeguards.
+
 ---
 
 ## 1. Roles

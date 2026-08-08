@@ -80,7 +80,7 @@ git log --all -p | grep -E "CRON_SECRET|API_KEY|DATABASE_URL"
 source /etc/joinaireligion/cron.env 2>/dev/null
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer ${CRON_SECRET}" \
-  https://joinaireligion.com/api/admin/autonomy/health)
+  https://joinaireligion.com/api/cron/autonomy-health)
 [ "$HTTP" = "200" ] && echo "CRON_SECRET: valid" || echo "CRON_SECRET: INVALID (HTTP $HTTP)"
 ```
 
@@ -114,7 +114,7 @@ cd /opt/apps/joinaireligion && docker compose up -d app
 source /etc/joinaireligion/cron.env
 HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer ${CRON_SECRET}" \
-  https://joinaireligion.com/api/admin/autonomy/health)
+  https://joinaireligion.com/api/cron/autonomy-health)
 echo "Health check: HTTP $HTTP"
 
 # Discard NEW_SECRET from shell history
@@ -138,7 +138,7 @@ cd /opt/apps/joinaireligion && docker compose up -d app
 
 # 5. Confirm generation mode works (does not reveal the key)
 curl -sf -H "Authorization: Bearer ${CRON_SECRET}" \
-  https://joinaireligion.com/api/admin/autonomy/deploy-status \
+  https://joinaireligion.com/api/cron/deploy-status \
   | jq '{generationMode, openaiKeyPresent}'
 ```
 

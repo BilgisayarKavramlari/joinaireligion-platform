@@ -3,7 +3,7 @@
 #
 # OpenClaw — system health probe.
 #
-# Calls GET /api/admin/autonomy/health and emits structured JSON to stdout.
+# Calls GET /api/cron/autonomy-health and emits structured JSON to stdout.
 # Safe to run repeatedly (read-only, no mutations).
 #
 # Output (stdout, JSON):
@@ -42,7 +42,7 @@ if [[ -z "$CRON_SECRET" ]]; then
   echo '{"error":"CRON_SECRET is not set","status":"CONFIG_ERROR"}' >&2; exit 1
 fi
 
-ENDPOINT="${APP_URL%/}/api/admin/autonomy/health"
+ENDPOINT="${APP_URL%/}/api/cron/autonomy-health"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
   echo '{"dryRun":true,"endpoint":"'"$ENDPOINT"'","wouldUse":"Bearer ***"}'
@@ -50,12 +50,15 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
 fi
 
 # ── Call endpoint ──────────────────────────────────────────────────────────────
-RESPONSE="$(
-  curl --silent --show-error --max-time 30 --retry 1 \
+if RESPONSE="$(
+  curl --silent --show-error --fail-with-body --max-time 30 --retry 1 \
     -H "Authorization: Bearer ${CRON_SECRET}" \
     "$ENDPOINT" 2>&1
-)"
-CURL_EXIT=$?
+)"; then
+  CURL_EXIT=0
+else
+  CURL_EXIT=$?
+fi
 
 if [[ $CURL_EXIT -ne 0 ]]; then
   echo '{"error":"curl failed (exit '"$CURL_EXIT"')","status":"NETWORK_ERROR"}' >&2

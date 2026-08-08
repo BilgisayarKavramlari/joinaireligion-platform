@@ -16,11 +16,32 @@ jest.mock("@/lib/db", () => ({
   },
 }));
 
-import { AGENT_DEFINITIONS, AUTONOMY_LEVELS, DECISION_LOG_CONTRACT } from "@/lib/agents";
+import {
+  AGENT_DEFINITIONS,
+  AGENT_GOVERNANCE_ROLES,
+  AUTONOMY_LEVELS,
+  DECISION_LOG_CONTRACT,
+  OWNER_OVERRIDE_CONTRACT,
+} from "@/lib/agents";
 
 describe("agent registry policy foundation", () => {
   it("defines autonomy levels 0 through 4", () => {
     expect(Object.keys(AUTONOMY_LEVELS)).toEqual(["0", "1", "2", "3", "4"]);
+  });
+
+  it("defines EMA, FLA, and explicit owner-command precedence without inferred overrides", () => {
+    const ema = AGENT_GOVERNANCE_ROLES.find((role) => role.roleName === "EMA");
+    const fla = AGENT_GOVERNANCE_ROLES.find((role) => role.roleName === "FLA");
+
+    expect(ema).toMatchObject({ autonomyLevel: 4, requiresRoutineHumanApproval: false });
+    expect(ema?.allowedActions).toContain("take initiative to meet owner-defined performance criteria inside configured caps");
+    expect(fla?.allowedActions).toContain("record an explicit owner override with its target, scope, and timestamp");
+    expect(OWNER_OVERRIDE_CONTRACT).toMatchObject({
+      projectPolicyPrecedence: "highest",
+      mayBeInferred: false,
+      mustBeScopeBound: true,
+      mustBeLogged: true,
+    });
   });
 
   it("uses boundary-based autonomy instead of routine per-action approvals", () => {
@@ -65,5 +86,10 @@ describe("agent registry policy foundation", () => {
     expect(videoPublisher?.mode).toBe("LIVE");
     expect(videoPublisher?.policy.allowedActions).toContain("read ready podcast artifacts");
     expect(videoPublisher?.policy.forbiddenActions).toContain("include private user material");
+  });
+
+  it("keeps the locale-backfill registry schedule aligned with its hourly production timer", () => {
+    const localeBackfill = AGENT_DEFINITIONS.find((agent) => agent.agentName === "content-locale-backfill");
+    expect(localeBackfill?.schedule).toMatchObject({ kind: "hourly", cron: "10 * * * *", minute: 10 });
   });
 });

@@ -2,7 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin";
-import { AUTONOMY_LEVELS, DECISION_LOG_CONTRACT, getAgentRegistrySnapshot } from "@/lib/agents";
+import {
+  AGENT_GOVERNANCE_ROLES,
+  AUTONOMY_LEVELS,
+  DECISION_LOG_CONTRACT,
+  OWNER_OVERRIDE_CONTRACT,
+  getAgentRegistrySnapshot,
+} from "@/lib/agents";
 
 async function isAuthorized(_request: NextRequest): Promise<boolean> {
   try {
@@ -24,6 +30,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     {
       checkedAt: new Date().toISOString(),
       autonomyLevels: AUTONOMY_LEVELS,
+      governanceRoles: AGENT_GOVERNANCE_ROLES,
+      ownerOverrideContract: OWNER_OVERRIDE_CONTRACT,
       decisionLogContract: DECISION_LOG_CONTRACT,
       agents,
     },

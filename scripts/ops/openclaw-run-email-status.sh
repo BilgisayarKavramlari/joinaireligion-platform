@@ -8,7 +8,7 @@
 # any database records.  Reports how many messages are queued and their
 # preview subjects.
 #
-# Also queries /api/admin/autonomy/health for the agent_email_last_run
+# Also queries /api/cron/autonomy-health for the agent_email_last_run
 # finding so the caller has a complete picture.
 #
 # Safe to run repeatedly (DRY_RUN makes zero mutations).
@@ -48,7 +48,7 @@ if [[ -z "$CRON_SECRET" ]]; then
   echo '{"error":"CRON_SECRET is not set","status":"CONFIG_ERROR"}' >&2; exit 1
 fi
 
-HEALTH_ENDPOINT="${APP_URL%/}/api/admin/autonomy/health"
+HEALTH_ENDPOINT="${APP_URL%/}/api/cron/autonomy-health"
 EMAIL_ENDPOINT="${APP_URL%/}/api/cron/send-practice-emails?mode=DRY_RUN"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
@@ -57,11 +57,16 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
 fi
 
 # ── Fetch last-run finding from health report ──────────────────────────────────
-HEALTH_RESPONSE="$(
-  curl --silent --show-error --max-time 30 \
+if HEALTH_RESPONSE="$(
+  curl --silent --show-error --fail-with-body --max-time 30 \
     -H "Authorization: Bearer ${CRON_SECRET}" \
     "$HEALTH_ENDPOINT" 2>&1
-)" || HEALTH_RESPONSE='{"findings":[]}'
+)"; then
+  HEALTH_CURL_EXIT=0
+else
+  HEALTH_CURL_EXIT=$?
+  HEALTH_RESPONSE='{"findings":[]}'
+fi
 
 LAST_RUN_FINDING="$(python3 -c "
 import sys, json
@@ -77,13 +82,18 @@ except:
 " <<< "$HEALTH_RESPONSE")"
 
 # ── Dry-run email delivery to count queued messages ───────────────────────────
-PREVIEW_RESPONSE="$(
-  curl --silent --show-error --max-time 60 \
+if PREVIEW_RESPONSE="$(
+  curl --silent --show-error --fail-with-body --max-time 60 \
     -X POST \
     -H "Authorization: Bearer ${CRON_SECRET}" \
     -H "Content-Type: application/json" \
     "$EMAIL_ENDPOINT" 2>&1
-)" || PREVIEW_RESPONSE='{"ok":false,"error":"curl failed"}'
+)"; then
+  PREVIEW_CURL_EXIT=0
+else
+  PREVIEW_CURL_EXIT=$?
+  PREVIEW_RESPONSE='{"ok":false,"error":"curl failed"}'
+fi
 
 # ── Compose output ─────────────────────────────────────────────────────────────
 python3 -c "
@@ -92,5 +102,9 @@ last_run = json.loads(sys.argv[1])
 preview  = json.loads(sys.argv[2])
 print(json.dumps({'lastRun': last_run, 'preview': preview}, indent=2))
 " "$LAST_RUN_FINDING" "$PREVIEW_RESPONSE"
+
+if [[ $HEALTH_CURL_EXIT -ne 0 || $PREVIEW_CURL_EXIT -ne 0 ]]; then
+  exit 2
+fi
 
 exit 0
