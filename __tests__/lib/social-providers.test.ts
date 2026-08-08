@@ -37,7 +37,12 @@ import {
   type SocialProviderName,
 } from "@/lib/social/providers";
 import { env } from "@/lib/env";
-import { readSocialDeliveries } from "@/lib/growth-agents/runners";
+import {
+  SOCIAL_MAX_DELIVERY_ATTEMPTS,
+  isSocialDeliveryRetryDue,
+  isSocialPackageStale,
+  readSocialDeliveries,
+} from "@/lib/growth-agents/runners";
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -79,7 +84,7 @@ describe("Bluesky social provider helpers", () => {
         const locale = selectProviderLocale(provider, seed);
         if (locale) counts[provider][locale] += 1;
       }
-      if (provider !== "instagram" && provider !== "pinterest" && provider !== "mastodon") {
+      if (provider !== "mastodon") {
         for (const locale of SOCIAL_LOCALES) expect(counts[provider][locale]).toBeGreaterThan(0);
       }
     }
@@ -90,11 +95,11 @@ describe("Bluesky social provider helpers", () => {
     expect(counts.x.en).toBeGreaterThan(counts.x.tr);
     expect(counts.linkedin.en).toBeGreaterThan(counts.linkedin.tr);
     expect(counts.facebook.en).toBeGreaterThan(counts.facebook.tr);
-    expect(counts.instagram.en).toBe(2_000);
-    expect(counts.instagram.tr).toBe(0);
+    expect(counts.instagram.en).toBeGreaterThan(counts.instagram.tr);
+    expect(counts.instagram.tr).toBeGreaterThan(counts.instagram.es);
     expect(counts.threads.en).toBeGreaterThan(counts.threads.tr);
-    expect(counts.pinterest.en).toBe(2_000);
-    expect(counts.pinterest.tr).toBe(0);
+    expect(counts.pinterest.en).toBeGreaterThan(counts.pinterest.tr);
+    expect(counts.pinterest.tr).toBeGreaterThan(counts.pinterest.es);
   });
 
   it("falls back to the highest-weight available locale", () => {
@@ -137,6 +142,31 @@ describe("Bluesky social provider helpers", () => {
       languagePolicyVersion: "v1",
       externalId: "status-1",
     }]);
+  });
+
+  it("preserves bounded retry metadata and evaluates retry windows", () => {
+    const [delivery] = readSocialDeliveries({
+      deliveries: [{
+        provider: "instagram",
+        status: "FAILED",
+        attemptedAt: "2026-08-08T12:00:00.000Z",
+        attemptCount: 2,
+        nextRetryAt: "2026-08-08T18:00:00.000Z",
+        error: "Instagram publication failed with HTTP 500",
+      }],
+    });
+
+    expect(delivery.attemptCount).toBe(2);
+    expect(SOCIAL_MAX_DELIVERY_ATTEMPTS).toBe(3);
+    expect(isSocialDeliveryRetryDue(delivery, new Date("2026-08-08T17:59:59.999Z"))).toBe(false);
+    expect(isSocialDeliveryRetryDue(delivery, new Date("2026-08-08T18:00:00.000Z"))).toBe(true);
+  });
+
+  it("archives social packages only after the 72-hour freshness window", () => {
+    const createdAt = new Date("2026-08-05T12:00:00.000Z");
+
+    expect(isSocialPackageStale(createdAt, new Date("2026-08-08T12:00:00.000Z"))).toBe(false);
+    expect(isSocialPackageStale(createdAt, new Date("2026-08-08T12:00:00.001Z"))).toBe(true);
   });
 
   it("fails closed when Pinterest activation time is missing or malformed", () => {

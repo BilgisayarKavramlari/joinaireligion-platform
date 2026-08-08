@@ -1019,15 +1019,35 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
   return executeAgent("social-listener-draft", "BUILD_SOCIAL_DRAFTS", now, async (agentRunId) => {
     const contentItem = await db.contentItem.findFirst({
       where: { status: ContentWorkflowStatus.PUBLISHED },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
       include: { variants: { orderBy: { locale: "asc" } } },
     });
     if (!contentItem) {
       return { created: 0, skipped: true, reason: "no_safe_internal_content" };
     }
 
+    const existingPackage = await db.agentArtifact.findFirst({
+      where: {
+        agentName: "social-listener-draft",
+        artifactType: "SOCIAL_DRAFT_PACKAGE",
+        sourceRefs: { path: ["contentItemId"], equals: contentItem.id },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true },
+    });
+    if (existingPackage) {
+      return {
+        created: 0,
+        duplicate: true,
+        artifactId: existingPackage.id,
+        sourceContentItemId: contentItem.id,
+        queuedForPublisher: existingPackage.status === AgentArtifactStatus.READY,
+        reason: "content_already_packaged",
+      };
+    }
+
     const dateKey = utcDateKey(now);
-    const fingerprint = sha256Fingerprint(["social-listener-draft", dateKey, contentItem.id]);
+    const fingerprint = sha256Fingerprint(["social-listener-draft", "v2", contentItem.id]);
     const drafts = contentItem.variants.map((variant) => {
       const contentUrl = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
       const baseCopy = `${variant.title}: ${variant.summary}`;
@@ -1073,6 +1093,8 @@ export type SocialDelivery = {
   provider: SocialProviderName;
   status: "PUBLISHED" | "FAILED" | "SKIPPED";
   attemptedAt: string;
+  attemptCount?: number;
+  nextRetryAt?: string;
   locale?: SocialLocale;
   languagePolicyVersion?: string;
   externalId?: string;
@@ -1081,6 +1103,26 @@ export type SocialDelivery = {
   reason?: string;
   activationAt?: string;
 };
+
+export const SOCIAL_PACKAGE_MAX_AGE_MS = 72 * 60 * 60 * 1_000;
+export const SOCIAL_MAX_DELIVERY_ATTEMPTS = 3;
+const SOCIAL_RETRY_DELAYS_MS = [60 * 60 * 1_000, 6 * 60 * 60 * 1_000] as const;
+
+export function isSocialPackageStale(createdAt: Date, now: Date): boolean {
+  return now.getTime() - createdAt.getTime() > SOCIAL_PACKAGE_MAX_AGE_MS;
+}
+
+export function isSocialDeliveryRetryDue(delivery: SocialDelivery, now: Date): boolean {
+  if (delivery.status !== "FAILED") return false;
+  if (!delivery.nextRetryAt) return true;
+  const retryAt = Date.parse(delivery.nextRetryAt);
+  return !Number.isFinite(retryAt) || retryAt <= now.getTime();
+}
+
+function nextSocialRetryAt(now: Date, attemptCount: number): string | undefined {
+  const delay = SOCIAL_RETRY_DELAYS_MS[attemptCount - 1];
+  return delay === undefined ? undefined : new Date(now.getTime() + delay).toISOString();
+}
 
 function readSocialDrafts(payload: unknown): Array<{
   locale: SocialLocale;
@@ -1132,6 +1174,10 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
       provider: record.provider as SocialProviderName,
       status: record.status,
       attemptedAt: String(record.attemptedAt || ""),
+      attemptCount: typeof record.attemptCount === "number" && Number.isInteger(record.attemptCount) && record.attemptCount > 0
+        ? record.attemptCount
+        : undefined,
+      nextRetryAt: typeof record.nextRetryAt === "string" ? record.nextRetryAt : undefined,
       locale,
       languagePolicyVersion: typeof record.languagePolicyVersion === "string"
         ? record.languagePolicyVersion
@@ -1153,15 +1199,45 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
     const providers = getConfiguredSocialProviders();
     if (providers.length === 0) return { published: 0, skipped: true, reason: "no_configured_social_provider" };
 
-    const artifact = await db.agentArtifact.findFirst({
+    const readyArtifacts = await db.agentArtifact.findMany({
       where: {
         agentName: "social-listener-draft",
         artifactType: "SOCIAL_DRAFT_PACKAGE",
         status: AgentArtifactStatus.READY,
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: 100,
     });
-    if (!artifact) return { published: 0, skipped: true, reason: "no_ready_social_package" };
+    const artifact = readyArtifacts.find((candidate) => !isSocialPackageStale(candidate.createdAt, now));
+    const staleArtifacts = readyArtifacts.filter((candidate) => isSocialPackageStale(candidate.createdAt, now));
+    const supersededArtifacts = artifact
+      ? readyArtifacts.filter((candidate) => candidate.id !== artifact.id && !isSocialPackageStale(candidate.createdAt, now))
+      : [];
+    for (const archivedArtifact of [...staleArtifacts, ...supersededArtifacts]) {
+      await db.agentArtifact.update({
+        where: { id: archivedArtifact.id },
+        data: {
+          status: AgentArtifactStatus.ARCHIVED,
+          archivedAt: now,
+          payload: asInputJson({
+            ...asRecord(archivedArtifact.payload),
+            abandonedAt: now.toISOString(),
+            abandonedReason: staleArtifacts.some((candidate) => candidate.id === archivedArtifact.id)
+              ? "stale_social_package"
+              : "superseded_social_package",
+          }),
+        },
+      });
+    }
+    if (!artifact) {
+      return {
+        published: 0,
+        skipped: true,
+        reason: "no_fresh_ready_social_package",
+        staleArchived: staleArtifacts.length,
+        supersededArchived: supersededArtifacts.length,
+      };
+    }
 
     const sourceRefs = asRecord(artifact.sourceRefs);
     const contentItemId = typeof sourceRefs.contentItemId === "string" ? sourceRefs.contentItemId : "";
@@ -1181,9 +1257,42 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
     const previousDeliveries = readSocialDeliveries(artifact.payload);
     let deliveries = [...previousDeliveries];
     const published: SocialDelivery[] = [];
+    const relatedArtifacts = contentItemId
+      ? await db.agentArtifact.findMany({
+          where: {
+            id: { not: artifact.id },
+            agentName: "social-listener-draft",
+            artifactType: "SOCIAL_DRAFT_PACKAGE",
+            sourceRefs: { path: ["contentItemId"], equals: contentItemId },
+          },
+          select: { payload: true },
+          take: 100,
+        })
+      : [];
+    const previouslyPublishedProviders = new Set(
+      relatedArtifacts
+        .flatMap((candidate) => readSocialDeliveries(candidate.payload))
+        .filter((delivery) => delivery.status === "PUBLISHED")
+        .map((delivery) => delivery.provider),
+    );
 
     for (const provider of providers) {
       if (deliveries.some((delivery) => delivery.provider === provider && (delivery.status === "PUBLISHED" || delivery.status === "SKIPPED"))) continue;
+      if (previouslyPublishedProviders.has(provider)) {
+        deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
+        deliveries.push({
+          provider,
+          status: "SKIPPED",
+          attemptedAt: now.toISOString(),
+          languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+          reason: "content_already_published",
+        });
+        await db.agentArtifact.update({
+          where: { id: artifact.id },
+          data: { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+        });
+        continue;
+      }
       if (shouldSkipSocialProviderForActivation(provider, artifact.createdAt)) {
         deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
         deliveries.push({
@@ -1200,7 +1309,26 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
         });
         continue;
       }
-      if (provider !== "mastodon" && deliveries.some((delivery) => delivery.provider === provider && delivery.status === "FAILED")) continue;
+      const previousFailure = deliveries.find((delivery) => delivery.provider === provider && delivery.status === "FAILED");
+      if (previousFailure && !isSocialDeliveryRetryDue(previousFailure, now)) continue;
+      if ((previousFailure?.attemptCount ?? (previousFailure ? 1 : 0)) >= SOCIAL_MAX_DELIVERY_ATTEMPTS) {
+        deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
+        deliveries.push({
+          provider,
+          status: "SKIPPED",
+          attemptedAt: now.toISOString(),
+          locale: previousFailure?.locale,
+          languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+          attemptCount: previousFailure?.attemptCount ?? SOCIAL_MAX_DELIVERY_ATTEMPTS,
+          error: previousFailure?.error,
+          reason: "retry_budget_exhausted",
+        });
+        await db.agentArtifact.update({
+          where: { id: artifact.id },
+          data: { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+        });
+        continue;
+      }
       deliveries = deliveries.filter((delivery) => delivery.provider !== provider || delivery.status === "PUBLISHED");
       const selectedLocale = selectProviderLocale(provider, artifact.id, drafts.map((draft) => draft.locale));
       const draft = drafts.find((candidate) => candidate.locale === selectedLocale) || drafts[0];
@@ -1208,11 +1336,11 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
       if (containsHighRiskContent(text) || !text.includes(draft.contentUrl)) {
         deliveries.push({
           provider,
-          status: "FAILED",
+          status: "SKIPPED",
           attemptedAt: now.toISOString(),
           locale: draft.locale,
           languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
-          error: "social_copy_safety_gate_failed",
+          reason: "social_copy_safety_gate_failed",
         });
       } else {
         try {
@@ -1229,14 +1357,19 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
           deliveries.push(delivery);
           published.push(delivery);
         } catch (error) {
-          deliveries.push({
+          const attemptCount = (previousFailure?.attemptCount ?? (previousFailure ? 1 : 0)) + 1;
+          const failedDelivery: SocialDelivery = {
             provider,
-            status: "FAILED",
+            status: attemptCount >= SOCIAL_MAX_DELIVERY_ATTEMPTS ? "SKIPPED" : "FAILED",
             attemptedAt: now.toISOString(),
+            attemptCount,
+            ...(nextSocialRetryAt(now, attemptCount) ? { nextRetryAt: nextSocialRetryAt(now, attemptCount) } : {}),
             locale: draft.locale,
             languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
             error: safeError(error),
-          });
+            ...(attemptCount >= SOCIAL_MAX_DELIVERY_ATTEMPTS ? { reason: "retry_budget_exhausted" } : {}),
+          };
+          deliveries.push(failedDelivery);
         }
       }
       await db.agentArtifact.update({
@@ -1259,6 +1392,8 @@ export async function runSocialPublisher(now = new Date()): Promise<GrowthAgentR
     });
     return {
       published: published.length,
+      staleArchived: staleArtifacts.length,
+      supersededArchived: supersededArtifacts.length,
       configuredProviders: providers,
       completedProviders: [...completedProviders],
       artifactId: artifact.id,

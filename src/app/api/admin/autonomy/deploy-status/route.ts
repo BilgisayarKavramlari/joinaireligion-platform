@@ -29,6 +29,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireAdminSession } from "@/lib/admin";
 import { AGENT_DEFINITIONS } from "@/lib/agents";
+import { getConfiguredSocialProviders } from "@/lib/social/providers";
 
 // ─── Auth (same pattern as health endpoint) ────────────────────────────────
 
@@ -110,6 +111,8 @@ export async function buildDeployStatusReport() {
   const openaiKeyPresent = Boolean(env.OPENAI_API_KEY);
   const emailSendingEnabled = env.EMAIL_SENDING_ENABLED === "true";
   const emailMode: "LIVE" | "LOG_ONLY" = emailSendingEnabled ? "LIVE" : "LOG_ONLY";
+  const socialPublishingEnabled = env.SOCIAL_PUBLISHING_ENABLED === "true";
+  const configuredSocialProviders = getConfiguredSocialProviders();
 
   return {
     checkedAt,
@@ -121,6 +124,8 @@ export async function buildDeployStatusReport() {
     openaiKeyPresent,
     emailMode,
     emailSendingEnabled,
+    socialPublishingEnabled,
+    configuredSocialProviders,
     lastAgentRuns,
   };
 }

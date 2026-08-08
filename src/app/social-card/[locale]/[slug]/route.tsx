@@ -70,10 +70,10 @@ export async function GET(request: Request, { params }: RouteContext) {
   const dimensions = socialCardDimensions(preset);
   const theme = THEMES[variant.contentItem.category] || THEMES.reflection;
   const copy = CARD_COPY[variant.locale] || CARD_COPY.en;
+  const visual = discoverVisualCoordinates(variant.slug);
   const summary = Array.from(variant.summary).slice(0, preset === "pinterest" ? 240 : preset === "discover" ? 145 : 190).join("");
 
   if (preset === "discover") {
-    const visual = discoverVisualCoordinates(variant.slug);
     const discoverImage = new ImageResponse(
       <div style={{ width: "100%", height: "100%", display: "flex", position: "relative", overflow: "hidden", color: "#ede8dc", background: `radial-gradient(circle at ${visual.orbX}px ${visual.orbY}px, ${theme.secondary}99 0%, transparent 27%), radial-gradient(circle at 86% 16%, ${theme.primary}66 0%, transparent 30%), linear-gradient(145deg, #03020b 0%, #0d0820 52%, #020a10 100%)` }}>
         <div style={{ position: "absolute", inset: "0", display: "flex", background: `linear-gradient(180deg, transparent 0%, transparent ${visual.horizon - 80}px, ${theme.primary}18 ${visual.horizon}px, #03020bdd 100%)` }} />
@@ -114,6 +114,44 @@ export async function GET(request: Request, { params }: RouteContext) {
       <div style={{ position: "absolute", right: "-70px", top: preset === "pinterest" ? "240px" : preset === "discover" ? "70px" : "190px", display: "flex", color: `${theme.primary}24`, fontSize: preset === "pinterest" ? "480px" : preset === "discover" ? "330px" : "420px", lineHeight: 1 }}>
         {theme.symbol}
       </div>
+      <div
+        style={{
+          position: "absolute",
+          left: `${Math.round((visual.orbX / 770) * 42) + 18}%`,
+          top: preset === "pinterest" ? "255px" : "235px",
+          width: preset === "pinterest" ? "520px" : "460px",
+          height: preset === "pinterest" ? "520px" : "460px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: `2px solid ${theme.secondary}52`,
+          borderRadius: "50%",
+          boxShadow: `0 0 90px ${theme.primary}30, inset 0 0 70px ${theme.secondary}18`,
+          transform: "translateX(-50%)",
+        }}
+      >
+        <div style={{ width: "72%", height: "72%", display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${theme.primary}5c`, borderRadius: "50%", transform: "rotate(18deg)" }}>
+          <div style={{ width: "58%", height: "58%", display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${theme.secondary}66`, borderRadius: "50%", color: `${theme.primary}a8`, fontSize: preset === "pinterest" ? "118px" : "104px", fontWeight: 300, transform: "rotate(-18deg)", textShadow: `0 0 38px ${theme.primary}` }}>
+            {theme.symbol}
+          </div>
+        </div>
+      </div>
+      {Array.from({ length: 7 }, (_, index) => (
+        <div
+          key={`social-node-${index}`}
+          style={{
+            position: "absolute",
+            left: `${12 + ((index * 17 + visual.orbX) % 76)}%`,
+            top: `${17 + ((index * 13 + visual.orbY) % 36)}%`,
+            width: `${6 + (index % 3) * 3}px`,
+            height: `${6 + (index % 3) * 3}px`,
+            display: "flex",
+            borderRadius: "50%",
+            background: index % 2 ? theme.primary : theme.secondary,
+            boxShadow: `0 0 20px ${index % 2 ? theme.primary : theme.secondary}`,
+          }}
+        />
+      ))}
       <div style={{ position: "absolute", left: "0", top: "0", width: "100%", height: "12px", display: "flex", background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, #c9a227)` }} />
 
       <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
