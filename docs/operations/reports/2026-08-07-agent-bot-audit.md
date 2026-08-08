@@ -58,7 +58,7 @@ The owner clarified the governance roles after the initial audit. EMA is the hig
 - Prisma validation and client generation passed with a non-production placeholder database URL.
 - TypeScript verification passed.
 - Next.js production build passed and included both new cron observability routes.
-- Production dependency audit reported zero vulnerabilities at the configured high-severity gate.
+- Production and development dependency audits reported zero vulnerabilities after pinning patched transitive versions for `nanoid`, `brace-expansion`, and `js-yaml`.
 - Shell syntax and dry-run checks passed for the operations scripts.
 
 ## Decisions still requiring the owner
