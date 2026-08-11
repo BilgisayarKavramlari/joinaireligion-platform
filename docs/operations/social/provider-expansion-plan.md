@@ -13,13 +13,14 @@ Production release observed: `90f2af2`
 | Bounded social publisher | `LIVE` | Production timer is enabled and active. A successful systemd result may also mean a safe skip, so provider delivery records/public posts are the publication evidence. |
 | Mastodon / Mastoturk | Live publication verified | Public profile `https://mastoturk.org/@joinaireligion` existed with one post at the audit time. The adapter requires `MASTODON_BASE_URL` and `MASTODON_ACCESS_TOKEN`. |
 | Bluesky | Live publication verified | Public profile `https://bsky.app/profile/joinaireligion.bsky.social` existed with English, French, and Chinese posts. The adapter requires `BLUESKY_SERVICE_URL`, `BLUESKY_IDENTIFIER`, and `BLUESKY_APP_PASSWORD`. |
-| X | Adapter only; account not verified | The provider supports OAuth 1.0a owner tokens or `X_USER_ACCESS_TOKEN`; paid API access was deferred by the owner on 2026-07-29. |
+| X | Adapter and secret-safe preflight only; account not verified | The provider supports OAuth 1.0a owner tokens or `X_USER_ACCESS_TOKEN`; no credentials, billing action, live canary, or independently verified public handle exists. Current onboarding details are in [X publishing onboarding](./x-publishing-onboarding.md). |
 | LinkedIn | Organization Page and first Page-authored UI post live; adapter not yet enabled | Public Page `https://www.linkedin.com/company/joinaireligion/`, organization ID `143125933`, and manual Page post `https://www.linkedin.com/feed/update/urn:li:share:7492772987650134016/` were verified. The personal account remains the non-public administrator. The provider supports `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN`, and `LINKEDIN_VERSION`; no OAuth credential or API-delivery evidence exists yet. |
 | Pinterest | Public account exists; public profile has no Pins | Image Pin creation, locale-specific copy, social-card media, delivery records, and provider gating are implemented. Trial access is insufficient for public distribution; Standard access and production credentials remain the gate. |
 | YouTube | Channel exists; external upload is not implemented | The internal video agent creates site-hosted MP4 editions, but no YouTube OAuth/upload adapter or verified public upload exists. |
 | Facebook | Live publication verified; last visible activity was 2026-07-29 | Page link publishing is implemented through the Meta Graph API. Queue retry and backlog protection apply independently to Facebook. |
 | Instagram | Live image publication verified; two posts, both dated 2026-07-29 | Professional-account image publishing, 4:5 social cards, container polling, permalink capture, and multilingual policy are implemented. |
 | Threads | Live publication verified; three posts, last dated 2026-07-30 | Text-container publishing, status polling, permalink capture, and multilingual policy are implemented. |
+| TikTok | Secrets-free standalone safety module; no account or live publication | Creator-info, current privacy/interaction validation, per-post consent, compliant URL-pull initialization, status polling, and conservative idempotency/error handling are implemented outside the scheduled text-provider interface. TikTok's Direct Post rules prevent a fully unattended brand-only utility workflow; account/app/OAuth, each-post consent, and audit gates remain. |
 
 Production secret values were deliberately not read. The deployment account is restricted to allowlisted status/deploy operations.
 
@@ -85,6 +86,20 @@ Minimum code slice:
 Single human gates: create/claim the brand channel, enable YouTube Data API, configure OAuth consent, complete any Google verification required for public uploads, pass CAPTCHA/2FA, and approve OAuth once.
 
 Official references: [upload guide](https://developers.google.com/youtube/v3/guides/uploading_a_video), [`videos.insert`](https://developers.google.com/youtube/v3/docs/videos/insert).
+
+### Parallel 4+: X
+
+The existing text adapter now has a secret-safe readiness preflight and focused fail-closed tests. The current lower-interaction authentication choice is owner-context OAuth 1.0a; the static OAuth 2.0 token path does not yet implement unattended refresh rotation. No paid plan, credentials, OAuth grant, or live Post was created.
+
+Remaining human gates: verify the dedicated brand handle/recovery/2FA, accept the current developer terms, approve the smallest practical prepaid credit amount with a hard spend limit and auto-recharge disabled, place owner-context credentials directly in the production secret store, and approve one URL-free text canary. See [X publishing onboarding](./x-publishing-onboarding.md).
+
+### Parallel 4+: TikTok
+
+TikTok remains a separate media workflow. The secrets-free module models creator-info, provider-returned privacy and interaction choices, video init/status, AI/branded-content fields, media compliance, atomic local idempotency, and ambiguous-result blocking. It is deliberately not added to `SocialProviderName` or the unattended text scheduler.
+
+TikTok's Content Sharing Guidelines require a preview, editable metadata, a user-selected privacy option, and express consent for every upload. They also reject a utility tool intended only to upload to accounts owned or managed by the developer or team. Therefore this channel cannot be classified as fully unattended and should proceed only if Join AI Religion can offer a genuine broad-audience user product. A private `SELF_ONLY` canary still requires a developer app, Content Posting approval, `video.publish` OAuth, verified media-URL ownership, and per-post consent; public posting additionally requires audit approval.
+
+Official references: [TikTok Content Sharing Guidelines](https://developers.tiktok.com/doc/content-sharing-guidelines/), [Direct Post API](https://developers.tiktok.com/doc/content-posting-api-reference-direct-post), [creator-info API](https://developers.tiktok.com/doc/content-posting-api-reference-query-creator-info), [status API](https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status).
 
 ### Completed: Meta — Facebook, Instagram, and Threads
 

@@ -112,7 +112,8 @@ Official references: [Meta Threads Postman collection](https://www.postman.com/m
 1. Verify the public brand handle and its recovery/2FA settings.
 2. Choose and accept the current X API pricing plan in the Developer Console.
 3. For a single owner-operated account, generate the app's OAuth 1.0a API Key/Secret and owner Access Token/Secret; alternatively configure OAuth 2.0 with `tweet.read`, `tweet.write`, `users.read`, and `offline.access`.
-5. Approve one text-only canary before scheduled publishing is enabled.
+4. Purchase the smallest practical prepaid credit amount, set a hard spend limit, and leave automatic recharge disabled for the canary phase.
+5. Approve one URL-free text-only canary before scheduled publishing is enabled.
 
 ### Secret names
 
@@ -153,7 +154,9 @@ Official references: [Pinterest access tiers](https://developers.pinterest.com/d
 
 ## 7. TikTok
 
-TikTok is a separate media workflow, not a text-provider toggle. The Direct Post client must query creator information, display the creator's current privacy/comment/interaction options, obtain express consent for that upload, and poll the returned publication status. Unreviewed clients are restricted to private visibility; public autonomous posting stays disabled until TikTok completes its audit. Promotional watermarks, overlaid links, and promotional text in uploaded media are not permitted.
+TikTok is a separate media workflow, not a text-provider toggle. The Direct Post client must query creator information, display the creator's current privacy/comment/interaction options, obtain express consent for that upload, and poll the returned publication status. Unreviewed clients are restricted to private visibility; public posting stays disabled until TikTok completes its audit. Promotional watermarks, overlaid links, and promotional text in uploaded media are not permitted.
+
+This channel is not fully unattended. TikTok requires a video preview, editable post text, a creator-selected privacy option, and express consent for every upload. Its sharing guidelines also reject a utility tool whose purpose is only to upload to accounts owned or managed by the developer or team. Proceed only if the integration becomes a genuine broad-audience user product; do not use Direct Post as a private brand automation workaround.
 
 ### Human gates
 
@@ -161,7 +164,8 @@ TikTok is a separate media workflow, not a text-provider toggle. The Direct Post
 2. Register the developer app, add Content Posting API, and verify the site domain or media URL prefix.
 3. Complete OAuth for `video.publish`.
 4. Test only with `SELF_ONLY` while the client is unaudited.
-5. Submit the required product demonstration and app review, then explicitly approve the public-posting release gate.
+5. Obtain the creator's required preview, choices, and express consent for every attempted upload.
+6. Submit the required product demonstration and app review, then explicitly approve the public-posting release gate.
 
 Official references: [Content Posting API](https://developers.tiktok.com/doc/content-posting-api-get-started/), [Direct Post guidelines](https://developers.tiktok.com/doc/content-sharing-guidelines/).
 
