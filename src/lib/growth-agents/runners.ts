@@ -38,6 +38,7 @@ import {
   SOCIAL_LOCALES,
   collectPublicSocialSignals,
   getConfiguredSocialProviders,
+  isSocialPublicationOutcomeAmbiguous,
   publishSocialPost,
   selectProviderLocale,
   shouldSkipSocialProviderForActivation,
@@ -1094,7 +1095,7 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
 
 export type SocialDelivery = {
   provider: SocialProviderName;
-  status: "PUBLISHED" | "FAILED" | "SKIPPED";
+  status: "PUBLISHED" | "FAILED" | "SKIPPED" | "AMBIGUOUS";
   attemptedAt: string;
   attemptCount?: number;
   nextRetryAt?: string;
@@ -1169,7 +1170,12 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
   return deliveries.flatMap((delivery) => {
     const record = asRecord(delivery);
     if (!(["mastodon", "x", "linkedin", "facebook", "instagram", "threads", "pinterest", "bluesky"] as string[]).includes(String(record.provider))) return [];
-    if (record.status !== "PUBLISHED" && record.status !== "FAILED" && record.status !== "SKIPPED") return [];
+    if (
+      record.status !== "PUBLISHED"
+      && record.status !== "FAILED"
+      && record.status !== "SKIPPED"
+      && record.status !== "AMBIGUOUS"
+    ) return [];
     const locale = typeof record.locale === "string" && (SOCIAL_LOCALES as readonly string[]).includes(record.locale)
       ? record.locale as SocialLocale
       : undefined;
@@ -1281,9 +1287,34 @@ export async function runSocialPublisher(
         .filter((delivery) => delivery.status === "PUBLISHED")
         .map((delivery) => delivery.provider),
     );
+    const previouslyAmbiguousProviders = new Set(
+      relatedArtifacts
+        .flatMap((candidate) => readSocialDeliveries(candidate.payload))
+        .filter((delivery) => delivery.status === "AMBIGUOUS")
+        .map((delivery) => delivery.provider),
+    );
 
     for (const provider of providers) {
-      if (deliveries.some((delivery) => delivery.provider === provider && (delivery.status === "PUBLISHED" || delivery.status === "SKIPPED"))) continue;
+      if (deliveries.some((delivery) => delivery.provider === provider && (
+        delivery.status === "PUBLISHED"
+        || delivery.status === "SKIPPED"
+        || delivery.status === "AMBIGUOUS"
+      ))) continue;
+      if (previouslyAmbiguousProviders.has(provider)) {
+        deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
+        deliveries.push({
+          provider,
+          status: "AMBIGUOUS",
+          attemptedAt: now.toISOString(),
+          languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+          reason: "ambiguous_delivery_exists",
+        });
+        await db.agentArtifact.update({
+          where: { id: artifact.id },
+          data: { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+        });
+        continue;
+      }
       if (previouslyPublishedProviders.has(provider)) {
         deliveries = deliveries.filter((delivery) => delivery.provider !== provider);
         deliveries.push({
@@ -1363,6 +1394,23 @@ export async function runSocialPublisher(
           deliveries.push(delivery);
           published.push(delivery);
         } catch (error) {
+          if (isSocialPublicationOutcomeAmbiguous(error)) {
+            deliveries.push({
+              provider,
+              status: "AMBIGUOUS",
+              attemptedAt: now.toISOString(),
+              attemptCount: (previousFailure?.attemptCount ?? (previousFailure ? 1 : 0)) + 1,
+              locale: draft.locale,
+              languagePolicyVersion: SOCIAL_LANGUAGE_POLICY_VERSION,
+              error: safeError(error),
+              reason: "manual_reconciliation_required",
+            });
+            await db.agentArtifact.update({
+              where: { id: artifact.id },
+              data: { payload: asInputJson({ ...asRecord(artifact.payload), deliveries }) },
+            });
+            continue;
+          }
           const attemptCount = (previousFailure?.attemptCount ?? (previousFailure ? 1 : 0)) + 1;
           const failedDelivery: SocialDelivery = {
             provider,
@@ -1386,7 +1434,11 @@ export async function runSocialPublisher(
 
     const completedProviders = new Set(
       deliveries
-        .filter((delivery) => delivery.status === "PUBLISHED" || delivery.status === "SKIPPED")
+        .filter((delivery) => (
+          delivery.status === "PUBLISHED"
+          || delivery.status === "SKIPPED"
+          || delivery.status === "AMBIGUOUS"
+        ))
         .map((delivery) => delivery.provider),
     );
     const complete = providers.every((provider) => completedProviders.has(provider));
@@ -1406,6 +1458,9 @@ export async function runSocialPublisher(
       complete,
       skippedProviders: deliveries
         .filter((delivery) => delivery.status === "SKIPPED")
+        .map((delivery) => ({ provider: delivery.provider, reason: delivery.reason })),
+      ambiguousProviders: deliveries
+        .filter((delivery) => delivery.status === "AMBIGUOUS")
         .map((delivery) => ({ provider: delivery.provider, reason: delivery.reason })),
       failures: deliveries.filter((delivery) => delivery.status === "FAILED").map((delivery) => ({ provider: delivery.provider, error: delivery.error })),
     };

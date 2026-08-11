@@ -65,24 +65,29 @@ Business portfolio → Page/Instagram linkage → developer app → permissions/
 ### Human gates
 
 1. Create or claim the Join AI Religion organization Page and retain a verified human super admin.
-2. Create the developer app and associate it with the organization Page.
-3. Request and receive the required Community Management access/scopes.
-4. Pass 2FA and approve OAuth once as the organization administrator.
-5. Approve one text-only canary before media and scheduled publication are enabled.
+2. Create a new developer app with no other API products, associate it with the organization Page, and have a Page super admin verify the association.
+3. Request Community Management Development tier access. LinkedIn currently vets this for registered legal organizations and commercial use cases; the request requires a verified business email, legal organization details, website, privacy policy, and Page verification. Do not misrepresent organization status if that eligibility gate is not met.
+4. After approval, configure one exact HTTPS redirect URI and complete three-legged OAuth as the Page administrator. Request only `w_organization_social` for the text-post canary; do not request `w_member_social` or `r_member_social`. Add `r_organization_social` later only if an approved API readback feature actually needs it.
+5. Approve one text-only organization canary before media and scheduled publication are enabled. Every request body must use only `urn:li:organization:143125933`; a member/person author is prohibited.
+6. Upgrade to Standard tier before production rollout. LinkedIn requires the Development integration to be working first and a downloadable screencast that demonstrates every requested use case.
 
 ### Secret names
 
 - `LINKEDIN_CLIENT_ID`
 - `LINKEDIN_CLIENT_SECRET`
 - `LINKEDIN_ACCESS_TOKEN`
-- `LINKEDIN_REFRESH_TOKEN`
+- `LINKEDIN_REFRESH_TOKEN` (only if LinkedIn explicitly provisions programmatic refresh for this app)
 - `LINKEDIN_AUTHOR_URN`
 - `LINKEDIN_VERSION`
 - `LINKEDIN_PUBLISHING_ENABLED` (starts `false`)
 
 ### Connection order after account creation
 
-Organization Page/admin → developer app association → Community Management access → OAuth grant → tokens in production secret store → organization-URN discovery/verification → text canary → delivery-ID verification → provider switch → scheduled publishing; media support follows only after stable text delivery.
+Organization Page/admin → new developer app association and Page-super-admin verification → Development tier review → exact HTTPS callback → three-legged OAuth with `state` and only `w_organization_social` → token in production secret store → exact organization-URN verification → text canary → delivery-ID and public-result verification → Standard tier review → provider switch → scheduled publishing; media support follows only after stable text delivery. Authorization codes expire quickly, normal access tokens are currently issued for about 60 days, and programmatic refresh is available only to a limited set of partners, so token expiry monitoring and owner reauthorization remain required unless the app actually receives refresh-token support.
+
+A network/5xx result or a successful response without `x-restli-id` is terminal `AMBIGUOUS`. Reconcile it against the organization Page before any second attempt; the publisher does not automatically retry that insert.
+
+Current official references: [Community Management overview](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/community-management-overview), [Community Management app review](https://learn.microsoft.com/en-us/linkedin/marketing/community-management-app-review), [Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api), [three-legged OAuth](https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow), and [Marketing API versioning](https://learn.microsoft.com/en-us/linkedin/marketing/versioning). The latest version verified during the 2026-08-11 audit was `202607`; recheck the supported-version table before storing `LINKEDIN_VERSION`.
 
 ## 4. Threads
 
@@ -102,6 +107,8 @@ Organization Page/admin → developer app association → Community Management a
 ### Connection order
 
 Threads profile activation → Meta Threads use case → OAuth grant → long-lived token in production secret store → `/me` profile verification → container/publish canary → permalink verification → provider switch → scheduled publishing.
+
+Current health boundary: public profile and historic delivery evidence do not prove the token's remaining lifetime. The repository does not yet store a Threads token-expiry timestamp or implement long-lived-token refresh, so proactive expiry health remains **pending**, must be reported as unknown rather than healthy, and an authorization failure must disable only Threads until owner reauthorization. A network/5xx or missing-ID result from container creation/publication is terminal `AMBIGUOUS`; reconcile it at Threads before any new attempt.
 
 Official references: [Meta Threads Postman collection](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api), [Threads authorization](https://www.postman.com/meta/threads/folder/34203612-e0373e84-de6b-46f1-b90d-3fea76ba6782).
 

@@ -1,6 +1,6 @@
 # X publishing onboarding
 
-Status date: 2026-08-10
+Status date: 2026-08-11
 
 Scope: standalone text Posts from the dedicated Join AI Religion brand account. Personal-account publishing, replies, reposts, likes, follows, and direct messages are outside scope. This document contains no credentials and does not authorize account creation, billing, OAuth consent, or a live Post.
 
@@ -36,17 +36,18 @@ These are one-time owner gates and must be completed while signed in to the dedi
    node scripts/ops/check-x-publishing-config.mjs
    ```
 
-7. Approve one standalone text-only canary without a URL, because the current official price is lower for a Post without a URL.
-8. Enable the provider only for the canary, verify the public Post belongs to the brand account, record its public URL and provider ID, then decide whether scheduled publishing should remain enabled.
+7. Keep both scheduled switches off and run `node scripts/ops/check-x-publishing-config.mjs --require-owner-canary-ready`. It deliberately fails until a separate owner-triggered, isolated canary path is implemented; the normal content runner is not the canary path because it requires a canonical source URL.
+8. After that isolated path exists, approve one standalone text-only canary without a URL. Do not set `X_PUBLISHING_ENABLED=true` merely to make the canary possible; doing so would race the scheduler. Verify the public Post belongs to the brand account, record its URL/provider ID, reconcile any ambiguous write before another attempt, and only then decide whether scheduled publishing should be enabled.
 
 ## Production gates
 
 - Global and X provider switches both remain fail-closed until owner approval.
 - Only `POST https://api.x.com/2/tweets` is in scope.
-- The request body is limited to `text` and `made_with_ai: true`.
+- The text-only request body is exactly `{ "text": "..." }`; `made_with_ai` is reserved for a future media path where the Post actually contains AI-generated media.
 - No personal-account token is accepted as a substitute for the dedicated brand account.
 - No listening/search API is required for publishing; leaving `X_BEARER_TOKEN` unset avoids read costs.
-- HTTP 401/403, HTTP 429, an empty provider ID, depleted credits, or an account mismatch is a failed canary. Do not enable scheduled publishing after any of these results.
+- HTTP 401/403, HTTP 429, depleted credits, or an account mismatch is a failed canary. Do not enable scheduled publishing after any of these results.
+- A network/5xx outcome or a success response without a provider ID is `AMBIGUOUS`, requires provider-side reconciliation, and is never retried automatically. For text-only Posts, omit `made_with_ai`; X defines that field for AI-generated media.
 - Use a small provider budget and editorial frequency even though the platform rate limit is much higher.
 
 ## Official references

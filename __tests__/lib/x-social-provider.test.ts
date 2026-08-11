@@ -8,7 +8,11 @@ jest.mock("@/lib/env", () => ({
 }));
 
 import { env } from "@/lib/env";
-import { getConfiguredSocialProviders, publishSocialPost } from "@/lib/social/providers";
+import {
+  SocialPublicationOutcomeAmbiguousError,
+  getConfiguredSocialProviders,
+  publishSocialPost,
+} from "@/lib/social/providers";
 
 type MutableXEnv = typeof env & {
   SOCIAL_PUBLISHING_ENABLED?: string;
@@ -56,7 +60,7 @@ describe("X text-only publication boundary", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("uses OAuth 2.0 user context and sends only a standalone AI-labelled text Post", async () => {
+  it("uses OAuth 2.0 user context and sends only a standalone text Post", async () => {
     xEnv.X_PUBLISHING_ENABLED = "true";
     xEnv.X_USER_ACCESS_TOKEN = "fake-user-token";
     mockFetch.mockResolvedValue(new Response(JSON.stringify({ data: { id: "post-42" } }), {
@@ -75,17 +79,15 @@ describe("X text-only publication boundary", () => {
     expect(url).toBe("https://api.x.com/2/tweets");
     expect(request.method).toBe("POST");
     expect((request.headers as Record<string, string>).Authorization).toBe("Bearer fake-user-token");
-    expect(JSON.parse(String(request.body))).toEqual({
-      text: "A careful reflection",
-      made_with_ai: true,
-    });
+    expect(JSON.parse(String(request.body))).toEqual({ text: "A careful reflection" });
+    expect(String(request.body)).not.toContain("made_with_ai");
     expect(String(request.body)).not.toContain("reply");
     expect(String(request.body)).not.toContain("direct_message");
     expect(String(request.body)).not.toContain("like");
     expect(String(request.body)).not.toContain("follow");
   });
 
-  it("treats a successful response without a Post id as a failed publication", async () => {
+  it("treats a successful response without a Post id as terminal ambiguity", async () => {
     xEnv.X_PUBLISHING_ENABLED = "true";
     xEnv.X_USER_ACCESS_TOKEN = "fake-user-token";
     mockFetch.mockResolvedValue(new Response(JSON.stringify({ data: {} }), {
@@ -94,6 +96,19 @@ describe("X text-only publication boundary", () => {
     }));
 
     await expect(publishSocialPost("x", "A careful reflection", "unused-key"))
-      .rejects.toThrow("X publication returned no post id");
+      .rejects.toBeInstanceOf(SocialPublicationOutcomeAmbiguousError);
+  });
+
+  it("never makes a blind retry decision after an ambiguous X write", async () => {
+    xEnv.X_PUBLISHING_ENABLED = "true";
+    xEnv.X_USER_ACCESS_TOKEN = "fake-user-token";
+    mockFetch.mockRejectedValue(new Error("socket closed after dispatch"));
+
+    await expect(publishSocialPost("x", "A careful reflection", "unused-key"))
+      .rejects.toMatchObject({
+        provider: "x",
+        stage: "post_create",
+      });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });

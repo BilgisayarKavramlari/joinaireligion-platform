@@ -8,6 +8,10 @@ jest.mock("@/lib/env", () => ({
     X_ACCESS_TOKEN: "x-access-token",
     X_ACCESS_TOKEN_SECRET: "x-access-token-secret",
     X_PUBLISHING_ENABLED: "true",
+    LINKEDIN_ACCESS_TOKEN: "linkedin-test-token",
+    LINKEDIN_AUTHOR_URN: "urn:li:organization:143125933",
+    LINKEDIN_VERSION: "202607",
+    LINKEDIN_PUBLISHING_ENABLED: "true",
     MASTODON_BASE_URL: "https://mastoturk.org",
     MASTODON_ACCESS_TOKEN: "test-token",
     META_GRAPH_VERSION: "v25.0",
@@ -26,7 +30,9 @@ jest.mock("@/lib/env", () => ({
 }));
 
 import {
+  LINKEDIN_ORGANIZATION_AUTHOR_URN,
   SOCIAL_LOCALES,
+  SocialPublicationOutcomeAmbiguousError,
   buildBlueskyFacets,
   contentLocaleFromText,
   getConfiguredSocialProviders,
@@ -162,6 +168,25 @@ describe("Bluesky social provider helpers", () => {
     expect(isSocialDeliveryRetryDue(delivery, new Date("2026-08-08T18:00:00.000Z"))).toBe(true);
   });
 
+  it("preserves terminal ambiguity and never marks it retryable", () => {
+    const [delivery] = readSocialDeliveries({
+      deliveries: [{
+        provider: "threads",
+        status: "AMBIGUOUS",
+        attemptedAt: "2026-08-11T09:00:00.000Z",
+        attemptCount: 1,
+        reason: "manual_reconciliation_required",
+      }],
+    });
+
+    expect(delivery).toMatchObject({
+      provider: "threads",
+      status: "AMBIGUOUS",
+      reason: "manual_reconciliation_required",
+    });
+    expect(isSocialDeliveryRetryDue(delivery, new Date("2026-08-12T09:00:00.000Z"))).toBe(false);
+  });
+
   it("archives social packages only after the 72-hour freshness window", () => {
     const createdAt = new Date("2026-08-05T12:00:00.000Z");
 
@@ -264,6 +289,83 @@ describe("Bluesky social provider helpers", () => {
     expect(authorization).not.toContain("x-access-token-secret");
   });
 
+  it("publishes LinkedIn posts only as the fixed Join AI Religion organization", async () => {
+    mockFetch.mockResolvedValue(new Response(null, {
+      status: 201,
+      headers: { "x-restli-id": "urn:li:share:linkedin-post-1" },
+    }));
+
+    const result = await publishSocialPost(
+      "linkedin",
+      "A reflection https://joinaireligion.com/content/en/reflection-example",
+      "linkedin-idempotency-key",
+    );
+
+    expect(result).toEqual({
+      provider: "linkedin",
+      externalId: "urn:li:share:linkedin-post-1",
+      externalUrl: "https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3Alinkedin-post-1/",
+    });
+    const [url, request] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.linkedin.com/rest/posts");
+    expect(request.headers).toEqual(expect.objectContaining({
+      Authorization: "Bearer linkedin-test-token",
+      "Linkedin-Version": "202607",
+      "X-Restli-Protocol-Version": "2.0.0",
+    }));
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({
+      author: LINKEDIN_ORGANIZATION_AUTHOR_URN,
+      lifecycleState: "PUBLISHED",
+      visibility: "PUBLIC",
+    }));
+  });
+
+  it("fails closed before LinkedIn I/O when a member author URN is configured", async () => {
+    const originalAuthor = env.LINKEDIN_AUTHOR_URN;
+    try {
+      (env as { LINKEDIN_AUTHOR_URN?: string }).LINKEDIN_AUTHOR_URN = "urn:li:person:123";
+      expect(getConfiguredSocialProviders()).not.toContain("linkedin");
+      await expect(publishSocialPost(
+        "linkedin",
+        "A reflection https://joinaireligion.com/content/en/reflection-example",
+        "linkedin-member-author-block",
+      )).rejects.toThrow("LinkedIn publication is not fully configured");
+      expect(mockFetch).not.toHaveBeenCalled();
+    } finally {
+      (env as { LINKEDIN_AUTHOR_URN?: string }).LINKEDIN_AUTHOR_URN = originalAuthor;
+    }
+  });
+
+  it("fails closed before LinkedIn I/O when its API version is malformed", async () => {
+    const originalVersion = env.LINKEDIN_VERSION;
+    try {
+      (env as { LINKEDIN_VERSION?: string }).LINKEDIN_VERSION = "YYYYMM";
+      expect(getConfiguredSocialProviders()).not.toContain("linkedin");
+      await expect(publishSocialPost(
+        "linkedin",
+        "A reflection https://joinaireligion.com/content/en/reflection-example",
+        "linkedin-version-block",
+      )).rejects.toThrow("LinkedIn publication is not fully configured");
+      expect(mockFetch).not.toHaveBeenCalled();
+    } finally {
+      (env as { LINKEDIN_VERSION?: string }).LINKEDIN_VERSION = originalVersion;
+    }
+  });
+
+  it("marks an uncertain LinkedIn organization Post as terminal ambiguity", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("socket closed after dispatch"));
+
+    await expect(publishSocialPost(
+      "linkedin",
+      "A reflection https://joinaireligion.com/content/en/reflection-example",
+      "linkedin-ambiguous-key",
+    )).rejects.toMatchObject({
+      provider: "linkedin",
+      stage: "post_create",
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("creates, waits for, and publishes an Instagram image container", async () => {
     mockFetch
       .mockResolvedValueOnce(new Response(new Uint8Array(2_048), { status: 200, headers: { "Content-Type": "image/jpeg" } }))
@@ -334,6 +436,20 @@ describe("Bluesky social provider helpers", () => {
     expect(mockFetch.mock.calls[2][0]).toBe("https://graph.threads.net/me/threads_publish");
   });
 
+  it("marks an uncertain Threads publish as terminal ambiguity", async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "threads-container-2" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "FINISHED" }), { status: 200 }))
+      .mockRejectedValueOnce(new Error("socket closed after dispatch"));
+
+    await expect(publishSocialPost(
+      "threads",
+      "A reflection\n\nhttps://joinaireligion.com/content/en/reflection-example",
+      "threads-ambiguous-key",
+    )).rejects.toBeInstanceOf(SocialPublicationOutcomeAmbiguousError);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
   it("creates a Pinterest image Pin from the approved locale-specific social card", async () => {
     mockFetch
       .mockResolvedValueOnce(new Response(new Uint8Array(2_048), { status: 200, headers: { "Content-Type": "image/jpeg" } }))
@@ -364,5 +480,18 @@ describe("Bluesky social provider helpers", () => {
       source_type: "image_url",
       url: "https://joinaireligion.com/social-card/en/reflection-example.jpg?preset=pinterest",
     });
+  });
+
+  it("marks an uncertain Pinterest create as terminal ambiguity", async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response(new Uint8Array(2_048), { status: 200, headers: { "Content-Type": "image/jpeg" } }))
+      .mockRejectedValueOnce(new Error("socket closed after dispatch"));
+
+    await expect(publishSocialPost(
+      "pinterest",
+      "A careful reflection\n\nA concise summary.\n\nhttps://joinaireligion.com/content/en/reflection-example",
+      "pinterest-ambiguous-key",
+    )).rejects.toBeInstanceOf(SocialPublicationOutcomeAmbiguousError);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,6 +1,6 @@
 # Medium launch pack
 
-Status: canonical site article published; ready for owner sign-in and Medium import
+Status: canonical site article verified public on 2026-08-11; import package prepared; no Medium account or published Medium story verified
 
 Canonical source and Medium import URL:
 
@@ -27,6 +27,8 @@ Can AI Support Meaning-Making Without Becoming a Spiritual Authority?
 A practical framework for using generative AI as a mirror, map, and practice designer—while keeping judgment, responsibility, and lived meaning human.
 
 ### Story
+
+*AI disclosure: This story was written with the assistance of an AI writing program and was reviewed for accuracy, boundaries, and clarity before publication.*
 
 Generative AI can produce a calm answer to almost any existential question. It can sound patient, well-read, and certain. That fluency creates an unusual risk: we may confuse a system's ability to generate meaningful language with an ability to possess meaning, wisdom, or moral authority.
 
@@ -148,7 +150,7 @@ Further reading: UNESCO's [Recommendation on the Ethics of Artificial Intelligen
 
 Explore the multilingual reflection platform at [Join AI Religion](https://joinaireligion.com), or browse its public [Insights & Reflections](https://joinaireligion.com/content).
 
-*Disclosure: Join AI Religion uses AI-assisted workflows for drafting and multilingual adaptation, with explicit product boundaries and review gates. This article is educational commentary, not religious, medical, psychological, legal, or crisis guidance.*
+*Boundary disclosure: Join AI Religion is a fictional educational platform. This article is educational commentary, not religious, medical, psychological, legal, or crisis guidance.*
 
 ### Suggested tags
 
@@ -168,16 +170,32 @@ Explore the multilingual reflection platform at [Join AI Religion](https://joina
 1. Sign in to Medium with the dedicated Join AI Religion Google account.
 2. Create or confirm the `Join AI Religion` profile and apply the profile copy above.
 3. Open Medium's `Import a story` flow and enter the canonical source URL above.
-4. Confirm that Medium recognized the canonical source and imported the headings, lists, links, and disclosure.
-5. Upload `assets/ai-meaning-making-cover.png` as the cover if the importer does not carry it across. Alt text: `An abstract human figure in quiet reflection beside a luminous geometric network, separated by an open space.`
+4. Confirm that Medium recognized the canonical source and imported the headings, lists, and links. Insert or move the AI disclosure so it appears within the first two paragraphs. If the import fails, paste the owned article manually and set the original URL under Advanced Settings before publication.
+5. Upload `assets/ai-meaning-making-cover.png` as the cover if the importer does not carry it across. Alt text: `An abstract human figure in quiet reflection beside a luminous geometric network, separated by an open space.` Caption the image as AI-generated if that is how it was created; do not guess its provenance.
 6. Add the five suggested tags.
-7. Preview desktop and mobile formatting.
-8. Publish once. Do not create duplicate copies or automated interactions.
+7. Human-review the full story, every source, the disclosure placement, desktop/mobile preview, and the canonical field.
+8. Publish once through Medium's user interface. Verify the public story and its canonical element. Do not create duplicate copies or automated interactions.
+
+## Automation boundary verified 2026-08-11
+
+- Medium's supported cross-posting route is its author-operated `Import a story` flow; it automatically applies the source canonical URL, and only the author can set or change a canonical link.
+- Medium is not issuing new API integration tokens or allowing new API integrations. Do not build against the archived, unsupported Medium API documentation.
+- Medium prohibits registering accounts, posting content, or interacting automatically, systematically, or programmatically. This package must not be connected to an unattended provider adapter or browser publisher.
+- AI-generated writing must be disclosed within the first two paragraphs. AI-generated images require an identifying caption. Human editing, factual review, and preview are required for every story.
+- This is therefore a prepared manual import package, not an API-ready or autonomous channel.
 
 ## Cadence after launch
 
-- One original or substantially adapted English long-form story per week.
+- Pilot with at most one human-edited story in the first month; do not impose an automated cadence.
 - Do not publish clipped teasers whose only purpose is sending traffic elsewhere.
 - Each story must be understandable on Medium without leaving the platform.
 - Link to the site only when contextually useful.
 - No automated follows, claps, comments, or responses.
+
+## Official references checked 2026-08-11
+
+- [Importing a post to Medium](https://help.medium.com/hc/en-us/articles/214550207-Importing-a-post-to-Medium)
+- [API and importing status](https://help.medium.com/hc/en-us/articles/213480228-API-Importing)
+- [Set a canonical link](https://help.medium.com/hc/en-us/articles/360033930293-Set-a-canonical-link)
+- [Medium Rules](https://help.medium.com/hc/en-us/articles/213477928-Medium-Rules)
+- [Artificial Intelligence content policy](https://help.medium.com/hc/en-us/articles/22576852947223-Artificial-Intelligence-AI-content-policy)
