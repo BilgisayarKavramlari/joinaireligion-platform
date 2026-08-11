@@ -51,7 +51,7 @@ describe("public product updates", () => {
     expect(resolvePublicUpdateLocale("de")).toBe("en");
   });
 
-  test("keeps the next release visibly planned until production verification", () => {
+  test("renders the open-distribution release after production verification", () => {
     mockUseLanguage.mockReturnValue({ lang: "tr" });
     const text = extractText(UpdatesContent()).replace(/\s+/g, " ").trim();
 
@@ -61,10 +61,11 @@ describe("public product updates", () => {
     expect(text).toContain("canlı geri sayım");
     expect(text).toContain("Yayınlandı");
     expect(text).toContain("v0.3.2");
-    expect(text).toContain("Planlandı");
-    const planned = publicUpdates.find((update) => update.version === "v0.3.2");
-    expect(planned).toMatchObject({ status: "planned" });
-    expect(planned?.releasedAt).toBeUndefined();
+    expect(text).not.toContain("Planlandı");
+    expect(publicUpdates.find((update) => update.version === "v0.3.2")).toMatchObject({
+      status: "released",
+      releasedAt: "2026-08-11",
+    });
   });
 
   test("includes the canonical Updates route in the sitemap", async () => {
