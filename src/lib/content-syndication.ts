@@ -2,6 +2,8 @@ export type SyndicationEntry = {
   title: string;
   summary: string;
   url: string;
+  author: string;
+  imageUrl: string;
   locale: string;
   category: string;
   publishedAt: Date;
@@ -12,6 +14,24 @@ const SITE_URL = "https://joinaireligion.com";
 const FEED_TITLE = "Join AI Religion — Insights & Reflections";
 const FEED_DESCRIPTION =
   "Multilingual fictional educational reflections on meaning, attention, values, and responsible AI-guided inquiry.";
+
+export function buildSyndicationSummary(summary: string, bodyMarkdown: string): string {
+  const plainBody = bodyMarkdown
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^)\s]+\)/g, "$1")
+    .replace(/#{1,6}\s+/g, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/^[-*]\s+/gm, "")
+    .replace(/^\d+[.)]\s+/gm, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const normalizedSummary = summary.replace(/\s+/g, " ").trim();
+  if (normalizedSummary.length >= 300) return Array.from(normalizedSummary).slice(0, 700).join("");
+  const bodyWithoutDuplicateLead = plainBody.startsWith(normalizedSummary)
+    ? plainBody.slice(normalizedSummary.length).trim()
+    : plainBody;
+  return Array.from(`${normalizedSummary} ${bodyWithoutDuplicateLead}`.trim()).slice(0, 700).join("");
+}
 
 function escapeXml(value: string): string {
   return value
@@ -28,13 +48,16 @@ export function buildRssFeed(entries: SyndicationEntry[], generatedAt = new Date
       <link>${escapeXml(entry.url)}</link>
       <guid isPermaLink="true">${escapeXml(entry.url)}</guid>
       <description>${escapeXml(entry.summary)}</description>
+      <dc:creator>${escapeXml(entry.author)}</dc:creator>
       <category>${escapeXml(entry.category)}</category>
       <dc:language>${escapeXml(entry.locale)}</dc:language>
+      <media:content url="${escapeXml(entry.imageUrl)}" medium="image" type="image/jpeg" />
+      <enclosure url="${escapeXml(entry.imageUrl)}" length="0" type="image/jpeg" />
       <pubDate>${entry.publishedAt.toUTCString()}</pubDate>
     </item>`).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>${escapeXml(FEED_TITLE)}</title>
     <link>${SITE_URL}/content</link>
@@ -57,6 +80,7 @@ export function buildAtomFeed(entries: SyndicationEntry[], generatedAt = new Dat
     <updated>${entry.updatedAt.toISOString()}</updated>
     <category term="${escapeXml(entry.category)}" />
     <summary>${escapeXml(entry.summary)}</summary>
+    <author><name>${escapeXml(entry.author)}</name></author>
   </entry>`).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -86,6 +110,8 @@ export function buildJsonFeed(entries: SyndicationEntry[]): string {
       url: entry.url,
       title: entry.title,
       summary: entry.summary,
+      image: entry.imageUrl,
+      authors: [{ name: entry.author }],
       date_published: entry.publishedAt.toISOString(),
       date_modified: entry.updatedAt.toISOString(),
       language: entry.locale,
@@ -93,4 +119,3 @@ export function buildJsonFeed(entries: SyndicationEntry[]): string {
     })),
   });
 }
-

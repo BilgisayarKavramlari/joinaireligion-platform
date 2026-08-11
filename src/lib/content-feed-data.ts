@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { SyndicationEntry } from "@/lib/content-syndication";
+import { buildSyndicationSummary, type SyndicationEntry } from "@/lib/content-syndication";
 
 const SITE_URL = "https://joinaireligion.com";
 
@@ -14,8 +14,10 @@ export async function getSyndicationEntries(): Promise<SyndicationEntry[]> {
   return items.flatMap((item) =>
     item.variants.map((variant) => ({
       title: variant.title,
-      summary: variant.summary,
+      summary: buildSyndicationSummary(variant.summary, variant.bodyMarkdown),
       url: `${SITE_URL}/content/${variant.locale}/${variant.slug}`,
+      author: "Join AI Religion Editorial",
+      imageUrl: `${SITE_URL}/social-card/${variant.locale}/${variant.slug}.jpg?preset=discover`,
       locale: variant.locale,
       category: item.category,
       publishedAt: variant.publishedAt ?? item.publishedAt ?? variant.createdAt,
@@ -23,4 +25,3 @@ export async function getSyndicationEntries(): Promise<SyndicationEntry[]> {
     }))
   );
 }
-

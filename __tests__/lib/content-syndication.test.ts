@@ -1,9 +1,11 @@
-import { buildAtomFeed, buildJsonFeed, buildRssFeed, type SyndicationEntry } from "@/lib/content-syndication";
+import { buildAtomFeed, buildJsonFeed, buildRssFeed, buildSyndicationSummary, type SyndicationEntry } from "@/lib/content-syndication";
 
 const entry: SyndicationEntry = {
   title: "Meaning & Attention <Practice>",
   summary: "A safe multilingual reflection & introduction.",
   url: "https://joinaireligion.com/content/en/meaning-attention",
+  author: "Join AI Religion Editorial",
+  imageUrl: "https://joinaireligion.com/social-card/en/meaning-attention.jpg?preset=discover",
   locale: "en",
   category: "REFLECTION",
   publishedAt: new Date("2026-07-28T12:00:00.000Z"),
@@ -17,6 +19,9 @@ describe("content syndication feeds", () => {
     expect(value).toContain("Meaning &amp; Attention &lt;Practice&gt;");
     expect(value).toContain("https://joinaireligion.com/feed.xml");
     expect(value).toContain("<dc:language>en</dc:language>");
+    expect(value).toContain("<dc:creator>Join AI Religion Editorial</dc:creator>");
+    expect(value).toContain("<media:content url=\"https://joinaireligion.com/social-card/en/meaning-attention.jpg?preset=discover\"");
+    expect(value).toContain("<enclosure url=\"https://joinaireligion.com/social-card/en/meaning-attention.jpg?preset=discover\"");
   });
 
   test("builds Atom entries with stable canonical ids", () => {
@@ -31,6 +36,16 @@ describe("content syndication feeds", () => {
     expect(value.version).toBe("https://jsonfeed.org/version/1.1");
     expect(value.items).toHaveLength(1);
     expect(value.items[0].language).toBe("en");
+    expect(value.items[0].image).toBe(entry.imageUrl);
+  });
+
+  test("expands short summaries from published Markdown for publisher feeds", () => {
+    const value = buildSyndicationSummary(
+      "A concise introduction.",
+      "## Why attention matters\n\nAttention shapes what we notice and how we act. ".repeat(12),
+    );
+    expect(value.length).toBeGreaterThanOrEqual(300);
+    expect(value).not.toContain("##");
+    expect(value.length).toBeLessThanOrEqual(700);
   });
 });
-

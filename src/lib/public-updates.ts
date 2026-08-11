@@ -22,6 +22,34 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.3.2",
+    status: "planned",
+    targetStart: "2026-08-11",
+    targetWindow: { en: "Target: mid-August 2026", tr: "Hedef: Ağustos 2026 ortası" },
+    copy: {
+      en: {
+        title: "Open distribution foundations",
+        summary: "Independent, default-off integrations for publisher feeds, long-form platforms, opt-in messaging, approved communities, and decentralized relays.",
+        highlights: [
+          "Flipboard-ready RSS metadata with byline, fuller descriptions, and article imagery",
+          "Canonical-source adapters for DEV, Apple News, Blogger, Tumblr, Hashnode, and Ghost",
+          "Opt-in LINE broadcast plus approved-community locks for Lemmy, MediaWiki, and Fandom",
+          "Nostr long-form events through an external signer and at least two relay acknowledgements",
+        ],
+      },
+      tr: {
+        title: "Açık dağıtım altyapısı",
+        summary: "Yayıncı beslemeleri, uzun yazı platformları, izinli mesajlaşma, onaylı topluluklar ve merkeziyetsiz röleler için birbirinden bağımsız ve varsayılan olarak kapalı entegrasyonlar.",
+        highlights: [
+          "Yazar, daha uzun açıklama ve yazı görseli içeren Flipboard uyumlu RSS alanları",
+          "DEV, Apple News, Blogger, Tumblr, Hashnode ve Ghost için ana kaynağı koruyan adaptörler",
+          "İzinli LINE yayını ve Lemmy, MediaWiki ile Fandom için onaylı topluluk kilitleri",
+          "Harici imzalayıcı ve en az iki röle onayı kullanan Nostr uzun yazı olayları",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.3.1",
     status: "released",
     releasedAt: "2026-08-11",
