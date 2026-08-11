@@ -14,6 +14,8 @@ The existing `content-performance` agent runs at 04:30 UTC. It now combines:
 
 No raw IP, analytics user-agent, URL query string, private user text, social user identity, or cross-day visitor profile is stored. Browser Do Not Track and Global Privacy Control signals disable the client event sender. Raw analytics events are deleted after 90 days; aggregate daily reports remain in `AgentArtifact` for trend comparisons.
 
+Deployment probes use the reserved `deployment_verification` source. They remain in the minimized 90-day audit trail but are excluded from visitor, page-view, landing-page and source totals.
+
 ## Attribution contract
 
 New social draft packages add these labels to each provider-specific content URL:

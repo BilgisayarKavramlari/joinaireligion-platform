@@ -55,4 +55,15 @@ describe("privacy-preserving first-party analytics", () => {
     expect(url.searchParams.get("utm_campaign")).toBe("organic_reflection_2026-08-11");
     expect(url.searchParams.has("utm_term")).toBe(false);
   });
+
+  it("keeps deployment probes out of real visitor totals", () => {
+    const summary = aggregateTrafficRows([{
+      eventName: "analytics_page_view",
+      anonymousSessionId: "probe",
+      path: "/updates",
+      metadata: { source: "deployment_verification", locale: "en" },
+      createdAt: new Date("2026-08-10T03:00:00Z"),
+    }], from, to);
+    expect(summary).toMatchObject({ sessions: 0, pageViews: 0, excludedVerificationEvents: 1 });
+  });
 });
