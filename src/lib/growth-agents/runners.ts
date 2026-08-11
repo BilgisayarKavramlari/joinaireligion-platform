@@ -47,6 +47,8 @@ import {
   type SocialProviderName,
 } from "@/lib/social/providers";
 import { CONTENT_TOPICS, type ContentTopic } from "@/lib/content-topics";
+import { getDistributionArticle } from "@/lib/distribution/content";
+import { runDistributionPublisher as dispatchDistributionPublisher } from "@/lib/distribution/runner";
 
 export const GROWTH_AGENT_NAMES = [
   "seo-kulliyat-draft",
@@ -58,6 +60,7 @@ export const GROWTH_AGENT_NAMES = [
   "social-listener",
   "social-listener-draft",
   "social-publisher",
+  "distribution-publisher",
   "ads-reporting",
   "cfo-reporting",
   "revenue-orchestrator",
@@ -1409,6 +1412,49 @@ export async function runSocialPublisher(
   });
 }
 
+export async function runLongFormDistributionPublisher(now = new Date()): Promise<GrowthAgentResult> {
+  return executeAgent("distribution-publisher", "PUBLISH_APPROVED_LONG_FORM_DISTRIBUTION", now, async () => {
+    const latest = await db.contentVariant.findFirst({
+      where: {
+        locale: "en",
+        publishedAt: { not: null },
+        contentItem: { status: ContentWorkflowStatus.PUBLISHED },
+      },
+      orderBy: { publishedAt: "desc" },
+      select: { locale: true, slug: true },
+    });
+    if (!latest) {
+      return { published: 0, skipped: true, reason: "no_published_english_article" };
+    }
+
+    const article = await getDistributionArticle(latest.locale, latest.slug);
+    if (!article) {
+      return { published: 0, skipped: true, reason: "source_article_not_publishable" };
+    }
+
+    const result = await dispatchDistributionPublisher({ article, now });
+    if (result.configuredProviders.length === 0) {
+      return {
+        published: 0,
+        skipped: true,
+        reason: "no_configured_long_form_provider",
+        canonicalUrl: article.canonicalUrl,
+        configuredProviders: [],
+      };
+    }
+
+    return {
+      canonicalUrl: article.canonicalUrl,
+      configuredProviders: result.configuredProviders,
+      deliveries: result.deliveries,
+      published: result.deliveries.filter((delivery) => delivery.status === "PUBLISHED").length,
+      reused: result.deliveries.filter((delivery) => delivery.status === "REUSED").length,
+      blocked: result.deliveries.filter((delivery) => delivery.status === "BLOCKED").length,
+      ambiguous: result.deliveries.filter((delivery) => delivery.status === "AMBIGUOUS").length,
+    };
+  });
+}
+
 export async function runAdsReporting(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("ads-reporting", "BUILD_ADS_READINESS_REPORT", now, async (agentRunId) => {
     const since = new Date(now.getTime() - 30 * 86_400_000);
@@ -1604,6 +1650,8 @@ export async function runGrowthAgentByName(
       return runSocialListenerDraft(now);
     case "social-publisher":
       return runSocialPublisher(now);
+    case "distribution-publisher":
+      return runLongFormDistributionPublisher(now);
     case "ads-reporting":
       return runAdsReporting(now);
     case "cfo-reporting":

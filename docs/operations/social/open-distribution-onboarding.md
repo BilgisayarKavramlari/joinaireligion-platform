@@ -1,26 +1,26 @@
 # Open distribution onboarding
 
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 
 This runbook covers Flipboard Publisher, DEV Community/Forem, Apple News, Blogger, Tumblr, Hashnode Pro, Ghost, LINE Official Account, Lemmy, MediaWiki, Fandom, and Nostr (the earlier `nsotr` label is treated as Nostr).
 
 ## Verified implementation state
 
-No account, paid plan, terms acceptance, OAuth grant, external signer key, provider approval, or live publication was created by this change. All switches start `false`; a local test or accepted API request must never be reported as a public publication without an externally checked result.
+All production switches remain `false`; a local test or accepted API request must never be reported as a public publication without an externally checked result. On 2026-08-11, separate public UI canaries were externally verified on Blogger and Tumblr. They prove those two public surfaces, not API delivery or scheduled automation. No paid plan, unattended terms acceptance, external signer key, or provider approval was created.
 
 | Channel | Implemented now | Automation class after setup | Remaining human gate | First canary |
 | --- | --- | --- | --- | --- |
-| Flipboard Publisher | RSS now supplies publisher byline, long description, canonical link, image `media:content`, and image `enclosure` | RSS ingestion after publisher approval | Create/verify Publisher profile, accept terms, submit `https://joinaireligion.com/feed.xml`, wait for review | Confirm one article appears with correct byline, image, language, and source link |
-| DEV / Forem | API v1 article adapter, Markdown, canonical URL, main image, tags, disclosure | Setup then unattended for the technical AI/engineering subset | Brand account, API key, profile verification | One English responsible-AI article; verify canonical URL |
+| Flipboard Publisher | RSS now supplies publisher byline, long description, canonical link, image `media:content`, and image `enclosure` | RSS ingestion only if Publisher intake reopens and the profile is approved | New Publisher applications are currently closed; recheck the official signup page later | After reopening and approval, confirm one article appears with correct byline, image, language, and source link |
+| DEV / Forem | API v1 article adapter, Markdown, canonical URL, main image, tags, disclosure | Setup then unattended for the technical AI/engineering subset | The prepared brand account is hidden by DEV's spam/moderation gate; support restoration is required before an API key can be created | After restoration, one English responsible-AI article; verify canonical URL |
 | Apple News | Apple News Format 1.7 builder, multipart body, HHMAC signing, canonical metadata | Setup then unattended within approved channel language | Apple News Publisher channel approval and API key generation | One preview/channel article; verify layout, source, byline, image, language |
-| Blogger | Blogger v3 insert adapter, safe HTML, labels, canonical source link, refresh-token renewal | Setup then unattended | Brand Google/Blog ownership and OAuth scope `blogger` with offline access | One draft first, then a public canonical copy |
-| Tumblr | OAuth1 owner-context NPF adapter with title, disclosure, body, tags, source-link block | Setup then unattended | Brand Tumblr blog/app and owner authorization | One draft first; verify NPF rendering and source link |
-| Hashnode Pro | Current GraphQL `publishPost` adapter, canonical source, cover, tags, disclosure | Paid setup then unattended | Choose and buy Pro, create publication, issue PAT | One English technical article; verify `originalArticleURL` |
-| Ghost | Admin API adapter, five-minute JWT, canonical URL, feature image, tags | Setup then unattended | Decide whether a second CMS is justified; provision Ghost and integration key | One test post on a non-indexed/staging publication before any public mirror |
+| Blogger | Blogger v3 insert adapter, safe HTML, labels, canonical source link, refresh-token renewal; public blog and one source-linked/disclosed UI canary are verified | Setup then unattended after API canary | Google Cloud terms, project/API/OAuth consent, `blogger` scope with offline access, direct secret-store handoff | One API-created draft first; compare it with the verified public UI canary before enabling publication |
+| Tumblr | OAuth1 owner-context NPF adapter with title, disclosure, body, tags, source-link block; one separate public UI canary is verified and the earlier connection-test draft remains private | Setup then unattended after API canary | Move the already owner-authorized credentials directly from local custody to the production secret store | One new API-created reviewed draft; do not reuse or publish the private connection-test draft |
+| Hashnode Pro | Current GraphQL `publishPost` adapter, canonical source, cover, tags, disclosure | Paid setup then unattended | GraphQL reads/writes require Pro; paid activation is deferred under the free-only rule | None while the free-only rule remains active |
+| Ghost | Admin API adapter, five-minute JWT, canonical URL, feature image, tags, including self-hosted subdirectory support | Setup then unattended | Ghost(Pro) is paid; self-hosted Ghost requires an existing approved HTTPS host and integration key, so no new infrastructure is assumed | One test post on a non-indexed/staging publication before any public mirror |
 | LINE Official | Retry-safe broadcast adapter only | Setup then unattended to opted-in friends | Create Official Account and Messaging API channel, choose message plan, issue token | One owner-only test audience where available, then a small opt-in broadcast |
-| Lemmy | API v4 post adapter locked to one configured approved community | Approved-scope only | Account plus explicit owned/community-moderator approval | One context-specific post; no generic cross-community spraying |
+| Lemmy | API v4 post adapter locked to one configured approved community | Approved-scope only | Account application/CAPTCHA plus explicit owned/community-moderator approval | One context-specific post; no generic cross-community spraying |
 | MediaWiki | CSRF + revision-guarded Action API adapter, bot assertion, title prefix | Owned/approved wiki only | Own/approved wiki, separate bot, bot rights/OAuth, namespace approval | Create one prefixed page; never use Wikipedia/Wikimedia for promotion |
-| Fandom | Fandom-domain-restricted MediaWiki adapter and approval gate | Approved Fandom community only | Separate bot account and community/bureaucrat approval | Create one prefixed page in the approved community |
+| Fandom | Fandom-domain-restricted MediaWiki adapter and approval gate | Approved Fandom community only; not a general growth channel | Fandom policy rejects promotional/link-farm use, so do not create a marketing wiki; only a genuine independently useful community with local approval could qualify | None for promotion |
 | Nostr | NIP-23 kind `30023`, canonical/source tags, external signer interface, minimum two relay acknowledgements | Unattended only through external/NIP-46 signer | Choose key custody/recovery, signer, public key, at least two relays | Publish one signed long-form event; verify retrieval from both relays |
 
 ## Required activation order

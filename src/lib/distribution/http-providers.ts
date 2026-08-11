@@ -36,6 +36,24 @@ function tagList(article: DistributionArticle, limit = 4): string[] {
     .slice(0, limit);
 }
 
+function requireProviderId(value: unknown, provider: "blogger" | "hashnode" | "ghost" | "lemmy"): string {
+  const id = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  if (!id) throw new Error(`${provider} publication returned no external ID`);
+  return id;
+}
+
+function normalizeGhostAdminBaseUrl(value: string): string {
+  const parsed = new URL(value);
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error("Ghost Admin URL must use HTTPS without embedded credentials, query, or fragment");
+  }
+  const path = parsed.pathname.replace(/\/+$/, "");
+  if (path.endsWith("/ghost") || path.includes("/ghost/api/")) {
+    throw new Error("Ghost Admin URL must be the site base URL, not an API endpoint");
+  }
+  return `${parsed.origin}${path}`;
+}
+
 function oauthPercentEncode(value: string): string {
   return encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
 }
@@ -155,7 +173,7 @@ export async function publishBloggerArticle(
     signal: timeoutSignal(),
   });
   const data = await readProviderJson(response, "blogger");
-  return { provider: "blogger", externalId: String(data.id ?? ""), externalUrl: typeof data.url === "string" ? data.url : null };
+  return { provider: "blogger", externalId: requireProviderId(data.id, "blogger"), externalUrl: typeof data.url === "string" ? data.url : null };
 }
 
 export async function publishTumblrArticle(
@@ -189,10 +207,15 @@ export async function publishTumblrArticle(
   if (!authorization) throw new Error("Tumblr OAuth1 owner credentials or OAuth2 bearer token are required");
   const response = await fetchImpl(endpoint, {
     method: "POST",
-    headers: { Authorization: authorization, "Content-Type": "application/json" },
+    headers: {
+      Authorization: authorization,
+      "Content-Type": "application/json",
+      "User-Agent": "JoinAIReligionPublisher (+https://joinaireligion.com)",
+    },
     body: JSON.stringify({
       state: config.draft ? "draft" : "published",
-      tags: tagList(article, 20),
+      tags: tagList(article, 20).join(","),
+      source_url: article.canonicalUrl,
       content: [
         { type: "text", subtype: "heading1", text: article.title },
         { type: "text", subtype: "indented", text: disclosure(article.locale) },
@@ -247,7 +270,7 @@ export async function publishHashnodeArticle(
   const root = data.data && typeof data.data === "object" ? data.data as Record<string, unknown> : {};
   const publishPost = root.publishPost && typeof root.publishPost === "object" ? root.publishPost as Record<string, unknown> : {};
   const post = publishPost.post && typeof publishPost.post === "object" ? publishPost.post as Record<string, unknown> : {};
-  return { provider: "hashnode", externalId: String(post.id ?? ""), externalUrl: typeof post.url === "string" ? post.url : null };
+  return { provider: "hashnode", externalId: requireProviderId(post.id, "hashnode"), externalUrl: typeof post.url === "string" ? post.url : null };
 }
 
 function base64Url(value: string): string {
@@ -273,9 +296,9 @@ export async function publishGhostArticle(
   fetchImpl: FetchLike = fetch,
 ): Promise<DistributionPublicationResult> {
   assertDistributionArticle(article);
-  const origin = normalizeHttpsOrigin(config.adminUrl, "Ghost Admin URL");
+  const adminBaseUrl = normalizeGhostAdminBaseUrl(config.adminUrl);
   const token = createGhostAdminToken(config.adminApiKey);
-  const response = await fetchImpl(`${origin}/ghost/api/admin/posts/?source=html`, {
+  const response = await fetchImpl(`${adminBaseUrl}/ghost/api/admin/posts/?source=html`, {
     method: "POST",
     headers: {
       Authorization: `Ghost ${token}`,
@@ -296,7 +319,7 @@ export async function publishGhostArticle(
   const data = await readProviderJson(response, "ghost");
   const posts = Array.isArray(data.posts) ? data.posts : [];
   const post = posts[0] && typeof posts[0] === "object" ? posts[0] as Record<string, unknown> : {};
-  return { provider: "ghost", externalId: String(post.id ?? ""), externalUrl: typeof post.url === "string" ? post.url : null };
+  return { provider: "ghost", externalId: requireProviderId(post.id, "ghost"), externalUrl: typeof post.url === "string" ? post.url : null };
 }
 
 export async function publishLineBroadcast(
@@ -320,10 +343,15 @@ export async function publishLineBroadcast(
     body: JSON.stringify({ messages: [{ type: "text", text }] }),
     signal: timeoutSignal(),
   });
-  if (response.status !== 409) await readProviderJson(response, "line");
+  const acceptedRequestId = response.headers.get("x-line-accepted-request-id");
+  if (response.status === 409) {
+    if (!acceptedRequestId) throw new Error("LINE retry conflict returned no accepted request id");
+  } else {
+    await readProviderJson(response, "line");
+  }
   return {
     provider: "line",
-    externalId: response.headers.get("x-line-accepted-request-id") || response.headers.get("x-line-request-id") || config.retryKey,
+    externalId: acceptedRequestId || response.headers.get("x-line-request-id") || config.retryKey,
     externalUrl: null,
   };
 }
@@ -355,5 +383,5 @@ export async function publishLemmyArticle(
   const data = await readProviderJson(response, "lemmy");
   const view = data.post_view && typeof data.post_view === "object" ? data.post_view as Record<string, unknown> : {};
   const post = view.post && typeof view.post === "object" ? view.post as Record<string, unknown> : {};
-  return { provider: "lemmy", externalId: String(post.id ?? ""), externalUrl: typeof post.ap_id === "string" ? post.ap_id : null };
+  return { provider: "lemmy", externalId: requireProviderId(post.id, "lemmy"), externalUrl: typeof post.ap_id === "string" ? post.ap_id : null };
 }

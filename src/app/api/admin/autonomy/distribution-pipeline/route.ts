@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { authorizeAdminPost } from "@/lib/admin-post";
 import {
   runContentPublisher,
+  runLongFormDistributionPublisher,
   runSeoKulliyatDraft,
   runSocialListenerDraft,
   runSocialPublisher,
@@ -26,6 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const contentPublication = await runContentPublisher(now);
   const socialPackage = await runSocialListenerDraft(now);
   const socialPublication = await runSocialPublisher(now, { forceRetryFailedProviders: true });
+  const longFormDistribution = await runLongFormDistributionPublisher(now);
 
   return NextResponse.json(
     {
@@ -38,7 +40,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         configuredProvidersOnly: true,
         engagementActionsDisabled: true,
       },
-      stages: { contentDraft, contentPublication, socialPackage, socialPublication },
+      stages: { contentDraft, contentPublication, socialPackage, socialPublication, longFormDistribution },
     },
     { headers: { "Cache-Control": "no-store" } },
   );

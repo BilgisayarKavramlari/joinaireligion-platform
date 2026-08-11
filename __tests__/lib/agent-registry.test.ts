@@ -72,6 +72,7 @@ describe("agent registry policy foundation", () => {
     const publisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "content-publisher");
     const performance = AGENT_DEFINITIONS.find((agent) => agent.agentName === "content-performance");
     const socialPublisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "social-publisher");
+    const distributionPublisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "distribution-publisher");
 
     expect(producer?.policy.forbiddenActions).toContain("publish content");
     expect(producer?.policy.allowedActions).toContain("draft all eight configured language variants");
@@ -80,6 +81,8 @@ describe("agent registry policy foundation", () => {
     expect(performance?.policy.forbiddenActions).toContain("profile individual users");
     expect(socialPublisher?.policy.forbiddenActions).toContain("spend advertising money");
     expect(socialPublisher?.policy.defaultSafeBoundaries).toContain("one verified brand account per provider");
+    expect(distributionPublisher?.policy.forbiddenActions).toContain("retry an ambiguous insert");
+    expect(distributionPublisher?.policy.defaultSafeBoundaries).toContain("persistent idempotency claim");
   });
 
   it("keeps reflective video downstream of completed public audio", () => {

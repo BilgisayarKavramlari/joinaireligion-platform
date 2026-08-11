@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { distributionSlug } from "@/lib/distribution/content";
 import {
   assertDistributionArticle,
@@ -24,6 +25,18 @@ export type NostrRelayPublisher = (relayUrl: string, event: SignedNostrEvent) =>
 
 function validateHex(value: string, length: number, label: string): void {
   if (!new RegExp(`^[a-f0-9]{${length}}$`).test(value)) throw new Error(`${label} is invalid`);
+}
+
+export function computeNostrEventId(event: UnsignedNostrEvent): string {
+  const serialized = JSON.stringify([
+    0,
+    event.pubkey,
+    event.created_at,
+    event.kind,
+    event.tags,
+    event.content,
+  ]);
+  return crypto.createHash("sha256").update(serialized, "utf8").digest("hex");
 }
 
 function normalizeRelayUrls(values: readonly string[]): string[] {
@@ -109,6 +122,9 @@ export async function publishNostrArticle(
   }
   validateHex(signed.id, 64, "Nostr event ID");
   validateHex(signed.sig, 128, "Nostr event signature");
+  if (signed.id !== computeNostrEventId(unsigned)) {
+    throw new Error("Nostr signer returned an event ID that does not match the NIP-01 serialization");
+  }
   const results = await Promise.allSettled(relayUrls.map((relayUrl) => relayPublisher(relayUrl, signed)));
   const accepted = results.filter((result) => result.status === "fulfilled" && result.value).length;
   if (accepted < minimumAcceptedRelays) throw new Error(`Nostr event accepted by ${accepted}/${minimumAcceptedRelays} required relays`);

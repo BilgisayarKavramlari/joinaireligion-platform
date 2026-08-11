@@ -434,6 +434,23 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     },
   },
   {
+    agentName: "distribution-publisher",
+    title: "Bounded Long-form Distributor",
+    description: "Publishes an already-public English article to configured owned Blogger or Tumblr accounts with persistent idempotency and fail-closed delivery records.",
+    lifecycle: "IMPLEMENTED",
+    mode: "LIVE",
+    schedule: { kind: "hourly", label: "Hourly at :35", cron: "35 * * * *", minute: 35 },
+    backlogLabel: "approved long-form distribution",
+    policy: {
+      autonomyLevel: 3,
+      allowedActions: ["read published public site content", "publish to configured owned Blogger or Tumblr accounts", "record provider delivery ids", "reuse confirmed delivery records"],
+      forbiddenActions: ["publish unpublished or private content", "reply or message users", "follow or like accounts", "accept provider terms", "spend money", "retry an ambiguous insert"],
+      escalationConditions: ["provider authorization failure", "ambiguous provider response", "delivery record persistence failure", "source content becomes unpublished"],
+      defaultSafeBoundaries: ["explicit global and provider switches required", "published English source only", "configured owned accounts only", "persistent idempotency claim", "no engagement actions"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
     agentName: "ads-reporting",
     title: "Ads Reporting",
     description: "Produces aggregate acquisition-readiness reports without campaign access or spend authority.",

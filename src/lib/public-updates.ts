@@ -22,6 +22,37 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.3.3",
+    status: "planned",
+    targetStart: "2026-08-12",
+    targetWindow: {
+      en: "After provider setup and one verified API draft",
+      tr: "Sağlayıcı kurulumu ve doğrulanmış bir API taslağından sonra",
+    },
+    copy: {
+      en: {
+        title: "Safer owned-blog distribution",
+        summary: "A default-off publishing path for sending already-public English articles to owned Blogger and Tumblr accounts after provider setup.",
+        highlights: [
+          "Persistent duplicate protection before any provider insert",
+          "No blind retry after an uncertain network or persistence result",
+          "Independent global and provider switches with secret-completeness checks",
+          "Delivery IDs and public URLs recorded only after a confirmed provider response",
+        ],
+      },
+      tr: {
+        title: "Daha güvenli sahipli blog dağıtımı",
+        summary: "Sağlayıcı kurulumu tamamlandıktan sonra, zaten herkese açık İngilizce yazıları sahipli Blogger ve Tumblr hesaplarına gönderen varsayılan-kapalı yayın hattı.",
+        highlights: [
+          "Sağlayıcıya gönderimden önce kalıcı tekrar koruması",
+          "Belirsiz ağ veya kayıt sonucundan sonra kör tekrar denemesi yok",
+          "Bağımsız genel ve kanal anahtarlarıyla eksik gizli değer kontrolü",
+          "Teslimat kimliği ve herkese açık adres yalnız doğrulanmış sağlayıcı yanıtından sonra kaydedilir",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.3.2",
     status: "released",
     releasedAt: "2026-08-11",

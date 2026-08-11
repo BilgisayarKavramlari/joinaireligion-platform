@@ -11,7 +11,7 @@ import {
   publishLineBroadcast,
   publishTumblrArticle,
 } from "@/lib/distribution/http-providers";
-import { buildUnsignedNostrArticle, publishNostrArticle, type NostrSigner, type SignedNostrEvent } from "@/lib/distribution/nostr";
+import { buildUnsignedNostrArticle, computeNostrEventId, publishNostrArticle, type NostrSigner, type SignedNostrEvent } from "@/lib/distribution/nostr";
 import { assertDistributionProviderEnabled, distributionProviderReadiness } from "@/lib/distribution/providers";
 import { assertDistributionArticle, type DistributionArticle } from "@/lib/distribution/types";
 import { buildWikiText, publishFandomArticle, publishMediaWikiArticle } from "@/lib/distribution/wiki";
@@ -99,6 +99,11 @@ describe("HTTP long-form provider adapters", () => {
     expect(payload.content).toContain(article.canonicalUrl);
   });
 
+  test("does not report a Blogger 2xx response without a provider post ID as published", async () => {
+    const fetchMock = jest.fn(async () => jsonResponse({ url: "https://joinai.blogspot.com/missing-id" })) as unknown as typeof fetch;
+    await expect(publishBloggerArticle(article, { accessToken: "token", blogId: "123" }, fetchMock)).rejects.toThrow(/no external ID/);
+  });
+
   test("refreshes Blogger OAuth access without exposing the refresh token to the post endpoint", async () => {
     const fetchMock = jest.fn()
       .mockResolvedValueOnce(jsonResponse({ access_token: "short-lived-access" }))
@@ -126,7 +131,10 @@ describe("HTTP long-form provider adapters", () => {
     expect(result.externalId).toBe("t1");
     const payload = JSON.parse(String((fetchMock as jest.Mock).mock.calls[0][1].body));
     expect(payload.content.at(-1)).toMatchObject({ type: "link", url: article.canonicalUrl });
+    expect(payload.tags).toBe(article.tags.join(","));
+    expect(payload.source_url).toBe(article.canonicalUrl);
     expect((fetchMock as jest.Mock).mock.calls[0][1].headers.Authorization).toMatch(/^OAuth /);
+    expect((fetchMock as jest.Mock).mock.calls[0][1].headers["User-Agent"]).toBe("JoinAIReligionPublisher (+https://joinaireligion.com)");
     const deterministic = createOAuth1Authorization({
       method: "POST",
       url: "https://api.tumblr.com/v2/blog/joinai.tumblr.com/posts",
@@ -161,12 +169,35 @@ describe("HTTP long-form provider adapters", () => {
     expect(body.posts[0].canonical_url).toBe(article.canonicalUrl);
   });
 
+  test("preserves a self-hosted Ghost subdirectory and requires a returned post ID", async () => {
+    const key = `key-id:${"ab".repeat(32)}`;
+    const fetchMock = jest.fn(async () => jsonResponse({ posts: [{ id: "g2", url: "https://example.com/journal/p1" }] })) as unknown as typeof fetch;
+    await publishGhostArticle(article, { adminUrl: "https://example.com/journal/", adminApiKey: key }, fetchMock);
+    expect(String((fetchMock as jest.Mock).mock.calls[0][0])).toBe("https://example.com/journal/ghost/api/admin/posts/?source=html");
+
+    const missingIdFetch = jest.fn(async () => jsonResponse({ posts: [{ url: "https://example.com/journal/p2" }] })) as unknown as typeof fetch;
+    await expect(publishGhostArticle(article, {
+      adminUrl: "https://example.com/journal",
+      adminApiKey: key,
+    }, missingIdFetch)).rejects.toThrow(/no external ID/);
+  });
+
   test("uses LINE broadcast only with a stable retry key", async () => {
     await expect(publishLineBroadcast(article, { channelAccessToken: "token", retryKey: "bad" }, jest.fn() as never)).rejects.toThrow(/UUID/);
     const fetchMock = jest.fn(async () => jsonResponse({}, 409, { "x-line-accepted-request-id": "accepted-1" })) as unknown as typeof fetch;
     const result = await publishLineBroadcast(article, { channelAccessToken: "token", retryKey: "123e4567-e89b-12d3-a456-426614174000" }, fetchMock);
     expect(result.externalId).toBe("accepted-1");
     expect(String((fetchMock as jest.Mock).mock.calls[0][0])).toContain("/broadcast");
+  });
+
+  test("does not treat an unproven LINE retry conflict as a delivered broadcast", async () => {
+    const fetchMock = jest.fn(async () => jsonResponse({}, 409)) as unknown as typeof fetch;
+
+    await expect(publishLineBroadcast(
+      article,
+      { channelAccessToken: "token", retryKey: "123e4567-e89b-12d3-a456-426614174000" },
+      fetchMock,
+    )).rejects.toThrow(/no accepted request id/);
   });
 
   test("blocks Lemmy community spraying and permits an explicitly approved community", async () => {
@@ -203,6 +234,16 @@ describe("Apple News, wiki, and Nostr adapters", () => {
     }, fetchMock, new Date("2026-08-10T10:00:00.000Z"))).resolves.toMatchObject({ externalId: "a1" });
   });
 
+  test("does not record an Apple News publication without a provider article id", async () => {
+    const fetchMock = jest.fn(async () => jsonResponse({ data: { links: { shareUrl: "https://apple.news/missing-id" } } }, 201)) as unknown as typeof fetch;
+
+    await expect(publishAppleNewsArticle(article, {
+      channelId: "11111111-1111-1111-1111-111111111111",
+      keyId: "key-id",
+      keySecret: Buffer.from("secret").toString("base64"),
+    }, fetchMock, new Date("2026-08-10T10:00:00.000Z"))).rejects.toThrow(/no article id/);
+  });
+
   test("limits wiki output to approved non-Wikimedia communities", async () => {
     expect(buildWikiText(article)).toContain("== Source ==");
     const base = {
@@ -220,20 +261,51 @@ describe("Apple News, wiki, and Nostr adapters", () => {
     expect(editBody).toContain("createonly=1");
   });
 
+  test("does not report a wiki edit as published without a page or revision ID", async () => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(jsonResponse({ query: { tokens: { csrftoken: "csrf+\\" } } }))
+      .mockResolvedValueOnce(jsonResponse({ edit: { result: "Success" } })) as unknown as typeof fetch;
+    await expect(publishMediaWikiArticle(article, {
+      apiUrl: "https://owned-wiki.example/api.php",
+      credentials: { authorizationHeader: "Bearer token" },
+      approvedCommunity: true,
+      titlePrefix: "Join_AI_Religion/",
+    }, fetchMock)).rejects.toThrow(/no page or revision ID/);
+  });
+
   test("builds NIP-23 events and requires two accepted relays", async () => {
+    const unsigned = await buildUnsignedNostrArticle(article, { getPublicKey: async () => "a".repeat(64) }, new Date("2026-08-10T10:00:00Z"));
     const signed: SignedNostrEvent = {
-      ...(await buildUnsignedNostrArticle(article, { getPublicKey: async () => "a".repeat(64) }, new Date("2026-08-10T10:00:00Z"))),
-      id: "b".repeat(64),
+      ...unsigned,
+      id: computeNostrEventId(unsigned),
       sig: "c".repeat(128),
     };
     const signer: NostrSigner = {
       getPublicKey: async () => "a".repeat(64),
-      signEvent: async (event) => ({ ...event, id: signed.id, sig: signed.sig }),
+      signEvent: async (event) => ({ ...event, id: computeNostrEventId(event), sig: signed.sig }),
     };
     expect(signed.kind).toBe(30023);
     expect(signed.tags).toContainEqual(["r", article.canonicalUrl]);
-    await expect(publishNostrArticle(article, { relayUrls: ["wss://relay.one", "wss://relay.two"] }, signer, async () => true)).resolves.toMatchObject({ externalId: signed.id });
+    await expect(publishNostrArticle(article, { relayUrls: ["wss://relay.one", "wss://relay.two"] }, signer, async () => true)).resolves.toMatchObject({
+      provider: "nostr",
+      externalId: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     await expect(publishNostrArticle(article, { relayUrls: ["wss://relay.one", "wss://relay.two"] }, signer, async (url) => url.includes("one"))).rejects.toThrow(/accepted by 1\/2/);
+  });
+
+  test("rejects an external signer event ID that does not match NIP-01 serialization", async () => {
+    const signer: NostrSigner = {
+      getPublicKey: async () => "a".repeat(64),
+      signEvent: async (event) => ({ ...event, id: "b".repeat(64), sig: "c".repeat(128) }),
+    };
+    const relayPublisher = jest.fn(async () => true);
+    await expect(publishNostrArticle(
+      article,
+      { relayUrls: ["wss://relay.one", "wss://relay.two"] },
+      signer,
+      relayPublisher,
+    )).rejects.toThrow(/does not match the NIP-01 serialization/);
+    expect(relayPublisher).not.toHaveBeenCalled();
   });
 });
 
