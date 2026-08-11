@@ -126,7 +126,10 @@ describe("HTTP long-form provider adapters", () => {
     expect(result.externalId).toBe("t1");
     const payload = JSON.parse(String((fetchMock as jest.Mock).mock.calls[0][1].body));
     expect(payload.content.at(-1)).toMatchObject({ type: "link", url: article.canonicalUrl });
+    expect(payload.tags).toBe(article.tags.join(","));
+    expect(payload.source_url).toBe(article.canonicalUrl);
     expect((fetchMock as jest.Mock).mock.calls[0][1].headers.Authorization).toMatch(/^OAuth /);
+    expect((fetchMock as jest.Mock).mock.calls[0][1].headers["User-Agent"]).toBe("JoinAIReligionPublisher (+https://joinaireligion.com)");
     const deterministic = createOAuth1Authorization({
       method: "POST",
       url: "https://api.tumblr.com/v2/blog/joinai.tumblr.com/posts",

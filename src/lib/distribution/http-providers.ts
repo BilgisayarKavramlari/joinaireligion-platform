@@ -189,10 +189,15 @@ export async function publishTumblrArticle(
   if (!authorization) throw new Error("Tumblr OAuth1 owner credentials or OAuth2 bearer token are required");
   const response = await fetchImpl(endpoint, {
     method: "POST",
-    headers: { Authorization: authorization, "Content-Type": "application/json" },
+    headers: {
+      Authorization: authorization,
+      "Content-Type": "application/json",
+      "User-Agent": "JoinAIReligionPublisher (+https://joinaireligion.com)",
+    },
     body: JSON.stringify({
       state: config.draft ? "draft" : "published",
-      tags: tagList(article, 20),
+      tags: tagList(article, 20).join(","),
+      source_url: article.canonicalUrl,
       content: [
         { type: "text", subtype: "heading1", text: article.title },
         { type: "text", subtype: "indented", text: disclosure(article.locale) },
