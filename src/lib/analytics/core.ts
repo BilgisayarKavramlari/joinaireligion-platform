@@ -30,6 +30,7 @@ export type TrafficSummary = {
   topCountries: RankedMetric[];
   topLocales: RankedMetric[];
   sourceByLocale: Array<{ source: string; locale: string; sessions: number }>;
+  excludedVerificationEvents: number;
   sampled: boolean;
   containsUserLevelData: false;
 };
@@ -116,7 +117,8 @@ export function aggregateTrafficRows(
   to: Date,
   options: { sampled?: boolean; countryMinimum?: number } = {},
 ): TrafficSummary {
-  const ordered = [...rows].sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
+  const productionRows = rows.filter((row) => sanitizeAnalyticsToken(record(row.metadata).source) !== "deployment_verification");
+  const ordered = [...productionRows].sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
   const pageViews = ordered.filter((row) => row.eventName === "analytics_page_view");
   const clicks = ordered.filter((row) => row.eventName === "analytics_link_click");
   const sessionRows = pageViews.filter((row) => row.anonymousSessionId);
@@ -159,6 +161,7 @@ export function aggregateTrafficRows(
         const [source, locale] = key.split("\u0000");
         return { source, locale, sessions };
       }),
+    excludedVerificationEvents: rows.length - productionRows.length,
     sampled: Boolean(options.sampled),
     containsUserLevelData: false,
   };
