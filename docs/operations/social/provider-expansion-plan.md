@@ -14,7 +14,7 @@ Production release observed: `90f2af2`
 | Mastodon / Mastoturk | Live publication verified | Public profile `https://mastoturk.org/@joinaireligion` existed with one post at the audit time. The adapter requires `MASTODON_BASE_URL` and `MASTODON_ACCESS_TOKEN`. |
 | Bluesky | Live publication verified | Public profile `https://bsky.app/profile/joinaireligion.bsky.social` existed with English, French, and Chinese posts. The adapter requires `BLUESKY_SERVICE_URL`, `BLUESKY_IDENTIFIER`, and `BLUESKY_APP_PASSWORD`. |
 | X | Adapter only; account not verified | The provider supports OAuth 1.0a owner tokens or `X_USER_ACCESS_TOKEN`; paid API access was deferred by the owner on 2026-07-29. |
-| LinkedIn | Adapter only; live configuration not verified | The provider supports `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN`, and `LINKEDIN_VERSION`. No production account/delivery evidence was available to the restricted deployment operator. |
+| LinkedIn | Organization Page and first Page-authored UI post live; adapter not yet enabled | Public Page `https://www.linkedin.com/company/joinaireligion/`, organization ID `143125933`, and manual Page post `https://www.linkedin.com/feed/update/urn:li:share:7492772987650134016/` were verified. The personal account remains the non-public administrator. The provider supports `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR_URN`, and `LINKEDIN_VERSION`; no OAuth credential or API-delivery evidence exists yet. |
 | Pinterest | Public account exists; public profile has no Pins | Image Pin creation, locale-specific copy, social-card media, delivery records, and provider gating are implemented. Trial access is insufficient for public distribution; Standard access and production credentials remain the gate. |
 | YouTube | Channel exists; external upload is not implemented | The internal video agent creates site-hosted MP4 editions, but no YouTube OAuth/upload adapter or verified public upload exists. |
 | Facebook | Live publication verified; last visible activity was 2026-07-29 | Page link publishing is implemented through the Meta Graph API. Queue retry and backlog protection apply independently to Facebook. |
@@ -56,7 +56,9 @@ Initial weights, subject to aggregate engagement review:
 
 Why first now: the text-post adapter, language-specific copy, idempotency, provider gate, and delivery records already exist. The remaining work is account ownership, product access, and one OAuth grant.
 
-Single human gates: create/claim the organization Page, remain its verified super admin, create and associate the developer app, receive Community Management access, pass 2FA, and approve OAuth once.
+Completed account gate: the separate Join AI Religion organization Page is live with organization ID `143125933`; the personal account is used only for administration, and future publications must use `urn:li:organization:143125933` as the author.
+
+Remaining provider gates: create and associate the developer app, Page-verify it, receive Community Management access, pass any required LinkedIn verification/2FA, and approve organization OAuth once. On 2026-08-10 the developer portal displayed the entered app name but rejected it as empty in both the in-app browser and Chrome; this is recorded as a provider-side setup blocker, not as a configured integration.
 
 Official reference: [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api).
 
