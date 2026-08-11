@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "instagram" | "threads" | "pinterest" | "bluesky";
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ar", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
-export const SOCIAL_LANGUAGE_POLICY_VERSION = "v4";
+export const SOCIAL_LANGUAGE_POLICY_VERSION = "v5";
 export const LINKEDIN_ORGANIZATION_AUTHOR_URN = "urn:li:organization:143125933";
 
 type LocaleWeight = { locale: SocialLocale; weight: number };

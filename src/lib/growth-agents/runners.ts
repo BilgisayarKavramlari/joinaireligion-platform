@@ -50,6 +50,10 @@ import {
 import { CONTENT_TOPICS, type ContentTopic } from "@/lib/content-topics";
 import { getDistributionArticle } from "@/lib/distribution/content";
 import { runDistributionPublisher as dispatchDistributionPublisher } from "@/lib/distribution/runner";
+import { buildAttributedUrl, selectMeasuredLocale, type TrafficSummary } from "@/lib/analytics/core";
+import { deleteExpiredAnalyticsEvents, getTrafficSummary } from "@/lib/analytics/report";
+import { collectSocialEngagement, type SocialEngagementMetrics, type SocialEngagementResult } from "@/lib/social/engagement";
+import { getFromAddress, isSendingEnabled, sendEmail } from "@/lib/cron/email-provider";
 
 export const GROWTH_AGENT_NAMES = [
   "seo-kulliyat-draft",
@@ -316,7 +320,7 @@ async function generateTranslatedVariant(
 
 async function collectSafeContentSignals(now: Date) {
   const since = new Date(now.getTime() - 30 * 86_400_000);
-  const [feedbackCount, queryCount, responseCount, lessonAttemptCount, engagement, socialSnapshot] = await Promise.all([
+  const [feedbackCount, queryCount, responseCount, lessonAttemptCount, engagement, socialSnapshot, growthReport] = await Promise.all([
     db.feedbackItem.count({ where: { createdAt: { gte: since } } }),
     db.aiQuery.count({ where: { createdAt: { gte: since } } }),
     db.practiceResponse.count({ where: { createdAt: { gte: since } } }),
@@ -329,6 +333,11 @@ async function collectSafeContentSignals(now: Date) {
       where: { agentName: "social-listener", artifactType: "SOCIAL_LISTENING_SNAPSHOT" },
       orderBy: { createdAt: "desc" },
       select: { id: true, createdAt: true, payload: true },
+    }),
+    db.agentArtifact.findFirst({
+      where: { agentName: "content-performance", artifactType: "DAILY_GROWTH_REPORT" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, createdAt: true, summary: true },
     }),
   ]);
 
@@ -347,6 +356,12 @@ async function collectSafeContentSignals(now: Date) {
       summary: socialSnapshot ? `Latest aggregate public social snapshot at ${socialSnapshot.createdAt.toISOString()}` : "No public social snapshot yet",
       count: socialSnapshot ? 1 : 0,
       sourceId: socialSnapshot?.id,
+    },
+    {
+      sourceType: "AGGREGATE_ACQUISITION_PERFORMANCE",
+      summary: growthReport?.summary || "No aggregate acquisition report yet",
+      count: growthReport ? 1 : 0,
+      sourceId: growthReport?.id,
     },
   ];
 }
@@ -899,6 +914,245 @@ export async function runVideoPublisher(now = new Date()): Promise<GrowthAgentRe
   });
 }
 
+type SocialMetricRow = {
+  provider: SocialProviderName;
+  externalId: string;
+  externalUrl: string | null;
+  locale: string | null;
+  publishedAt: string;
+  contentItemId: string | null;
+  status: "COLLECTED" | "UNAVAILABLE" | "FAILED";
+  reason?: string;
+  metrics: SocialEngagementMetrics;
+  delta: SocialEngagementMetrics;
+};
+
+function previousSocialMetrics(payload: unknown): Map<string, SocialEngagementMetrics> {
+  const social = asRecord(asRecord(payload).social);
+  const items = Array.isArray(social.items) ? social.items : [];
+  return new Map(items.flatMap((item) => {
+    const row = asRecord(item);
+    const provider = typeof row.provider === "string" ? row.provider : "";
+    const externalId = typeof row.externalId === "string" ? row.externalId : "";
+    const metrics = asRecord(row.metrics);
+    if (!provider || !externalId) return [];
+    return [[`${provider}|${externalId}`, {
+      likes: Number(metrics.likes || 0),
+      comments: Number(metrics.comments || 0),
+      shares: Number(metrics.shares || 0),
+      views: Number(metrics.views || 0),
+      clicks: Number(metrics.clicks || 0),
+    } satisfies SocialEngagementMetrics] as const];
+  }));
+}
+
+function subtractMetrics(current: SocialEngagementMetrics, previous: SocialEngagementMetrics | undefined): SocialEngagementMetrics {
+  return {
+    likes: Math.max(0, current.likes - (previous?.likes || 0)),
+    comments: Math.max(0, current.comments - (previous?.comments || 0)),
+    shares: Math.max(0, current.shares - (previous?.shares || 0)),
+    views: Math.max(0, current.views - (previous?.views || 0)),
+    clicks: Math.max(0, current.clicks - (previous?.clicks || 0)),
+  };
+}
+
+function sumSocialMetrics(rows: SocialMetricRow[], field: "metrics" | "delta"): SocialEngagementMetrics {
+  return rows.reduce((total, row) => ({
+    likes: total.likes + row[field].likes,
+    comments: total.comments + row[field].comments,
+    shares: total.shares + row[field].shares,
+    views: total.views + row[field].views,
+    clicks: total.clicks + row[field].clicks,
+  }), { likes: 0, comments: 0, shares: 0, views: 0, clicks: 0 });
+}
+
+async function collectOwnedSocialMetrics(now: Date, previousPayload: unknown): Promise<SocialMetricRow[]> {
+  const artifacts = await db.agentArtifact.findMany({
+    where: {
+      agentName: "social-listener-draft",
+      artifactType: "SOCIAL_DRAFT_PACKAGE",
+      createdAt: { gte: new Date(now.getTime() - 35 * 86_400_000) },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: { payload: true, sourceRefs: true },
+  });
+  const unique = new Map<string, {
+    provider: SocialProviderName;
+    externalId: string;
+    externalUrl: string | null;
+    locale: string | null;
+    publishedAt: string;
+    contentItemId: string | null;
+  }>();
+  for (const artifact of artifacts) {
+    const sourceRefs = asRecord(artifact.sourceRefs);
+    for (const delivery of readSocialDeliveries(artifact.payload)) {
+      if (delivery.status !== "PUBLISHED" || !delivery.externalId) continue;
+      const key = `${delivery.provider}|${delivery.externalId}`;
+      if (!unique.has(key)) unique.set(key, {
+        provider: delivery.provider,
+        externalId: delivery.externalId,
+        externalUrl: delivery.externalUrl || null,
+        locale: delivery.locale || null,
+        publishedAt: delivery.attemptedAt,
+        contentItemId: typeof sourceRefs.contentItemId === "string" ? sourceRefs.contentItemId : null,
+      });
+    }
+  }
+  const deliveries = [...unique.values()].slice(0, 50);
+  const results: SocialEngagementResult[] = [];
+  for (let index = 0; index < deliveries.length; index += 4) {
+    const batch = deliveries.slice(index, index + 4);
+    results.push(...await Promise.all(batch.map((delivery) => collectSocialEngagement(delivery.provider, delivery.externalId))));
+  }
+  const previous = previousSocialMetrics(previousPayload);
+  return deliveries.map((delivery, index) => {
+    const result = results[index];
+    return {
+      ...delivery,
+      status: result.status,
+      ...(result.reason ? { reason: result.reason } : {}),
+      metrics: result.metrics,
+      delta: subtractMetrics(result.metrics, previous.get(`${delivery.provider}|${delivery.externalId}`)),
+    };
+  });
+}
+
+function reportRecommendations(traffic: TrafficSummary, socialRows: SocialMetricRow[]): string[] {
+  const recommendations: string[] = [];
+  if (traffic.sessions < 20) recommendations.push("insufficient_traffic_sample_keep_existing_content_and_language_policy");
+  for (const source of ["instagram", "facebook", "threads", "x", "linkedin", "bluesky", "mastodon", "pinterest"] as const) {
+    const locale = selectMeasuredLocale(traffic, source, SOCIAL_LOCALES);
+    if (locale) recommendations.push(`measured_locale_preference:${source}:${locale}`);
+  }
+  const strongest = [...socialRows]
+    .filter((row) => row.status === "COLLECTED")
+    .sort((left, right) => (
+      right.delta.likes + right.delta.comments * 2 + right.delta.shares * 3
+    ) - (
+      left.delta.likes + left.delta.comments * 2 + left.delta.shares * 3
+    ))[0];
+  if (strongest && strongest.delta.likes + strongest.delta.comments + strongest.delta.shares >= 10) {
+    recommendations.push(`reuse_high-performing_format:${strongest.provider}:${strongest.locale || "unknown"}`);
+  }
+  return recommendations;
+}
+
+function adminReportRecipients(): string[] {
+  return (env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && !value.endsWith("@example.com"));
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character] || character));
+}
+
+async function deliverDailyGrowthEmail(
+  dateKey: string,
+  artifactId: string,
+  traffic24h: TrafficSummary,
+  traffic30d: TrafficSummary,
+  socialTotals: SocialEngagementMetrics,
+  socialDelta: SocialEngagementMetrics,
+): Promise<{ status: "SENT" | "FAILED" | "LOG_ONLY"; sent: number; failed: number }> {
+  const recipients = adminReportRecipients();
+  if (!isSendingEnabled() || recipients.length === 0) return { status: "LOG_ONLY", sent: 0, failed: 0 };
+  const topSources = traffic24h.topSources.slice(0, 5).map((row) => `${row.label}: ${row.count}`).join(", ") || "no data";
+  const text = [
+    `Join AI Religion daily growth report — ${dateKey}`,
+    `Last 24h: ${traffic24h.sessions} sessions, ${traffic24h.pageViews} page views, ${traffic24h.registrationClicks} registration clicks.`,
+    `Top sources: ${topSources}.`,
+    `30-day sessions: ${traffic30d.sessions}.`,
+    `Owned social totals: ${socialTotals.likes} likes, ${socialTotals.comments} comments, ${socialTotals.shares} shares.`,
+    `Since prior snapshot: +${socialDelta.likes} likes, +${socialDelta.comments} comments, +${socialDelta.shares} shares.`,
+    `Admin: ${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/admin/growth`,
+  ].join("\n");
+  const html = `<h1>Daily growth — ${escapeHtml(dateKey)}</h1><p><strong>24h:</strong> ${traffic24h.sessions} sessions · ${traffic24h.pageViews} page views · ${traffic24h.registrationClicks} registration clicks</p><p><strong>Top sources:</strong> ${escapeHtml(topSources)}</p><p><strong>Owned social:</strong> ${socialTotals.likes} likes · ${socialTotals.comments} comments · ${socialTotals.shares} shares</p><p><strong>New since prior snapshot:</strong> +${socialDelta.likes} likes · +${socialDelta.comments} comments · +${socialDelta.shares} shares</p><p><a href="${escapeHtml(env.NEXT_PUBLIC_APP_URL.replace(/\/$/, ""))}/admin/growth">Open the admin growth dashboard</a></p>`;
+  const results = await Promise.all(recipients.map((to) => sendEmail({
+    to,
+    from: getFromAddress(),
+    subject: `Join AI Religion daily growth — ${dateKey}`,
+    text,
+    html,
+    tags: { type: "daily-growth", artifact: artifactId.slice(0, 24) },
+  })));
+  const sent = results.filter((result) => result.ok).length;
+  return { status: sent === recipients.length ? "SENT" : "FAILED", sent, failed: recipients.length - sent };
+}
+
+async function buildDailyGrowthReport(agentRunId: string, now: Date) {
+  const dateKey = utcDateKey(now);
+  const startToday = startOfUtcDay(now);
+  const previous = await db.agentArtifact.findFirst({
+    where: {
+      agentName: "content-performance",
+      artifactType: "DAILY_GROWTH_REPORT",
+      createdAt: { lt: startToday },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { payload: true },
+  });
+  const [traffic24h, traffic30d] = await Promise.all([
+    getTrafficSummary(new Date(now.getTime() - 86_400_000), now),
+    getTrafficSummary(new Date(now.getTime() - 30 * 86_400_000), now),
+  ]);
+  const socialRows = await collectOwnedSocialMetrics(now, previous?.payload);
+  const socialTotals = sumSocialMetrics(socialRows, "metrics");
+  const socialDelta = sumSocialMetrics(socialRows, "delta");
+  const recommendations = reportRecommendations(traffic30d, socialRows);
+  const analyticsEventsExpired = await deleteExpiredAnalyticsEvents(now, 90);
+  const payload = {
+    period: { dateKey, generatedAt: now.toISOString() },
+    traffic24h,
+    traffic30d,
+    social: {
+      totals: socialTotals,
+      delta: socialDelta,
+      items: socialRows,
+      collected: socialRows.filter((row) => row.status === "COLLECTED").length,
+      unavailable: socialRows.filter((row) => row.status === "UNAVAILABLE").length,
+      failed: socialRows.filter((row) => row.status === "FAILED").length,
+    },
+    recommendations,
+    feedbackPolicy: { minimumSessions: 20, leaderShare: 0.6, leaderMargin: 1.25, automaticSensitiveTargeting: false },
+    privacy: { rawIpStored: false, queryStringStored: false, userAgentStored: false, crossDayVisitorProfile: false, rawEventRetentionDays: 90 },
+    containsUserLevelData: false,
+  };
+  const artifact = await createArtifact({
+    agentRunId,
+    agentName: "content-performance",
+    artifactType: "DAILY_GROWTH_REPORT",
+    fingerprint: sha256Fingerprint(["daily-growth-report", dateKey]),
+    title: `Daily growth report — ${dateKey}`,
+    summary: `${traffic24h.sessions} daily sessions, ${traffic24h.pageViews} page views, ${socialDelta.likes + socialDelta.comments + socialDelta.shares} new measured social interactions.`,
+    payload,
+    sourceRefs: { sources: ["first-party-analytics", "owned-social-provider-counters"], containsPrivateUserContent: false },
+    status: AgentArtifactStatus.READY,
+    qualityScore: traffic24h.sampled ? 80 : 100,
+  });
+  const stored = await db.agentArtifact.findUnique({ where: { id: artifact.id }, select: { payload: true } });
+  const priorEmail = asRecord(asRecord(stored?.payload).emailDelivery);
+  let dailyEmailStatus = typeof priorEmail.status === "string" ? priorEmail.status : "PENDING";
+  if (dailyEmailStatus !== "SENT") {
+    const emailDelivery = await deliverDailyGrowthEmail(dateKey, artifact.id, traffic24h, traffic30d, socialTotals, socialDelta);
+    dailyEmailStatus = emailDelivery.status;
+    await db.agentArtifact.update({
+      where: { id: artifact.id },
+      data: { payload: asInputJson({ ...asRecord(stored?.payload || payload), emailDelivery: { ...emailDelivery, attemptedAt: now.toISOString() } }) },
+    });
+  }
+  return {
+    artifactId: artifact.id,
+    trafficSessions24h: traffic24h.sessions,
+    socialMetricsCollected: socialRows.filter((row) => row.status === "COLLECTED").length,
+    analyticsEventsExpired,
+    dailyEmailStatus,
+  };
+}
+
 export async function runContentPerformance(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("content-performance", "AGGREGATE_CONTENT_PERFORMANCE", now, async (agentRunId) => {
     const items = await db.contentItem.findMany({
@@ -971,12 +1225,18 @@ export async function runContentPerformance(now = new Date()): Promise<GrowthAge
       status: AgentArtifactStatus.READY,
       qualityScore: 100,
     });
+    const growthReport = await buildDailyGrowthReport(agentRunId, now);
     return {
       aggregated: items.length,
       autoUnpublished: autoUnpublished.length,
       autoUnpublishedIds: autoUnpublished,
       artifactId: artifact.id,
       duplicateReport: !artifact.created,
+      dailyGrowthReportId: growthReport.artifactId,
+      trafficSessions24h: growthReport.trafficSessions24h,
+      socialMetricsCollected: growthReport.socialMetricsCollected,
+      analyticsEventsExpired: growthReport.analyticsEventsExpired,
+      dailyEmailStatus: growthReport.dailyEmailStatus,
     };
   });
 }
@@ -1055,18 +1315,23 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
     const drafts = contentItem.variants.map((variant) => {
       const contentUrl = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
       const baseCopy = `${variant.title}: ${variant.summary}`;
+      const campaign = `organic_reflection_${dateKey}`;
+      const urls = Object.fromEntries(
+        (["linkedin", "x", "mastodon", "bluesky", "facebook", "instagram", "threads", "pinterest"] as const)
+          .map((provider) => [provider, buildAttributedUrl(contentUrl, provider, campaign)]),
+      ) as Record<SocialProviderName, string>;
       return {
         locale: variant.locale,
         contentUrl,
         channels: {
-          linkedin: `${variant.title}\n\n${variant.summary}\n\nRead: ${contentUrl}\n\n#ReflectiveLearning #ResponsibleAI #MeaningMaking`,
-          x: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 280, " "),
-          mastodon: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}\n\n#Reflection #ResponsibleAI`.slice(0, 500),
-          bluesky: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 300, "\n\n"),
-          facebook: `${variant.title}\n\n${variant.summary}\n\nRead: ${contentUrl}`,
-          instagram: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}\n\n#ReflectiveLearning #ResponsibleAI`,
-          threads: buildRequiredUrlSocialCopy(baseCopy, contentUrl, 500, "\n\n"),
-          pinterest: `${variant.title}\n\n${variant.summary}\n\n${contentUrl}`,
+          linkedin: `${variant.title}\n\n${variant.summary}\n\nRead: ${urls.linkedin}\n\n#ReflectiveLearning #ResponsibleAI #MeaningMaking`,
+          x: buildRequiredUrlSocialCopy(baseCopy, urls.x, 280, " "),
+          mastodon: `${variant.title}\n\n${variant.summary}\n\n${urls.mastodon}\n\n#Reflection #ResponsibleAI`.slice(0, 500),
+          bluesky: buildRequiredUrlSocialCopy(baseCopy, urls.bluesky, 300, "\n\n"),
+          facebook: `${variant.title}\n\n${variant.summary}\n\nRead: ${urls.facebook}`,
+          instagram: `${variant.title}\n\n${variant.summary}\n\n${urls.instagram}\n\n#ReflectiveLearning #ResponsibleAI`,
+          threads: buildRequiredUrlSocialCopy(baseCopy, urls.threads, 500, "\n\n"),
+          pinterest: `${variant.title}\n\n${variant.summary}\n\n${urls.pinterest}`,
         },
       };
     });
@@ -1269,6 +1534,14 @@ export async function runSocialPublisher(
     const previousDeliveries = readSocialDeliveries(artifact.payload);
     let deliveries = [...previousDeliveries];
     const published: SocialDelivery[] = [];
+    const latestGrowthReport = await db.agentArtifact.findFirst({
+      where: { agentName: "content-performance", artifactType: "DAILY_GROWTH_REPORT" },
+      orderBy: { createdAt: "desc" },
+      select: { payload: true },
+    });
+    const measuredTraffic = latestGrowthReport
+      ? asRecord(latestGrowthReport.payload).traffic30d as TrafficSummary | undefined
+      : undefined;
     const relatedArtifacts = contentItemId
       ? await db.agentArtifact.findMany({
           where: {
@@ -1367,7 +1640,9 @@ export async function runSocialPublisher(
         continue;
       }
       deliveries = deliveries.filter((delivery) => delivery.provider !== provider || delivery.status === "PUBLISHED");
-      const selectedLocale = selectProviderLocale(provider, artifact.id, drafts.map((draft) => draft.locale));
+      const measuredLocale = selectMeasuredLocale(measuredTraffic || null, provider, drafts.map((draft) => draft.locale));
+      const selectedLocale = (measuredLocale as SocialLocale | null)
+        || selectProviderLocale(provider, artifact.id, drafts.map((draft) => draft.locale));
       const draft = drafts.find((candidate) => candidate.locale === selectedLocale) || drafts[0];
       const text = draft.channels[provider];
       if (containsHighRiskContent(text) || !text.includes(draft.contentUrl)) {

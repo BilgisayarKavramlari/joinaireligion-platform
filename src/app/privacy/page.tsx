@@ -17,7 +17,7 @@ type PrivacyCopy = {
   readEula: string;
 };
 
-const EFFECTIVE_DATE = "July 29, 2026";
+const EFFECTIVE_DATE = "August 11, 2026";
 
 const privacyCopy = {
   en: {
@@ -65,6 +65,7 @@ const privacyCopy = {
         title: "4. Why we use information",
         body: [
           "We use information to provide and secure the service, remember your choices, deliver requested practices and messages, process payments, answer support requests, prevent abuse, meet legal obligations, and improve reliability using data that is aggregated or minimized where practical.",
+          "Our first-party traffic measurement records page and link events, a daily rotating pseudonymous session hash, minimized campaign/source labels, and—only when supplied by a trusted infrastructure provider—a country code. It does not store raw IP addresses, full referring URLs, URL query strings, or user-agent strings for analytics, and it does not build cross-day visitor profiles.",
           "Where applicable law requires consent—especially for optional AI processing of sensitive private writing—we ask separately and allow withdrawal. Withdrawing consent does not affect processing already lawfully completed.",
         ],
       },
@@ -79,6 +80,7 @@ const privacyCopy = {
         title: "6. Retention",
         body: [
           "We retain account and service data only for as long as needed for the purpose described, your selected retention setting, security, dispute resolution, or legal obligations. Private-journal controls may offer 30-day, 90-day, 365-day, or keep-until-deleted choices.",
+          "Minimized raw traffic events are retained for up to 90 days; aggregate daily growth reports may be retained longer for trend comparison. Browser Do Not Track and Global Privacy Control signals disable the client analytics beacon.",
           "When you delete a journal entry or complete a verified deletion request, it is removed from active systems through the deletion process and then ages out of protected backups under the backup-retention schedule. Billing, fraud-prevention, and legal records may be retained separately when required, without retaining private journal text for those purposes.",
         ],
       },
@@ -145,6 +147,7 @@ const privacyCopy = {
         title: "4. Bilgileri neden kullanıyoruz",
         body: [
           "Bilgileri hizmeti sunmak ve korumak, tercihlerinizi hatırlamak, istediğiniz pratik ve mesajları teslim etmek, ödeme işlemek, destek vermek, kötüye kullanımı önlemek, yasal yükümlülükleri yerine getirmek ve mümkün olduğunda toplulaştırılmış veya azaltılmış veriyle güvenilirliği geliştirmek için kullanırız.",
+          "Birinci taraf trafik ölçümü sayfa ve bağlantı olaylarını, her gün yenilenen takma adlı oturum özetini, azaltılmış kampanya/kaynak etiketlerini ve yalnızca güvenilir altyapı sağlayıcısı gönderirse ülke kodunu kaydeder. Analitik için ham IP, tam yönlendiren URL, URL sorgu dizisi veya user-agent saklamaz ve günler arası ziyaretçi profili oluşturmaz.",
           "Yürürlükteki hukuk onay gerektiriyorsa—özellikle hassas özel yazıların isteğe bağlı AI işlemesinde—ayrı onay ister ve geri çekmenize izin veririz.",
         ],
       },
@@ -159,6 +162,7 @@ const privacyCopy = {
         title: "6. Saklama",
         body: [
           "Hesap ve hizmet verilerini yalnızca belirtilen amaç, seçtiğiniz saklama ayarı, güvenlik, uyuşmazlık çözümü veya yasal zorunluluk için gerektiği sürece tutarız. Günlük ayarları 30, 90, 365 gün veya siz silene kadar seçenekleri sunabilir.",
+          "Azaltılmış ham trafik olayları en fazla 90 gün saklanır; toplu günlük büyüme raporları eğilim karşılaştırması için daha uzun tutulabilir. Tarayıcıdaki Do Not Track ve Global Privacy Control sinyalleri istemci analitik işaretçisini kapatır.",
           "Bir günlüğü sildiğinizde veya doğrulanmış silme talebi tamamlandığında veri aktif sistemlerden silme süreciyle kaldırılır ve korunan yedeklerden yedek saklama takvimine göre çıkar. Fatura ve yasal kayıtlar, özel günlük metni tutulmadan ayrı saklanabilir.",
         ],
       },
