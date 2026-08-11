@@ -8,6 +8,7 @@ import { SessionProvider } from "@/contexts/SessionContext";
 import { FeedbackButton } from "@/components/ui/FeedbackButton";
 import { VisualThemeProvider } from "@/contexts/VisualThemeContext";
 import { PwaRuntime } from "@/components/PwaRuntime";
+import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 
 const cinzel = Cinzel({
   subsets: ["latin"],
@@ -67,6 +68,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <SessionProvider>
               <PublicHeader />
               <PwaRuntime />
+              <AnalyticsTracker />
               {children}
               <FeedbackButton />
             </SessionProvider>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin";
 import { db } from "@/lib/db";
+import { getTrafficSummary } from "@/lib/analytics/report";
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -42,7 +43,7 @@ export default async function AdminDashboard() {
     db.invoiceRecord.aggregate({ _sum: { amountCents: true }, where: { status: "paid" } }),
     db.user.findMany({ take: 10, orderBy: { createdAt: "desc" }, select: { id: true, email: true, displayName: true, currentLevel: true, xpTotal: true, onboarding: { take: 1, select: { id: true } }, createdAt: true, subscription: { select: { status: true } } } }),
     db.lessonAttempt.findMany({ take: 10, orderBy: { createdAt: "desc" }, select: { id: true, userId: true, score: true, passed: true, createdAt: true, userLesson: { select: { lesson: { select: { stepNumber: true, title: true } } } }, user: { select: { email: true } } } }),
-    Promise.resolve(0), // SiteVisit model not yet in schema
+    getTrafficSummary(dayAgo, now).then((summary) => summary.sessions),
   ]);
 
   const totalRevenue = ((totalRevenueCents._sum.amountCents || 0) / 100).toFixed(2);
