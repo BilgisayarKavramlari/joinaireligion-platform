@@ -14,7 +14,8 @@
     "test:ci": "jest --ci --no-coverage --forceExit",
     "verify": "npx prisma validate && npx prisma generate && npm run test:ci && npx tsc --noEmit --skipLibCheck --project tsconfig.verify.json && npm run build",
     "audit:high": "npm audit --omit=dev --audit-level=high",
-    "audit:all": "npm audit --audit-level=high"
+    "audit:all": "npm audit --audit-level=high",
+    "distribution:check": "node scripts/ops/check-open-distribution-config.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

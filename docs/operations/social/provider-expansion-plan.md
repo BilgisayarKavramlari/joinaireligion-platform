@@ -21,6 +21,7 @@ Production release observed: `90f2af2`
 | Instagram | Live image publication verified; two posts, both dated 2026-07-29 | Professional-account image publishing, 4:5 social cards, container polling, permalink capture, and multilingual policy are implemented. |
 | Threads | Live publication verified; three posts, last dated 2026-07-30 | Text-container publishing, status polling, permalink capture, and multilingual policy are implemented. |
 | TikTok | Secrets-free standalone safety module; no account or live publication | Creator-info, current privacy/interaction validation, per-post consent, compliant URL-pull initialization, status polling, and conservative idempotency/error handling are implemented outside the scheduled text-provider interface. TikTok's Direct Post rules prevent a fully unattended brand-only utility workflow; account/app/OAuth, each-post consent, and audit gates remain. |
+| Open distribution channels | Secret-free implementation; no external account or live publication | Flipboard feed metadata and eleven provider adapters are implemented with independent default-off switches. Account, approval, OAuth, payment, community consent, and signer custody gates are listed in [open distribution onboarding](./open-distribution-onboarding.md). |
 
 Production secret values were deliberately not read. The deployment account is restricted to allowlisted status/deploy operations.
 
