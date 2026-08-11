@@ -74,10 +74,12 @@ describe("agent registry policy foundation", () => {
     const socialPublisher = AGENT_DEFINITIONS.find((agent) => agent.agentName === "social-publisher");
 
     expect(producer?.policy.forbiddenActions).toContain("publish content");
+    expect(producer?.policy.allowedActions).toContain("draft all eight configured language variants");
     expect(publisher?.policy.autonomyLevel).toBe(3);
     expect(publisher?.policy.defaultSafeBoundaries).toContain("two-agent separation of duties");
     expect(performance?.policy.forbiddenActions).toContain("profile individual users");
     expect(socialPublisher?.policy.forbiddenActions).toContain("spend advertising money");
+    expect(socialPublisher?.policy.defaultSafeBoundaries).toContain("one verified brand account per provider");
   });
 
   it("keeps reflective video downstream of completed public audio", () => {

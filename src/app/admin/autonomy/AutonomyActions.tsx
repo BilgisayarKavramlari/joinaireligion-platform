@@ -104,6 +104,16 @@ export default function AutonomyActions() {
       </button>
 
       <button
+        style={loading === "Multilingual Distribution" ? BTN_ACTIVE : BTN}
+        onClick={() => run("Multilingual Distribution", "/api/admin/autonomy/distribution-pipeline", "POST")}
+        disabled={!!loading}
+        aria-busy={loading === "Multilingual Distribution"}
+        title="Runs the eight-language content and configured-provider social chain while preserving every safety gate, idempotency rule, and daily cap."
+      >
+        {loading === "Multilingual Distribution" ? "Publishing…" : "▶ Publish Multilingual Chain"}
+      </button>
+
+      <button
         style={loading === "Retry Social Publishing" ? { ...BTN_REPAIR, cursor: "default" } : BTN_REPAIR}
         onClick={() => run("Retry Social Publishing", "/api/admin/autonomy/social-publisher", "POST")}
         disabled={!!loading}

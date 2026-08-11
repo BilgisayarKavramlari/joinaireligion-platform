@@ -1,8 +1,8 @@
 # Social provider expansion plan
 
 Status: active provider rollout; live state re-audited
-Audit date: 2026-08-08
-Production release observed: `24c544b`
+Audit date: 2026-08-11
+Production release observed: `90f2af2`
 
 ## Verified current state
 
@@ -40,18 +40,35 @@ Initial weights, subject to aggregate engagement review:
 
 | Provider | Primary language policy |
 | --- | --- |
-| Mastoturk | Turkish 90%, English 5%, all other supported languages combined 5% |
-| Bluesky | English 80%, other supported languages combined 20%; no single secondary locale above 5% until evidence supports it |
-| X | English 85%, Turkish 10%, other supported languages combined 5% |
-| LinkedIn | English 90%, Turkish 10% |
+| Mastoturk | Turkish-only while the account remains a Turkish community destination |
+| Bluesky | Relative weights: English 75, Turkish 10, each remaining supported locale 3 |
+| X | Relative weights: English 80, Turkish 10, each remaining supported locale 2 |
+| LinkedIn | Relative weights: English 85, Turkish 5, each remaining supported locale 2 |
 | Pinterest | English 80%, Turkish 8%, each remaining supported locale 2%; split into locale boards only after Standard access and measured volume |
 | YouTube | English primary audio; localized captions, titles, descriptions, and playlists before separate-language channels |
-| Facebook | English 70%, Turkish 20%, other supported languages combined 10%, adjusted only from aggregate audience data |
+| Facebook | Relative weights: English 70, Turkish 20, each remaining supported locale 2 |
 | Instagram | English 70%, Turkish 18%, each remaining supported locale 2%; keep one account until a 90-day language cohort has enough volume to justify a split |
+| Threads | Relative weights: English 75, Turkish 15, each remaining supported locale 2 |
 
 ## Minimum-interaction implementation order
 
-### 1. YouTube
+### 1. LinkedIn organization publishing
+
+Why first now: the text-post adapter, language-specific copy, idempotency, provider gate, and delivery records already exist. The remaining work is account ownership, product access, and one OAuth grant.
+
+Single human gates: create/claim the organization Page, remain its verified super admin, create and associate the developer app, receive Community Management access, pass 2FA, and approve OAuth once.
+
+Official reference: [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api).
+
+### 2. Pinterest
+
+Why second: the public profile and complete image Pin adapter already exist. Trial Access cannot support the public autonomous rollout; Standard Access, a production board/token, and one verified public canary are the remaining gates.
+
+Single human gates: finish the provider access review, pass 2FA/OAuth, select the public board, and approve one canary Pin.
+
+Official reference: [Pinterest API](https://developers.pinterest.com/docs/api/v5/).
+
+### 3. YouTube
 
 Why first: a dedicated brand Google identity can own the channel and the Cloud project, and one OAuth grant can support long-running uploads. It does not require the Facebook/Instagram asset linkage or LinkedIn organization API approval.
 
@@ -67,7 +84,7 @@ Single human gates: create/claim the brand channel, enable YouTube Data API, con
 
 Official references: [upload guide](https://developers.google.com/youtube/v3/guides/uploading_a_video), [`videos.insert`](https://developers.google.com/youtube/v3/docs/videos/insert).
 
-### 2. Meta: Facebook Page and Instagram Professional
+### Completed: Meta — Facebook, Instagram, and Threads
 
 Minimum code slice:
 
@@ -81,21 +98,7 @@ Single human gates: create/claim the Facebook Page, convert/create the Instagram
 
 Official references: [Instagram content publishing](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing/), [Pages posts](https://developers.facebook.com/docs/pages-api/posts/).
 
-### 3. LinkedIn organization publishing
-
-The text-post adapter already exists, but production-grade organization ownership is incomplete.
-
-Minimum code slice:
-
-- add `LINKEDIN_PUBLISHING_ENABLED` and fail closed on token expiry;
-- implement OAuth authorization-code/refresh handling without exposing tokens;
-- discover and verify the organization URN instead of accepting an unverified free-form value;
-- validate organization-admin authority and requested community-management scopes;
-- add media upload support only after text canary delivery is stable.
-
-Single human gates: create/claim the organization Page, remain its verified super admin, create the developer app, associate it with the Page, request/receive the required Community Management access, pass 2FA, and approve OAuth once.
-
-Official reference: [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api).
+All three provider adapters and production deliveries are verified. Future work is token health, delivery reliability, profile completion, and aggregate performance review—not new account creation.
 
 ## Safe ownership model
 
