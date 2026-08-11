@@ -13,7 +13,7 @@ This file stores public, non-secret account identifiers and connection state onl
 | Facebook | Live Page: `joinaireligion` | Live publishing verified | Bounded retry, stale-backlog suppression, and Page-token health |
 | Instagram | Live Professional account: `joinaireligion` | Live image publishing verified; language policy v4 uses one multilingual account and a 4:5 code-generated visual preset | Bounded retry, profile link/bio completion, and 90-day aggregate format/language measurement |
 | X | Brand account tab exists but its public handle is not independently verified | Text adapter exists behind `X_PUBLISHING_ENABLED`; credentials absent; owner deferred paid API access | Revisit only if pay-per-use API spending is approved |
-| LinkedIn | No Join AI Religion organization Page verified | Text adapter exists behind `LINKEDIN_PUBLISHING_ENABLED`; credentials absent | Create organization Page and obtain Community Management access |
+| LinkedIn | Live organization Page: `joinaireligion`; organization ID `143125933`; the personal account is retained only as the non-public administrator; one public Page-authored UI post is verified | Text adapter exists behind `LINKEDIN_PUBLISHING_ENABLED`; organization author URN is known, but the provider remains disabled and OAuth credentials are absent; the UI post is not API-delivery evidence | Create and Page-verify the developer app, obtain Community Management access, complete organization-scoped OAuth, then verify one API-authored canary post |
 | Threads | Live: `@joinaireligion` | Live text publishing verified; profile setup is incomplete | Bounded retry, token-expiry monitoring, and profile completion |
 | TikTok | Not opened | Adapter not implemented | Create Business account, then Content Posting API review |
 
@@ -22,6 +22,8 @@ This file stores public, non-secret account identifiers and connection state onl
 Each platform is independent. Missing or failed providers do not pause providers that have passed their canary. A provider is added to scheduled publishing only after its public identifier is confirmed, its scoped credential is stored only in the production secret store, its provider switch is explicitly enabled, and one delivery result is externally verified.
 
 Threads canary verification: `https://www.threads.com/@joinaireligion/post/DbZapNrgKm6`.
+
+LinkedIn Page-authorship verification (manual UI post; not an API canary): `https://www.linkedin.com/feed/update/urn:li:share:7492772987650134016/`.
 
 ## Active autonomous distribution list
 
@@ -40,7 +42,7 @@ All providers use one verified brand account. Separate language accounts are not
 
 | Priority | Destination | Already implemented | Next owner gate |
 | --- | --- | --- | --- |
-| 1 | LinkedIn organization | Text-post adapter, locale copy, provider gating, idempotency, delivery logs | Create/verify organization Page, approve Community Management access and OAuth |
+| 1 | LinkedIn organization | Organization Page and public identifier, text-post adapter, locale copy, provider gating, idempotency, delivery logs | Resolve the LinkedIn developer-portal app-name validation failure observed in two signed-in browser surfaces on 2026-08-10; then Page-verify the app, approve Community Management access and organization OAuth |
 | 2 | Pinterest | Image Pin adapter, locale copy, generated media, provider gating, delivery logs | Obtain Standard access, production board/token, approve one public canary |
 | 3 | YouTube | Internal reviewed MP4 pipeline, Media RSS, video sitemap | Create/verify Cloud project and OAuth consent; upload adapter remains to be implemented before private canary |
 | Deferred | X | Text adapter and provider gate | Approve paid API access and OAuth credentials |
