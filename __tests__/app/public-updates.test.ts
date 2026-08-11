@@ -51,7 +51,7 @@ describe("public product updates", () => {
     expect(resolvePublicUpdateLocale("de")).toBe("en");
   });
 
-  test("renders the open-distribution release after production verification", () => {
+  test("renders released and explicitly planned distribution updates separately", () => {
     mockUseLanguage.mockReturnValue({ lang: "tr" });
     const text = extractText(UpdatesContent()).replace(/\s+/g, " ").trim();
 
@@ -61,10 +61,15 @@ describe("public product updates", () => {
     expect(text).toContain("canlı geri sayım");
     expect(text).toContain("Yayınlandı");
     expect(text).toContain("v0.3.2");
-    expect(text).not.toContain("Planlandı");
+    expect(text).toContain("v0.3.3");
+    expect(text).toContain("Planlandı");
     expect(publicUpdates.find((update) => update.version === "v0.3.2")).toMatchObject({
       status: "released",
       releasedAt: "2026-08-11",
+    });
+    expect(publicUpdates.find((update) => update.version === "v0.3.3")).toMatchObject({
+      status: "planned",
+      targetStart: "2026-08-12",
     });
   });
 

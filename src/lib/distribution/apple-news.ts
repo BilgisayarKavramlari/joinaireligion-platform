@@ -139,9 +139,11 @@ export async function publishAppleNewsArticle(
   const data = await readProviderJson(response, "appleNews");
   const nested = data.data && typeof data.data === "object" ? data.data as Record<string, unknown> : data;
   const links = nested.links && typeof nested.links === "object" ? nested.links as Record<string, unknown> : {};
+  const externalId = String(nested.id ?? "").trim();
+  if (!externalId) throw new Error("Apple News publication returned no article id");
   return {
     provider: "appleNews",
-    externalId: String(nested.id ?? ""),
+    externalId,
     externalUrl: typeof links.shareUrl === "string" ? links.shareUrl : typeof nested.shareUrl === "string" ? nested.shareUrl : null,
   };
 }

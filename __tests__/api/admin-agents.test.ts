@@ -98,13 +98,14 @@ describe("GET /api/admin/agents", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.agents).toHaveLength(17);
+    expect(body.agents).toHaveLength(18);
 
     const practiceGenerator = body.agents.find((agent: { agentName: string }) => agent.agentName === "practice-generator");
     const supportTriage = body.agents.find((agent: { agentName: string }) => agent.agentName === "support-triage");
     const revenueOrchestrator = body.agents.find((agent: { agentName: string }) => agent.agentName === "revenue-orchestrator");
     const responseScorer = body.agents.find((agent: { agentName: string }) => agent.agentName === "response-scorer");
     const localeBackfill = body.agents.find((agent: { agentName: string }) => agent.agentName === "content-locale-backfill");
+    const distributionPublisher = body.agents.find((agent: { agentName: string }) => agent.agentName === "distribution-publisher");
 
     expect(practiceGenerator.latestAgentRun.taskType).toBe("GENERATE_DAILY_BATCH");
     expect(practiceGenerator.backlogCount).toBe(3);
@@ -120,6 +121,8 @@ describe("GET /api/admin/agents", () => {
     expect(localeBackfill.mode).toBe("LIVE");
     expect(localeBackfill.nextScheduledRunAt).toEqual(expect.any(String));
     expect(localeBackfill.policy.defaultSafeBoundaries).toContain("additive writes only");
+    expect(distributionPublisher.mode).toBe("LIVE");
+    expect(distributionPublisher.policy.forbiddenActions).toContain("retry an ambiguous insert");
     expect(body.governanceRoles).toEqual(expect.arrayContaining([
       expect.objectContaining({ roleName: "EMA", autonomyLevel: 4, requiresRoutineHumanApproval: false }),
       expect.objectContaining({ roleName: "FLA", autonomyLevel: 1, requiresRoutineHumanApproval: false }),

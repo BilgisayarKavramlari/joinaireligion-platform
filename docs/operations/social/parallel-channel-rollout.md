@@ -25,6 +25,24 @@ The strongest low-interaction sequence is therefore: open search/feed health -> 
 
 Repository evidence: [account inventory](./account-inventory.md), [2026-08-08 autonomous audit](./2026-08-08-autonomous-social-audit.md), [Pinterest production activation](./pinterest-production.md), [mainstream onboarding](./mainstream-onboarding.md), and `src/lib/social/providers.ts`.
 
+### Account-free execution evidence — 2026-08-11
+
+Rechecked at approximately `2026-08-11T05:21Z`, without a signed-in browser, account creation, OAuth, payment, terms acceptance, or secret access:
+
+| Surface | External evidence | Result boundary |
+| --- | --- | --- |
+| RSS | `https://joinaireligion.com/feed.xml` returned HTTP 200 with `application/rss+xml`; XML parsed successfully | Origin feed live; no claim that a third-party reader has subscribers |
+| Atom | `https://joinaireligion.com/atom.xml` returned HTTP 200 with `application/atom+xml`; XML parsed successfully | Origin feed live |
+| JSON Feed | `https://joinaireligion.com/feed.json` returned HTTP 200 with `application/feed+json`; JSON Feed 1.1 and non-empty items were verified | Origin feed live |
+| Feed autodiscovery | The public homepage exposed RSS, podcast RSS, video RSS, Atom, and JSON Feed `<link rel="alternate">` entries | Reader discovery metadata live; Feedly/Inoreader ingestion was not independently observed |
+| Search discovery | `robots.txt`, `sitemap.xml`, and `video-sitemap.xml` returned HTTP 200 and parsed; both sitemaps were declared in `robots.txt` | Crawl hints live; indexing/ranking not inferred |
+| IndexNow ownership and notification | The public ownership-key route returned HTTP 200 with `text/plain`. The content feed exposed one genuinely new eight-locale publication at `2026-08-11T01:50:48.808Z`; those eight same-host article URLs were submitted once to the global IndexNow endpoint at approximately `2026-08-11T05:23:43Z`, which returned HTTP 200 | Ownership proof and protocol receipt verified. HTTP 200 proves URL receipt, **not** crawl, indexing, ranking, or appearance in any particular participating engine |
+| Podcast RSS | `podcast.xml` returned HTTP 200 and parsed with three episodes, `explicit=false`, reachable MP3 enclosures, a reachable 3000 x 3000 JPEG cover, transcripts, and AI-voice disclosure | Origin podcast feed live and non-empty; directory acceptance remains separate |
+| Pocket Casts | The official submission URL returned HTTP 202 with `x-amzn-waf-action: challenge` to the non-browser client | **Not submitted. No Pocket Casts share URL or listing evidence exists.** The anti-bot/CAPTCHA-class gate was not bypassed |
+| Podcast Addict | Current official search documentation still exposes a no-account RSS submission form, but direct requests to the official `/submit` URL returned a three-byte HTTP 404 response during this execution | **Not submitted. No Podcast Addict URL or indexed-listing evidence exists.** No form action, CSRF behavior, or success contract was guessed |
+
+Both directory lanes remain independent: the Pocket Casts challenge did not block Podcast Addict verification, and Podcast Addict's inaccessible direct submission response did not alter the live origin feeds. A later manual handoff must use only each official form and must save the returned public listing before changing either status to live.
+
 ## A. Mainstream and community channels, slot 4 onward
 
 Automation classes (the plain-language class is repeated in the tables):
@@ -79,13 +97,13 @@ Automation classes (the plain-language class is repeated in the tables):
 1. Keep Threads in delivery-health monitoring and remove all “setup” work except reauthorization/profile-completion exceptions.
 2. Add a daily passive health check for the three content feeds, podcast RSS, both sitemaps, robots, the IndexNow ownership file, one current enclosure, and the 3000 x 3000 cover. Record status/latency/content type without secrets.
 3. Persist IndexNow receipt evidence (`status`, URL count, timestamp) and distinguish receipt from actual indexing.
-4. Prepare, but do not externally submit, Pocket Casts and Podcast Addict packets containing the exact RSS URL, title, category, disclosure, artwork, website, owner contact, and rollback/removal contact path.
+4. Prepare Pocket Casts and Podcast Addict packets containing the exact RSS URL, title, category, disclosure, artwork, website, owner contact, and rollback/removal contact path. An account-free submission may proceed only through a directly verifiable official form; stop at a challenge, CAPTCHA, terms, email, or inaccessible form contract and never guess a POST.
 5. Keep Medium, Quora, and Reddit agents in **draft/opportunity-only** mode. They may prepare candidates but may not publish or interact.
 
 ### Lane 2 — one-time owner/provider gates
 
 1. Complete the Pinterest OAuth demonstration and Standard Access review. After approval, run one isolated public Pin and verify it logged out before enabling the provider.
-2. Submit to Pocket Casts, then Podcast Addict, one destination at a time. Record the returned public listing and verify that a later RSS episode refreshes automatically.
+2. Manually hand off the currently blocked Pocket Casts and Podcast Addict official forms, one destination at a time. Record the returned public listing and verify that a later RSS episode refreshes automatically; until then both remain not submitted.
 3. Decide whether X's current URL-post cost and prepaid-credit model justify the channel. If yes, use a strict monthly ceiling, no auto-recharge by default, and one text canary before a URL-bearing canary.
 4. Connect Apple, Spotify, and Amazon only after the feed passes the low-friction directory canary and the owner contact is confirmed.
 

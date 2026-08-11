@@ -95,10 +95,15 @@ async function publishWikiArticle(
   if (editData.error) throw new Error(`${provider} edit was rejected`);
   const edit = editData.edit && typeof editData.edit === "object" ? editData.edit as Record<string, unknown> : {};
   if (edit.result !== "Success") throw new Error(`${provider} edit did not succeed`);
+  const externalIdValue = edit.pageid ?? edit.newrevid;
+  const externalId = typeof externalIdValue === "string" || typeof externalIdValue === "number"
+    ? String(externalIdValue).trim()
+    : "";
+  if (!externalId) throw new Error(`${provider} edit returned no page or revision ID`);
   const pageUrl = new URL(apiUrl);
   pageUrl.pathname = pageUrl.pathname.replace(/\/api\.php$/, "/index.php");
   pageUrl.search = new URLSearchParams({ title }).toString();
-  return { provider, externalId: String(edit.pageid ?? edit.newrevid ?? ""), externalUrl: pageUrl.toString() };
+  return { provider, externalId, externalUrl: pageUrl.toString() };
 }
 
 export function publishMediaWikiArticle(
