@@ -22,6 +22,33 @@ export type PublicUpdate = {
  */
 export const publicUpdates: readonly PublicUpdate[] = [
   {
+    version: "v0.3.1",
+    status: "released",
+    releasedAt: "2026-08-11",
+    copy: {
+      en: {
+        title: "Faster multilingual distribution with the same safety gates",
+        summary: "A distribution release that lets administrators accelerate the existing reviewed content-to-social chain without weakening its limits.",
+        highlights: [
+          "One bounded action can run content drafting, independent publication review, social composition, and configured-provider delivery",
+          "Every article keeps separate English, Turkish, Spanish, German, French, Arabic, Russian, and Simplified Chinese variants",
+          "Daily publication limits, duplicate protection, provider switches, delivery logs, and no-engagement boundaries remain active",
+          "Current autonomous destinations and setup-required channels are documented as separate queues",
+        ],
+      },
+      tr: {
+        title: "Aynı güvenlik kontrolleriyle daha hızlı çok dilli dağıtım",
+        summary: "Mevcut incelenmiş içerikten sosyal kanallara uzanan zinciri sınırları zayıflatmadan hızlandıran dağıtım sürümü.",
+        highlights: [
+          "Tek bir sınırlı işlem; içerik taslağı, bağımsız yayın incelemesi, sosyal paketleme ve yapılandırılmış kanallara teslim adımlarını çalıştırabiliyor",
+          "Her yazı İngilizce, Türkçe, İspanyolca, Almanca, Fransızca, Arapça, Rusça ve Basitleştirilmiş Çince ayrı sürümlerini koruyor",
+          "Günlük yayın limiti, tekrar koruması, kanal anahtarları, teslimat kayıtları ve etkileşimsizlik sınırları aynen sürüyor",
+          "Müdahalesiz hedefler ile kurulum gerektiren kanallar ayrı kuyruklar olarak belgelendi",
+        ],
+      },
+    },
+  },
+  {
     version: "v0.3.0",
     status: "released",
     releasedAt: "2026-07-31",
