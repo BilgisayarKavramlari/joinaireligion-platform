@@ -36,8 +36,16 @@ const report = {
   endpoint: "https://api.x.com/2/tweets",
   allowedAction: "create_text_post_only",
   prohibitedActions: ["reply", "direct_message", "like", "follow", "repost"],
+  ownerCanary: {
+    ready: false,
+    executionPathImplemented: false,
+    scheduleSwitchMustRemainOff: true,
+    contentRule: "url_free_text_only",
+    reason: "owner_triggered_isolated_canary_path_not_implemented",
+  },
   warnings,
 };
 
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (process.argv.includes("--require-ready") && !ready) process.exitCode = 1;
+if (process.argv.includes("--require-owner-canary-ready")) process.exitCode = 1;

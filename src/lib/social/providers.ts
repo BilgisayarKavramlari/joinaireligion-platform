@@ -5,6 +5,7 @@ export type SocialProviderName = "mastodon" | "x" | "linkedin" | "facebook" | "i
 export const SOCIAL_LOCALES = ["en", "tr", "es", "de", "fr", "ar", "ru", "zh"] as const;
 export type SocialLocale = (typeof SOCIAL_LOCALES)[number];
 export const SOCIAL_LANGUAGE_POLICY_VERSION = "v4";
+export const LINKEDIN_ORGANIZATION_AUTHOR_URN = "urn:li:organization:143125933";
 
 type LocaleWeight = { locale: SocialLocale; weight: number };
 
@@ -95,6 +96,62 @@ export type SocialPublicationResult = {
   externalUrl: string | null;
 };
 
+export type NonIdempotentSocialProvider = "x" | "linkedin" | "threads" | "pinterest";
+
+/**
+ * These providers do not accept our idempotency key for create/publish writes.
+ * A network failure or unusable success response after dispatch may therefore
+ * mean that the write succeeded. The publisher must persist this as terminal
+ * ambiguity and require provider-side reconciliation instead of retrying.
+ */
+export class SocialPublicationOutcomeAmbiguousError extends Error {
+  readonly provider: NonIdempotentSocialProvider;
+  readonly stage: string;
+
+  constructor(provider: NonIdempotentSocialProvider, stage: string) {
+    super(`${provider} ${stage} outcome is ambiguous; manual reconciliation is required`);
+    this.name = "SocialPublicationOutcomeAmbiguousError";
+    this.provider = provider;
+    this.stage = stage;
+  }
+}
+
+export function isSocialPublicationOutcomeAmbiguous(
+  error: unknown,
+): error is SocialPublicationOutcomeAmbiguousError {
+  return error instanceof SocialPublicationOutcomeAmbiguousError;
+}
+
+async function nonIdempotentSocialWrite(
+  provider: NonIdempotentSocialProvider,
+  stage: string,
+  input: string | URL,
+  init: RequestInit,
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch {
+    throw new SocialPublicationOutcomeAmbiguousError(provider, stage);
+  }
+  if (response.status >= 500) {
+    throw new SocialPublicationOutcomeAmbiguousError(provider, stage);
+  }
+  return response;
+}
+
+async function nonIdempotentWriteJson(
+  provider: NonIdempotentSocialProvider,
+  stage: string,
+  response: Response,
+): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new SocialPublicationOutcomeAmbiguousError(provider, stage);
+  }
+}
+
 function parseActivationTimestamp(value: string | undefined): Date | null {
   if (!value) return null;
   const timestamp = Date.parse(value);
@@ -151,6 +208,19 @@ function normalizeMetaGraphVersion(value: string | undefined): string {
 
 function isSocialLocale(value: string): value is SocialLocale {
   return (SOCIAL_LOCALES as readonly string[]).includes(value);
+}
+
+function isLinkedInVersion(value: string | undefined): value is string {
+  if (!value || !/^20\d{4}$/.test(value)) return false;
+  const month = Number(value.slice(4));
+  return month >= 1 && month <= 12;
+}
+
+function isLinkedInPublishingConfigured(): boolean {
+  return env.LINKEDIN_PUBLISHING_ENABLED === "true"
+    && Boolean(env.LINKEDIN_ACCESS_TOKEN)
+    && env.LINKEDIN_AUTHOR_URN === LINKEDIN_ORGANIZATION_AUTHOR_URN
+    && isLinkedInVersion(env.LINKEDIN_VERSION);
 }
 
 /**
@@ -243,12 +313,7 @@ export function getConfiguredSocialProviders(): SocialProviderName[] {
     env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_TOKEN_SECRET,
   );
   if (env.X_PUBLISHING_ENABLED === "true" && (env.X_USER_ACCESS_TOKEN || xOAuth1Configured)) providers.push("x");
-  if (
-    env.LINKEDIN_PUBLISHING_ENABLED === "true"
-    && env.LINKEDIN_ACCESS_TOKEN
-    && env.LINKEDIN_AUTHOR_URN
-    && env.LINKEDIN_VERSION
-  ) providers.push("linkedin");
+  if (isLinkedInPublishingConfigured()) providers.push("linkedin");
   const metaConfigured = Boolean(env.META_GRAPH_VERSION && env.META_PAGE_ACCESS_TOKEN);
   if (env.FACEBOOK_PUBLISHING_ENABLED === "true" && metaConfigured && env.META_PAGE_ID) providers.push("facebook");
   if (env.INSTAGRAM_PUBLISHING_ENABLED === "true" && metaConfigured && env.INSTAGRAM_USER_ID) providers.push("instagram");
@@ -387,38 +452,37 @@ async function publishX(text: string): Promise<SocialPublicationResult> {
   if (env.X_PUBLISHING_ENABLED !== "true" || !authorization) {
     throw new Error("X publication is not fully configured");
   }
-  const response = await fetch(endpoint, {
+  const response = await nonIdempotentSocialWrite("x", "post_create", endpoint, {
     method: "POST",
     headers: { Authorization: authorization, "Content-Type": "application/json" },
-    body: JSON.stringify({ text: text.slice(0, 280), made_with_ai: true }),
+    // X defines `made_with_ai` for AI-generated media. This adapter is text-only,
+    // so it must not assert a media disclosure that does not apply.
+    body: JSON.stringify({ text: text.slice(0, 280) }),
     signal: timeoutSignal(),
   });
   if (!response.ok) throw new Error(`X publication failed with HTTP ${response.status}`);
-  const payload = await response.json() as { data?: { id?: string } };
+  const payload = await nonIdempotentWriteJson("x", "post_create", response) as { data?: { id?: string } };
   const externalId = payload.data?.id;
-  if (!externalId) throw new Error("X publication returned no post id");
+  if (!externalId) throw new SocialPublicationOutcomeAmbiguousError("x", "post_create");
   return { provider: "x", externalId, externalUrl: `https://x.com/i/web/status/${externalId}` };
 }
 
 async function publishLinkedIn(text: string): Promise<SocialPublicationResult> {
-  if (
-    env.LINKEDIN_PUBLISHING_ENABLED !== "true"
-    || !env.LINKEDIN_ACCESS_TOKEN
-    || !env.LINKEDIN_AUTHOR_URN
-    || !env.LINKEDIN_VERSION
-  ) {
+  const accessToken = env.LINKEDIN_ACCESS_TOKEN;
+  const version = env.LINKEDIN_VERSION;
+  if (!isLinkedInPublishingConfigured() || !accessToken || !isLinkedInVersion(version)) {
     throw new Error("LinkedIn publication is not fully configured");
   }
-  const response = await fetch("https://api.linkedin.com/rest/posts", {
+  const response = await nonIdempotentSocialWrite("linkedin", "post_create", "https://api.linkedin.com/rest/posts", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${env.LINKEDIN_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      "Linkedin-Version": env.LINKEDIN_VERSION,
+      "Linkedin-Version": version,
       "X-Restli-Protocol-Version": "2.0.0",
     },
     body: JSON.stringify({
-      author: env.LINKEDIN_AUTHOR_URN,
+      author: LINKEDIN_ORGANIZATION_AUTHOR_URN,
       commentary: text.slice(0, 2800),
       visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
@@ -429,7 +493,7 @@ async function publishLinkedIn(text: string): Promise<SocialPublicationResult> {
   });
   if (!response.ok) throw new Error(`LinkedIn publication failed with HTTP ${response.status}`);
   const externalId = response.headers.get("x-restli-id");
-  if (!externalId) throw new Error("LinkedIn publication returned no post id");
+  if (!externalId) throw new SocialPublicationOutcomeAmbiguousError("linkedin", "post_create");
   return { provider: "linkedin", externalId, externalUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(externalId)}/` };
 }
 
@@ -443,15 +507,15 @@ async function publishThreads(text: string): Promise<SocialPublicationResult> {
     text: Array.from(text).slice(0, 500).join(""),
     access_token: env.THREADS_ACCESS_TOKEN,
   });
-  const createResponse = await fetch("https://graph.threads.net/me/threads", {
+  const createResponse = await nonIdempotentSocialWrite("threads", "container_create", "https://graph.threads.net/me/threads", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: createBody,
     signal: timeoutSignal(),
   });
   if (!createResponse.ok) throw new Error(`Threads container creation failed with HTTP ${createResponse.status}`);
-  const created = await createResponse.json() as { id?: string };
-  if (!created.id) throw new Error("Threads container creation returned no id");
+  const created = await nonIdempotentWriteJson("threads", "container_create", createResponse) as { id?: string };
+  if (!created.id) throw new SocialPublicationOutcomeAmbiguousError("threads", "container_create");
 
   let ready = false;
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -476,23 +540,30 @@ async function publishThreads(text: string): Promise<SocialPublicationResult> {
     creation_id: created.id,
     access_token: env.THREADS_ACCESS_TOKEN,
   });
-  const publishResponse = await fetch("https://graph.threads.net/me/threads_publish", {
+  const publishResponse = await nonIdempotentSocialWrite("threads", "post_publish", "https://graph.threads.net/me/threads_publish", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: publishBody,
     signal: timeoutSignal(),
   });
   if (!publishResponse.ok) throw new Error(`Threads publication failed with HTTP ${publishResponse.status}`);
-  const published = await publishResponse.json() as { id?: string };
-  if (!published.id) throw new Error("Threads publication returned no post id");
+  const published = await nonIdempotentWriteJson("threads", "post_publish", publishResponse) as { id?: string };
+  if (!published.id) throw new SocialPublicationOutcomeAmbiguousError("threads", "post_publish");
 
   const permalinkUrl = new URL(`https://graph.threads.net/${encodeURIComponent(published.id)}`);
   permalinkUrl.searchParams.set("fields", "id,permalink");
   permalinkUrl.searchParams.set("access_token", env.THREADS_ACCESS_TOKEN);
-  const permalinkResponse = await fetch(permalinkUrl, { signal: timeoutSignal(), cache: "no-store" });
-  const permalink = permalinkResponse.ok
-    ? (await permalinkResponse.json() as { permalink?: string }).permalink || null
-    : null;
+  let permalink: string | null = null;
+  try {
+    const permalinkResponse = await fetch(permalinkUrl, { signal: timeoutSignal(), cache: "no-store" });
+    permalink = permalinkResponse.ok
+      ? (await permalinkResponse.json() as { permalink?: string }).permalink || null
+      : null;
+  } catch {
+    // The provider ID already proves publication. A permalink lookup failure
+    // must not turn a known success into a second publish attempt.
+    permalink = null;
+  }
   return { provider: "threads", externalId: published.id, externalUrl: permalink };
 }
 
@@ -514,7 +585,7 @@ async function publishPinterest(text: string): Promise<SocialPublicationResult> 
   const description = Array.from(copyLines.slice(1).join(" ") || title).slice(0, 800).join("");
   const imageUrl = socialCardUrl(contentUrl, "pinterest");
   await ensureSocialCardReady(imageUrl);
-  const response = await fetch("https://api.pinterest.com/v5/pins", {
+  const response = await nonIdempotentSocialWrite("pinterest", "pin_create", "https://api.pinterest.com/v5/pins", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.PINTEREST_ACCESS_TOKEN}`,
@@ -534,8 +605,8 @@ async function publishPinterest(text: string): Promise<SocialPublicationResult> 
     signal: timeoutSignal(),
   });
   if (!response.ok) throw new Error(`Pinterest publication failed with HTTP ${response.status}`);
-  const payload = await response.json() as { id?: string };
-  if (!payload.id) throw new Error("Pinterest publication returned no Pin id");
+  const payload = await nonIdempotentWriteJson("pinterest", "pin_create", response) as { id?: string };
+  if (!payload.id) throw new SocialPublicationOutcomeAmbiguousError("pinterest", "pin_create");
   return {
     provider: "pinterest",
     externalId: payload.id,

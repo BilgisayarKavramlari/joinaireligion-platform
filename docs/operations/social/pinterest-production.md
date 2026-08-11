@@ -31,9 +31,9 @@ Activation order:
 
 1. Keep permanent publishing `false` while obtaining OAuth credentials and the board ID.
 2. With Trial Access, create only the creator-visible demonstration Pin required for Standard review.
-3. After Standard Access, run one isolated English public canary while the scheduled switch remains off.
+3. After Standard Access, run one isolated English public canary only through a dedicated owner-triggered path while the scheduled switch remains off. The current scheduled adapter is not that path because it requires `PINTEREST_PUBLISHING_ENABLED=true`; do not toggle it merely to force a canary or it may race the scheduler.
 4. Verify the Pin ID, public URL in a logged-out session, English copy, 1000×1500 image, alt text, source link, and target board.
-5. Audit READY social-package depth. Set a new current `PINTEREST_ACTIVATED_AT`, set the provider switch to `true`, and recreate the app container.
+5. Reconcile any network/5xx or missing-Pin-ID outcome as terminal ambiguity before another attempt. Then audit READY social-package depth, set a new current `PINTEREST_ACTIVATED_AT`, set the provider switch to `true`, and recreate the app container.
 6. Confirm earlier READY packages are recorded as activation skips and that only post-watermark packages create Pins.
 
 ## Continuous token rotation

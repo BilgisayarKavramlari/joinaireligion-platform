@@ -19,6 +19,13 @@ function runPreflight(extraEnv: Record<string, string> = {}, requireReady = fals
       requiredOAuth2Scopes: string[];
       allowedAction: string;
       prohibitedActions: string[];
+      ownerCanary: {
+        ready: boolean;
+        executionPathImplemented: boolean;
+        scheduleSwitchMustRemainOff: boolean;
+        contentRule: string;
+        reason: string;
+      };
       warnings: string[];
     },
   };
@@ -79,5 +86,30 @@ describe("X publishing configuration preflight", () => {
       "oauth2_refresh_is_not_implemented_use_oauth1_or_add_refresh_rotation_before_unattended_runtime",
     );
     expect(JSON.stringify(result.report)).not.toContain("fake-user-token");
+  });
+
+  it("keeps the URL-free owner canary unavailable to the scheduled publisher", () => {
+    const result = spawnSync(process.execPath, [script, "--require-owner-canary-ready"], {
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH || "",
+        X_API_KEY: "fake-api-key",
+        X_API_SECRET: "fake-api-secret",
+        X_ACCESS_TOKEN: "fake-access-token",
+        X_ACCESS_TOKEN_SECRET: "fake-access-token-secret",
+        X_PUBLISHING_ENABLED: "false",
+      },
+    });
+    const report = JSON.parse(result.stdout);
+
+    expect(result.status).toBe(1);
+    expect(report.ownerCanary).toEqual({
+      ready: false,
+      executionPathImplemented: false,
+      scheduleSwitchMustRemainOff: true,
+      contentRule: "url_free_text_only",
+      reason: "owner_triggered_isolated_canary_path_not_implemented",
+    });
+    expect(JSON.stringify(report)).not.toContain("fake-api-secret");
   });
 });

@@ -1,6 +1,6 @@
 # Reddit reputation-first launch plan
 
-Status: planning complete; no account or community mutation performed
+Status: manual reputation plan prepared; no account, community, API application, or public contribution verified
 
 ## Objective
 
@@ -13,12 +13,12 @@ Build a credible, non-promotional presence around responsible AI, reflective lea
 - Create one transparent brand account manually; do not automate account creation.
 - Complete the profile with the platform disclosure and website.
 - Identify 8-12 candidate communities.
-- Record each community's rules for self-promotion, AI-generated content, links, surveys, religion/spirituality, and research recruitment.
+- Record each community's current rule URL and check date for self-promotion, AI-generated content, links, surveys, religion/spirituality, and research recruitment. Moderator-specific rules outrank this plan.
 - Publish no links.
 
 ### Days 8-14: native contribution
 
-- Contribute 4-6 genuinely useful, link-free comments or answers.
+- Contribute only when a real discussion is a strong fit; cap the pilot at five manually reviewed, link-free comments or answers rather than imposing a quota.
 - Focus on questions where the project has a defensible educational contribution.
 - Disclose AI assistance when a community requires it.
 - Do not reuse substantially identical text across communities.
@@ -38,8 +38,8 @@ Build a credible, non-promotional presence around responsible AI, reflective lea
 
 ## Agent responsibilities
 
-- Discover and score candidate discussions.
-- Read and archive current community rules before drafting.
+- Prepare search terms and a scoring rubric; do not scrape Reddit or use unapproved API access to discover discussions.
+- A human opens the candidate discussion and its community rules. The agent may then prepare a community-specific draft from those supplied public pages.
 - Produce community-specific native drafts and an affiliation disclosure.
 - Flag sensitive, medical, crisis, political, legal, or hostile discussions for no-post/manual review.
 - Never send unsolicited DMs, mass replies, automated votes, follows, or repeated promotional links.
@@ -49,6 +49,7 @@ Build a credible, non-promotional presence around responsible AI, reflective lea
 - Terms acceptance, CAPTCHA/2FA, and account recovery.
 - Final submission of the first five public contributions.
 - Any moderator conversation or appeal.
+- Any API, Devvit app, or OAuth approval. No application is currently needed for this manual pilot.
 
 ## Initial success gate
 
@@ -56,3 +57,17 @@ Build a credible, non-promotional presence around responsible AI, reflective lea
 - No moderator warning or spam removal.
 - At least two genuine replies indicate that the contribution was useful.
 - Only then may the channel enter a weekly opportunity-review cadence.
+
+## API and automation boundary verified 2026-08-11
+
+- Reddit defines repeated or unsolicited mass engagement as spam whether it is automated or manual. It specifically flags repetitive exposure posts, promotional bots, link farming, multiple-account amplification, and generative tools that facilitate spam.
+- Data API access requires Reddit approval and OAuth, and use remains subject to the Responsible Builder Policy, Developer Terms, and Data API Terms. Do not use legacy unauthenticated endpoints or scraping as a substitute.
+- Devvit user actions require an explicit manual user action for each post, comment, or subscription; approved apps must not surprise users or combine consent with another action. That model does not justify an unattended Join AI Religion poster.
+- No general Reddit publishing adapter, account farm, or discussion-harvesting agent should be built. Devvit should be reconsidered only for a concrete utility inside a community the operator legitimately moderates.
+
+## Official references checked 2026-08-11
+
+- [Reddit Spam policy](https://support.reddithelp.com/hc/en-us/articles/360043504051-Spam)
+- [Developer Platform and accessing Reddit data](https://support.reddithelp.com/hc/en-us/articles/14945211791892-Developer-Platform-Accessing-Reddit-Data)
+- [Reddit Data API Wiki](https://support.reddithelp.com/hc/en-us/articles/16160319875092-Reddit-Data-API-Wiki)
+- [Devvit user actions](https://developers.reddit.com/docs/capabilities/server/userActions)
