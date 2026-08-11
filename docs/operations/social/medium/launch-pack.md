@@ -1,10 +1,22 @@
 # Medium launch pack
 
-Status: canonical site article verified public on 2026-08-11; import package prepared; no Medium account or published Medium story verified
+Status: public `@joinaireligion` profile and first story verified on 2026-08-11; manual remediation remains before any second story
 
 Canonical source and Medium import URL:
 
 `https://joinaireligion.com/content/en/can-ai-support-meaning-making-without-becoming-a-spiritual-authority-2026-07-29`
+
+Public Medium story:
+
+`https://medium.com/@joinaireligion/can-ai-support-meaning-making-responsibly-81fab2e98d0d`
+
+## Live result audit — 2026-08-11 20:54 UTC
+
+- The public profile and story are reachable. The story is dated 2026-07-30 and links its “Originally published at” attribution to the exact owned source article above.
+- The live story's AI-assistance disclosure appears near the end, not within the first two paragraphs as required by Medium's current AI-content guidance.
+- The live tag is misspelled `Sprituality`; correct it to `Spirituality` during the same human edit.
+- The public body/RSS evidence does not expose the page's HTML canonical element. Do not report canonical verification until a human checks page source and confirms the exact source URL.
+- This is a manually published result, not evidence of an API connection or authorization for unattended publishing.
 
 ## Profile
 
@@ -165,16 +177,15 @@ Explore the multilingual reflection platform at [Join AI Religion](https://joina
 - SEO title: `Can AI Support Meaning-Making Responsibly?`
 - SEO description: `A practical framework for using generative AI as a mirror, map, and reflection tool without treating it as a spiritual authority.`
 
-## Publication checklist
+## Existing-story remediation checklist
 
-1. Sign in to Medium with the dedicated Join AI Religion Google account.
-2. Create or confirm the `Join AI Religion` profile and apply the profile copy above.
-3. Open Medium's `Import a story` flow and enter the canonical source URL above.
-4. Confirm that Medium recognized the canonical source and imported the headings, lists, and links. Insert or move the AI disclosure so it appears within the first two paragraphs. If the import fails, paste the owned article manually and set the original URL under Advanced Settings before publication.
-5. Upload `assets/ai-meaning-making-cover.png` as the cover if the importer does not carry it across. Alt text: `An abstract human figure in quiet reflection beside a luminous geometric network, separated by an open space.` Caption the image as AI-generated if that is how it was created; do not guess its provenance.
-6. Add the five suggested tags.
-7. Human-review the full story, every source, the disclosure placement, desktop/mobile preview, and the canonical field.
-8. Publish once through Medium's user interface. Verify the public story and its canonical element. Do not create duplicate copies or automated interactions.
+1. Sign in to the owner-controlled Medium account and open the exact public story above in edit mode. Do not import or create a duplicate.
+2. Insert or move the AI disclosure so it appears within the first two paragraphs.
+3. Correct the live `Sprituality` tag to `Spirituality`; retain only relevant tags.
+4. In Advanced Settings, confirm that “This story was originally published elsewhere” points to the exact canonical source URL above, not only the site homepage.
+5. Confirm the cover's provenance. Keep the existing image only if its rights are documented; caption it as AI-generated if that is how it was created, and retain the alt text: `An abstract human figure in quiet reflection beside a luminous geometric network, separated by an open space.`
+6. Human-review the full story, every source, disclosure placement, desktop/mobile preview, and canonical field.
+7. Save the existing story once. Verify the public text, corrected tag, source attribution, and page-source canonical element. Do not create duplicate copies or automated interactions.
 
 ## Automation boundary verified 2026-08-11
 
