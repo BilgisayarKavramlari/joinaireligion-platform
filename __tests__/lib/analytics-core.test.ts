@@ -66,4 +66,17 @@ describe("privacy-preserving first-party analytics", () => {
     }], from, to);
     expect(summary).toMatchObject({ sessions: 0, pageViews: 0, excludedVerificationEvents: 1 });
   });
+
+  it("does not report missing country data as a country group", () => {
+    const rows = Array.from({ length: 5 }, (_, index) => ({
+      eventName: "analytics_page_view",
+      anonymousSessionId: `countryless-${index}`,
+      path: "/",
+      metadata: { source: "direct", locale: "en" },
+      createdAt: new Date(`2026-08-10T0${index + 1}:00:00Z`),
+    }));
+    const summary = aggregateTrafficRows(rows, from, to);
+    expect(summary.sessions).toBe(5);
+    expect(summary.topCountries).toEqual([]);
+  });
 });

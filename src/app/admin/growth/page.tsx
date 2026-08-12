@@ -11,6 +11,67 @@ function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+type ProviderSummary = {
+  provider: string;
+  posts: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  deltaLikes: number;
+  deltaComments: number;
+  deltaShares: number;
+  collected: number;
+  unavailable: number;
+  failed: number;
+  reasons: string[];
+};
+
+function safeCount(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : 0;
+}
+
+function summarizeProviders(items: Array<Record<string, unknown>>): ProviderSummary[] {
+  const providers = new Map<string, ProviderSummary>();
+  for (const item of items) {
+    const provider = String(item.provider || "unknown");
+    const current = providers.get(provider) || {
+      provider,
+      posts: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      deltaLikes: 0,
+      deltaComments: 0,
+      deltaShares: 0,
+      collected: 0,
+      unavailable: 0,
+      failed: 0,
+      reasons: [],
+    };
+    const metrics = record(item.metrics);
+    const metricDelta = record(item.delta);
+    const status = String(item.status || "").toUpperCase();
+    const reason = typeof item.reason === "string" ? item.reason.trim().slice(0, 120) : "";
+    current.posts += 1;
+    current.likes += safeCount(metrics.likes);
+    current.comments += safeCount(metrics.comments);
+    current.shares += safeCount(metrics.shares);
+    current.deltaLikes += safeCount(metricDelta.likes);
+    current.deltaComments += safeCount(metricDelta.comments);
+    current.deltaShares += safeCount(metricDelta.shares);
+    if (status === "COLLECTED") current.collected += 1;
+    if (status === "UNAVAILABLE") current.unavailable += 1;
+    if (status === "FAILED") current.failed += 1;
+    if (reason && !current.reasons.includes(reason)) current.reasons.push(reason);
+    providers.set(provider, current);
+  }
+  return [...providers.values()].sort((left, right) => (
+    right.likes + right.comments + right.shares - left.likes - left.comments - left.shares
+      || left.provider.localeCompare(right.provider)
+  ));
+}
+
 function StatCard({ label, value, note }: { label: string; value: string | number; note?: string }) {
   return (
     <section style={{ padding: "1rem", border: "1px solid rgba(201,162,39,.16)", borderRadius: ".8rem", background: "rgba(255,255,255,.025)" }}>
@@ -61,6 +122,7 @@ export default async function AdminGrowthPage() {
   const totals = record(social.totals);
   const delta = record(social.delta);
   const items = Array.isArray(social.items) ? social.items.map(record) : [];
+  const providerSummaries = summarizeProviders(items);
   const emailDelivery = record(record(latestReport?.payload).emailDelivery);
 
   return (
@@ -77,7 +139,8 @@ export default async function AdminGrowthPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: ".8rem", marginBottom: "1rem" }}>
           <StatCard label="Sessions · 24h" value={traffic24h.sessions} note={`${traffic7d.sessions} in 7 days`} />
           <StatCard label="Page views · 24h" value={traffic24h.pageViews} note={`${traffic7d.pageViews} in 7 days`} />
-          <StatCard label="Link clicks · 24h" value={traffic24h.linkClicks} note={`${traffic24h.registrationClicks} registration clicks`} />
+          <StatCard label="Link clicks · 24h" value={traffic24h.linkClicks} note={`${traffic7d.linkClicks} in 7 days`} />
+          <StatCard label="Registration clicks · 24h" value={traffic24h.registrationClicks} note={`${traffic7d.registrationClicks} in 7 days`} />
           <StatCard label="Social likes" value={Number(totals.likes || 0)} note={`+${Number(delta.likes || 0)} since prior report`} />
           <StatCard label="Comments" value={Number(totals.comments || 0)} note={`+${Number(delta.comments || 0)} since prior report`} />
           <StatCard label="Shares" value={Number(totals.shares || 0)} note={`+${Number(delta.shares || 0)} since prior report`} />
@@ -95,19 +158,42 @@ export default async function AdminGrowthPage() {
         </div>
 
         <section style={{ marginBottom: "1.2rem", padding: "1rem", border: "1px solid rgba(201,162,39,.14)", borderRadius: ".8rem", background: "rgba(255,255,255,.02)", overflowX: "auto" }}>
+          <h2 style={{ color: "#f0d47a", fontSize: "1rem", marginTop: 0 }}>Owned social engagement by provider</h2>
+          {providerSummaries.length === 0 ? <p style={{ color: "rgba(237,232,220,.4)", fontSize: ".78rem" }}>The first scheduled daily report will populate this table.</p> : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".75rem" }}>
+              <thead><tr>{["Provider", "Posts", "Likes (+new)", "Comments (+new)", "Shares (+new)", "Collected", "Unavailable", "Failed", "Reason"].map((label) => <th key={label} style={{ textAlign: "left", padding: ".5rem", color: "rgba(237,232,220,.4)" }}>{label}</th>)}</tr></thead>
+              <tbody>{providerSummaries.map((provider) => <tr key={provider.provider} style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
+                <td style={{ padding: ".55rem" }}>{provider.provider}</td>
+                <td style={{ padding: ".55rem" }}>{provider.posts}</td>
+                <td style={{ padding: ".55rem" }}>{provider.likes} (+{provider.deltaLikes})</td>
+                <td style={{ padding: ".55rem" }}>{provider.comments} (+{provider.deltaComments})</td>
+                <td style={{ padding: ".55rem" }}>{provider.shares} (+{provider.deltaShares})</td>
+                <td style={{ padding: ".55rem" }}>{provider.collected}</td>
+                <td style={{ padding: ".55rem" }}>{provider.unavailable}</td>
+                <td style={{ padding: ".55rem" }}>{provider.failed}</td>
+                <td style={{ padding: ".55rem", minWidth: 180, overflowWrap: "anywhere" }}>{provider.reasons.join(", ") || "—"}</td>
+              </tr>)}</tbody>
+            </table>
+          )}
+        </section>
+
+        <section style={{ marginBottom: "1.2rem", padding: "1rem", border: "1px solid rgba(201,162,39,.14)", borderRadius: ".8rem", background: "rgba(255,255,255,.02)", overflowX: "auto" }}>
           <h2 style={{ color: "#f0d47a", fontSize: "1rem", marginTop: 0 }}>Owned social post engagement</h2>
           {items.length === 0 ? <p style={{ color: "rgba(237,232,220,.4)", fontSize: ".78rem" }}>The first scheduled daily report will populate this table.</p> : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".75rem" }}>
-              <thead><tr>{["Provider", "Locale", "Likes", "Comments", "Shares", "Status", "Published"].map((label) => <th key={label} style={{ textAlign: "left", padding: ".5rem", color: "rgba(237,232,220,.4)" }}>{label}</th>)}</tr></thead>
+              <thead><tr>{["Provider", "Locale", "Likes", "Comments", "Shares", "New L/C/S", "Status", "Reason", "Published"].map((label) => <th key={label} style={{ textAlign: "left", padding: ".5rem", color: "rgba(237,232,220,.4)" }}>{label}</th>)}</tr></thead>
               <tbody>{items.slice(0, 30).map((item, index) => {
                 const metrics = record(item.metrics);
+                const metricDelta = record(item.delta);
                 return <tr key={`${String(item.provider)}-${String(item.externalId)}-${index}`} style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
                   <td style={{ padding: ".55rem" }}>{String(item.provider || "—")}</td>
                   <td style={{ padding: ".55rem" }}>{String(item.locale || "—")}</td>
                   <td style={{ padding: ".55rem" }}>{Number(metrics.likes || 0)}</td>
                   <td style={{ padding: ".55rem" }}>{Number(metrics.comments || 0)}</td>
                   <td style={{ padding: ".55rem" }}>{Number(metrics.shares || 0)}</td>
+                  <td style={{ padding: ".55rem" }}>+{safeCount(metricDelta.likes)}/+{safeCount(metricDelta.comments)}/+{safeCount(metricDelta.shares)}</td>
                   <td style={{ padding: ".55rem" }}>{String(item.status || "—")}</td>
+                  <td style={{ padding: ".55rem", minWidth: 180, overflowWrap: "anywhere" }}>{String(item.reason || "—")}</td>
                   <td style={{ padding: ".55rem" }}>{String(item.publishedAt || "").slice(0, 10) || "—"}</td>
                 </tr>;
               })}</tbody>

@@ -148,7 +148,10 @@ export function aggregateTrafficRows(
     topLandingPages: ranked(landingRows.map((row) => row.path || "/")),
     topPages: ranked(pageViews.map((row) => row.path || "/")),
     topCountries: ranked(
-      landingRows.map((row) => normalizeCountryCode(record(row.metadata).country) || "unknown"),
+      landingRows.flatMap((row) => {
+        const country = normalizeCountryCode(record(row.metadata).country);
+        return country ? [country] : [];
+      }),
       12,
       options.countryMinimum ?? 5,
     ),
