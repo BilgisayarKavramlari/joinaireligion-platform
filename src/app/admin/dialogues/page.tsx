@@ -23,13 +23,19 @@ export default async function DialogueMetricsPage() {
     }),
   ]);
   const outcomes = new Map<string, number>();
+  const providerFailures = new Map<string, number>();
   let tokens = 0;
   let latency = 0;
   let latencyRows = 0;
   let privacyViolations = 0;
   for (const row of rows) {
-    const outcome = String(record(row.safetyFlags).outcome || "legacy_or_unknown");
+    const safety = record(row.safetyFlags);
+    const outcome = String(safety.outcome || "legacy_or_unknown");
     outcomes.set(outcome, (outcomes.get(outcome) || 0) + 1);
+    if (outcome === "provider_failed" && typeof safety.providerFailureCode === "string") {
+      const failure = safety.providerFailureCode.slice(0, 160);
+      providerFailures.set(failure, (providerFailures.get(failure) || 0) + 1);
+    }
     tokens += row.totalTokens || 0;
     if (row.latencyMs !== null) { latency += row.latencyMs; latencyRows += 1; }
     if (row.userPrompt !== "[not retained]" || row.assistantResponse !== null) privacyViolations += 1;
@@ -54,6 +60,10 @@ export default async function DialogueMetricsPage() {
           {[...outcomes.entries()].sort((a, b) => b[1] - a[1]).map(([outcome, count]) => <div key={outcome} style={{ display: "flex", justifyContent: "space-between", padding: ".5rem 0", borderTop: "1px solid rgba(255,255,255,.05)" }}><span>{outcome}</span><strong>{count}</strong></div>)}
           {outcomes.size === 0 && <p style={{ color: "rgba(237,232,220,.45)" }}>No Reflection Companion use yet.</p>}
         </section>
+        {providerFailures.size > 0 && <section style={{ marginTop: ".8rem", padding: "1rem", border: "1px solid rgba(201,162,39,.16)", borderRadius: ".8rem" }}>
+          <h2 style={{ color: "#f0d47a", fontSize: "1rem" }}>Provider availability codes · 7 days</h2>
+          {[...providerFailures.entries()].sort((a, b) => b[1] - a[1]).map(([failure, count]) => <div key={failure} style={{ display: "flex", justifyContent: "space-between", padding: ".5rem 0", borderTop: "1px solid rgba(255,255,255,.05)" }}><span>{failure}</span><strong>{count}</strong></div>)}
+        </section>}
       </div>
     </main>
   );
