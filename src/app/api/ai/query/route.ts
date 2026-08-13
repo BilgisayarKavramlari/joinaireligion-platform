@@ -37,6 +37,11 @@ type ResponsesApiResponse = {
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
 };
 
+type ChatCompletionsApiResponse = {
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+};
+
 const BOT_PATTERN = /bot|crawler|spider|slurp|headless|lighthouse|preview/i;
 
 function noStoreJson(body: unknown, status = 200, headers?: HeadersInit) {
@@ -200,7 +205,7 @@ export async function POST(request: NextRequest) {
   }
 
   const model = env.AI_REFLECTION_MODEL || "gpt-5-mini";
-  const inputModeration = await moderateReflectionTextResilient(apiKey, untrustedText, model);
+  const inputModeration = await moderateReflectionTextResilient(apiKey, untrustedText, "gpt-4o-mini");
   if (!inputModeration.ok) {
     await recordReflectionOutcome({
       userId: user.id, conversationId: body.conversationId, mode: body.mode,
@@ -224,6 +229,7 @@ export async function POST(request: NextRequest) {
   const initiate = entitlements.plan === "initiate" && entitlements.subscriptionActive;
   const startedAt = Date.now();
   let providerPayload: ResponsesApiResponse | null = null;
+  let usedModel = model;
   try {
     const providerResponse = await fetchJsonWithTimeout("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -243,6 +249,46 @@ export async function POST(request: NextRequest) {
       }),
     });
     if (providerResponse.ok) providerPayload = await providerResponse.json() as ResponsesApiResponse;
+
+    if (!providerPayload || providerPayload.status !== "completed") {
+      const fallbackResponse = await fetchJsonWithTimeout("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: buildReflectionInstructions(body.mode, user.preferredLocale, !initiate) },
+            { role: "user", content: buildUntrustedReflectionInput({ prompt: body.prompt, history: body.history, lesson: lesson?.lesson || null }) },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: REFLECTION_RESPONSE_FORMAT.name,
+              strict: REFLECTION_RESPONSE_FORMAT.strict,
+              schema: REFLECTION_RESPONSE_FORMAT.schema,
+            },
+          },
+          max_tokens: initiate ? 1_400 : 900,
+          store: false,
+        }),
+      });
+      if (fallbackResponse.ok) {
+        const fallbackPayload = await fallbackResponse.json() as ChatCompletionsApiResponse;
+        const text = fallbackPayload.choices?.[0]?.message?.content;
+        if (typeof text === "string" && text.trim()) {
+          providerPayload = {
+            status: "completed",
+            output: [{ type: "message", content: [{ type: "output_text", text }] }],
+            usage: {
+              input_tokens: fallbackPayload.usage?.prompt_tokens,
+              output_tokens: fallbackPayload.usage?.completion_tokens,
+              total_tokens: fallbackPayload.usage?.total_tokens,
+            },
+          };
+          usedModel = "gpt-4o-mini";
+        }
+      }
+    }
   } catch {
     providerPayload = null;
   }
@@ -252,7 +298,7 @@ export async function POST(request: NextRequest) {
   if (!providerPayload || providerPayload.status !== "completed") {
     await recordReflectionOutcome({
       userId: user.id, conversationId: body.conversationId, mode: body.mode,
-      promptCharCount: body.prompt.length, model, tokensInput: usage?.input_tokens ?? null,
+      promptCharCount: body.prompt.length, model: usedModel, tokensInput: usage?.input_tokens ?? null,
       tokensOutput: usage?.output_tokens ?? null, totalTokens: usage?.total_tokens ?? null,
       latencyMs, outcome: "provider_failed", safetyFlags: ["response_provider_unavailable"],
     }).catch(() => undefined);
@@ -270,7 +316,7 @@ export async function POST(request: NextRequest) {
     const outputModeration = await moderateReflectionTextResilient(
       apiKey,
       `${answer.answer}\n${answer.reflectionQuestion}\n${answer.nextStep || ""}`,
-      model,
+      "gpt-4o-mini",
     );
     if (!outputModeration.ok || outputModeration.flagged) {
       answer = safeFallbackResponse(user.preferredLocale);
@@ -284,7 +330,7 @@ export async function POST(request: NextRequest) {
     conversationId: body.conversationId,
     mode: body.mode,
     promptCharCount: body.prompt.length,
-    model,
+    model: usedModel,
     tokensInput: usage?.input_tokens ?? null,
     tokensOutput: usage?.output_tokens ?? null,
     totalTokens: usage?.total_tokens ?? null,

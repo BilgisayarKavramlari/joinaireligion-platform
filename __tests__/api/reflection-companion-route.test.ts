@@ -141,4 +141,38 @@ describe("POST /api/ai/query Reflection Companion", () => {
     expect(providerBody).not.toHaveProperty("conversation");
     expect(mockRecordReflectionOutcome).toHaveBeenCalledWith(expect.objectContaining({ outcome: "completed", totalTokens: 200 }));
   });
+
+  it("uses the non-stored strict Chat Completions fallback when Responses is unauthorized", async () => {
+    const answer = {
+      answer: "Pause and separate the observation from the interpretation.",
+      reflectionQuestion: "What do you know before deciding what it means?",
+      nextStep: "Write one observed fact.",
+      grounding: "lesson",
+    };
+    const fetchSpy = jest.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ flagged: false, categories: {} }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response("forbidden", { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(answer) } }],
+        usage: { prompt_tokens: 90, completion_tokens: 50, total_tokens: 140 },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ flagged: false, categories: {} }] }), { status: 200 }));
+
+    const response = await POST(request(validBody()));
+    expect(response.status).toBe(200);
+    expect((await response.json()).answer).toEqual(answer);
+    const fallbackBody = JSON.parse(String((fetchSpy.mock.calls[2][1] as RequestInit).body));
+    expect(fallbackBody).toMatchObject({
+      model: "gpt-4o-mini",
+      store: false,
+      messages: [{ role: "system" }, { role: "user" }],
+      response_format: { type: "json_schema", json_schema: { strict: true } },
+    });
+    expect(fallbackBody).not.toHaveProperty("tools");
+    expect(mockRecordReflectionOutcome).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "completed",
+      model: "gpt-4o-mini",
+      totalTokens: 140,
+    }));
+  });
 });
