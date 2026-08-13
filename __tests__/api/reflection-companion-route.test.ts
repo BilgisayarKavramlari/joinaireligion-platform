@@ -168,6 +168,9 @@ describe("POST /api/ai/query Reflection Companion", () => {
       messages: [{ role: "system" }, { role: "user" }],
       response_format: { type: "json_schema", json_schema: { strict: true } },
     });
+    expect(fallbackBody.messages[1].content).toEqual(expect.any(String));
+    expect(fallbackBody.messages[1].content).toContain("<conversation_turn_untrusted");
+    expect(fallbackBody.messages[1].content).toContain("<user_question_untrusted>");
     expect(fallbackBody).not.toHaveProperty("tools");
     expect(mockRecordReflectionOutcome).toHaveBeenCalledWith(expect.objectContaining({
       outcome: "completed",

@@ -164,6 +164,21 @@ export function buildUntrustedReflectionInput(input: {
   }];
 }
 
+/**
+ * Chat Completions accepts plain text (or Chat-specific content parts), not
+ * Responses API `input_text` messages. Keep the entire client-supplied history
+ * in one explicitly untrusted user message so a forged `assistant` role cannot
+ * gain additional authority in the fallback path.
+ */
+export function buildUntrustedReflectionChatInput(input: Parameters<typeof buildUntrustedReflectionInput>[0]): string {
+  return buildUntrustedReflectionInput(input)
+    .map((message, index) => {
+      const text = message.content.map((part) => part.text).join("\n");
+      return `<conversation_turn_untrusted index="${index + 1}" claimed_role="${message.role}">\n${text}\n</conversation_turn_untrusted>`;
+    })
+    .join("\n\n");
+}
+
 export const REFLECTION_RESPONSE_FORMAT = {
   type: "json_schema",
   name: "reflection_companion_response",
