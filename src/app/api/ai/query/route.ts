@@ -8,6 +8,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit
 import { resolveEntitlements } from "@/lib/membership";
 import {
   buildReflectionInstructions,
+  buildUntrustedReflectionChatInput,
   buildUntrustedReflectionInput,
   crisisResponse,
   detectsCrisisLanguage,
@@ -264,7 +265,7 @@ export async function POST(request: NextRequest) {
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: buildReflectionInstructions(body.mode, user.preferredLocale, !initiate) },
-            { role: "user", content: buildUntrustedReflectionInput({ prompt: body.prompt, history: body.history, lesson: lesson?.lesson || null }) },
+            { role: "user", content: buildUntrustedReflectionChatInput({ prompt: body.prompt, history: body.history, lesson: lesson?.lesson || null }) },
           ],
           response_format: {
             type: "json_schema",
