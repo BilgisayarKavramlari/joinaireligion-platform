@@ -64,6 +64,8 @@ Business portfolio → Page/Instagram linkage → developer app → permissions/
 
 ### Human gates
 
+Verified progress on 2026-08-12: app `262900168` exists and its association with organization Page `143125933` is verified. The Community Management Development request is paused at the six-digit business-email verification code. The portal has not persisted the privacy-policy URL despite valid update attempts; do not represent that field as complete.
+
 1. Create or claim the Join AI Religion organization Page and retain a verified human super admin.
 2. Create a new developer app with no other API products, associate it with the organization Page, and have a Page super admin verify the association.
 3. Request Community Management Development tier access. LinkedIn currently vets this for registered legal organizations and commercial use cases; the request requires a verified business email, legal organization details, website, privacy policy, and Page verification. Do not misrepresent organization status if that eligibility gate is not met.
