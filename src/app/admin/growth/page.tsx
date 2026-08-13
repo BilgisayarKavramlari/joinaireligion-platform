@@ -134,7 +134,25 @@ export default async function AdminGrowthPage() {
             <h1 style={{ fontFamily: "Georgia,serif", color: "#f0d47a", margin: 0 }}>Traffic & Growth</h1>
             <p style={{ color: "rgba(237,232,220,.52)", fontSize: ".8rem" }}>Cookie-free daily sessions, minimized acquisition attribution and aggregate owned-social engagement.</p>
           </div>
-          <Link href="/admin" style={{ color: "#c9a227" }}>Dashboard</Link>
+          <div style={{ display: "flex", alignItems: "center", gap: ".8rem", flexWrap: "wrap" }}>
+            <form action="/api/admin/reflection-companion/launch" method="post">
+              <button
+                type="submit"
+                style={{
+                  border: "1px solid rgba(201,162,39,.45)",
+                  borderRadius: ".55rem",
+                  background: "rgba(201,162,39,.12)",
+                  color: "#f0d47a",
+                  cursor: "pointer",
+                  font: "inherit",
+                  padding: ".65rem .85rem",
+                }}
+              >
+                Launch Reflection Companion campaign
+              </button>
+            </form>
+            <Link href="/admin" style={{ color: "#c9a227" }}>Dashboard</Link>
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: ".8rem", marginBottom: "1rem" }}>
