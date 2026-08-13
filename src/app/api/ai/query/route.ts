@@ -26,10 +26,7 @@ import {
   reflectionQuotaStatus,
   reserveReflectionUsage,
 } from "@/lib/reflection-abuse";
-
-type ModerationResponse = {
-  results?: Array<{ flagged?: boolean; categories?: Record<string, boolean> }>;
-};
+import { moderateReflectionText } from "@/lib/reflection-provider";
 
 type ResponsesApiResponse = {
   status?: string;
@@ -77,24 +74,6 @@ function outputText(payload: ResponsesApiResponse): string {
     .map((item) => item.text as string)
     .join("")
     .trim();
-}
-
-async function moderate(apiKey: string, input: string): Promise<{ flagged: boolean; flags: string[] } | null> {
-  try {
-    const response = await fetchJsonWithTimeout("https://api.openai.com/v1/moderations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "omni-moderation-latest", input }),
-    }, 15_000);
-    if (!response.ok) return null;
-    const payload = await response.json() as ModerationResponse;
-    const result = payload.results?.[0];
-    if (!result) return null;
-    const flags = Object.entries(result.categories || {}).filter(([, active]) => active).map(([name]) => name).slice(0, 20);
-    return { flagged: Boolean(result.flagged), flags };
-  } catch {
-    return null;
-  }
 }
 
 async function currentProductUser(request: NextRequest) {
@@ -220,12 +199,12 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ error: messages[reservation.code], quotaExceeded: true, budgetCode: reservation.code }, 429, { "Retry-After": String(reservation.retryAfter) });
   }
 
-  const inputModeration = await moderate(apiKey, untrustedText);
-  if (!inputModeration) {
+  const inputModeration = await moderateReflectionText(apiKey, untrustedText);
+  if (!inputModeration.ok) {
     await recordReflectionOutcome({
       userId: user.id, conversationId: body.conversationId, mode: body.mode,
       promptCharCount: body.prompt.length, model: null, tokensInput: null, tokensOutput: null, totalTokens: null,
-      latencyMs: 0, outcome: "provider_failed", safetyFlags: ["input_moderation_unavailable"],
+      latencyMs: 0, outcome: "provider_failed", safetyFlags: [`input_moderation_${inputModeration.failureCode}`],
     }).catch(() => undefined);
     return noStoreJson({ error: "Safety screening is temporarily unavailable." }, 503);
   }
@@ -288,11 +267,11 @@ export async function POST(request: NextRequest) {
     outcome = "output_blocked";
     safetyFlags = ["structured_or_policy_validation_failed"];
   } else {
-    const outputModeration = await moderate(apiKey, `${answer.answer}\n${answer.reflectionQuestion}\n${answer.nextStep || ""}`);
-    if (!outputModeration || outputModeration.flagged) {
+    const outputModeration = await moderateReflectionText(apiKey, `${answer.answer}\n${answer.reflectionQuestion}\n${answer.nextStep || ""}`);
+    if (!outputModeration.ok || outputModeration.flagged) {
       answer = safeFallbackResponse(user.preferredLocale);
       outcome = "output_blocked";
-      safetyFlags = outputModeration?.flags || ["output_moderation_unavailable"];
+      safetyFlags = outputModeration.ok ? outputModeration.flags : [`output_moderation_${outputModeration.failureCode}`];
     }
   }
 
