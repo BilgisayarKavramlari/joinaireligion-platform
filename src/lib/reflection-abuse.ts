@@ -208,6 +208,7 @@ export async function recordReflectionOutcome(input: {
   latencyMs: number;
   outcome: "completed" | "input_blocked" | "output_blocked" | "provider_failed" | "crisis_redirect";
   safetyFlags: string[];
+  providerFailureCode?: string;
   unlinkUser?: boolean;
 }) {
   const path = input.unlinkUser ? "/companion" : reflectionSessionPath(input.conversationId);
@@ -234,6 +235,9 @@ export async function recordReflectionOutcome(input: {
     await activity;
     return;
   }
+  const providerFailureCode = input.outcome === "provider_failed"
+    ? String(input.providerFailureCode || "provider_unknown").replace(/[^a-z0-9_+.-]/g, "").slice(0, 160)
+    : undefined;
   await db.$transaction([
     db.aiDialogue.create({
       data: {
@@ -247,7 +251,12 @@ export async function recordReflectionOutcome(input: {
         tokensOutput: input.tokensOutput,
         totalTokens: input.totalTokens,
         latencyMs: input.latencyMs,
-        safetyFlags: { outcome: input.outcome, flagCount: input.safetyFlags.length, containsConversationText: false },
+        safetyFlags: {
+          outcome: input.outcome,
+          flagCount: input.safetyFlags.length,
+          containsConversationText: false,
+          ...(providerFailureCode ? { providerFailureCode } : {}),
+        },
         checklistSnapshot: {
           version: "reflection-safety-v1",
           deterministicInputGate: true,

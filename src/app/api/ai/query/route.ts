@@ -230,6 +230,7 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now();
   let providerPayload: ResponsesApiResponse | null = null;
   let usedModel = model;
+  const providerFailureCodes: string[] = [];
   try {
     const providerResponse = await fetchJsonWithTimeout("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -248,7 +249,12 @@ export async function POST(request: NextRequest) {
         safety_identifier: hashedSafetyIdentifier(user.id, hashSecret),
       }),
     });
-    if (providerResponse.ok) providerPayload = await providerResponse.json() as ResponsesApiResponse;
+    if (providerResponse.ok) {
+      providerPayload = await providerResponse.json() as ResponsesApiResponse;
+      if (providerPayload.status !== "completed") providerFailureCodes.push("responses_incomplete");
+    } else {
+      providerFailureCodes.push(`responses_http_${providerResponse.status}`);
+    }
 
     if (!providerPayload || providerPayload.status !== "completed") {
       const fallbackResponse = await fetchJsonWithTimeout("https://api.openai.com/v1/chat/completions", {
@@ -286,11 +292,16 @@ export async function POST(request: NextRequest) {
             },
           };
           usedModel = "gpt-4o-mini";
+        } else {
+          providerFailureCodes.push("chat_empty");
         }
+      } else {
+        providerFailureCodes.push(`chat_http_${fallbackResponse.status}`);
       }
     }
   } catch {
     providerPayload = null;
+    providerFailureCodes.push("provider_network_or_parse");
   }
 
   const latencyMs = Date.now() - startedAt;
@@ -301,6 +312,7 @@ export async function POST(request: NextRequest) {
       promptCharCount: body.prompt.length, model: usedModel, tokensInput: usage?.input_tokens ?? null,
       tokensOutput: usage?.output_tokens ?? null, totalTokens: usage?.total_tokens ?? null,
       latencyMs, outcome: "provider_failed", safetyFlags: ["response_provider_unavailable"],
+      providerFailureCode: providerFailureCodes.join("+").slice(0, 160) || "provider_unknown",
     }).catch(() => undefined);
     return noStoreJson({ error: "Reflection Companion is temporarily unavailable. This attempt was stopped within the daily safety budget." }, 503);
   }
