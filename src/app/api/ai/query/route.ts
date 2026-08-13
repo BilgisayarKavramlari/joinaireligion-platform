@@ -26,7 +26,7 @@ import {
   reflectionQuotaStatus,
   reserveReflectionUsage,
 } from "@/lib/reflection-abuse";
-import { moderateReflectionText } from "@/lib/reflection-provider";
+import { moderateReflectionTextResilient } from "@/lib/reflection-provider";
 
 type ResponsesApiResponse = {
   status?: string;
@@ -199,7 +199,8 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ error: messages[reservation.code], quotaExceeded: true, budgetCode: reservation.code }, 429, { "Retry-After": String(reservation.retryAfter) });
   }
 
-  const inputModeration = await moderateReflectionText(apiKey, untrustedText);
+  const model = env.AI_REFLECTION_MODEL || "gpt-5-mini";
+  const inputModeration = await moderateReflectionTextResilient(apiKey, untrustedText, model);
   if (!inputModeration.ok) {
     await recordReflectionOutcome({
       userId: user.id, conversationId: body.conversationId, mode: body.mode,
@@ -220,7 +221,6 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ answer, safetyRedirect: true, quota: reservation });
   }
 
-  const model = env.AI_REFLECTION_MODEL || "gpt-5-mini";
   const initiate = entitlements.plan === "initiate" && entitlements.subscriptionActive;
   const startedAt = Date.now();
   let providerPayload: ResponsesApiResponse | null = null;
@@ -267,7 +267,11 @@ export async function POST(request: NextRequest) {
     outcome = "output_blocked";
     safetyFlags = ["structured_or_policy_validation_failed"];
   } else {
-    const outputModeration = await moderateReflectionText(apiKey, `${answer.answer}\n${answer.reflectionQuestion}\n${answer.nextStep || ""}`);
+    const outputModeration = await moderateReflectionTextResilient(
+      apiKey,
+      `${answer.answer}\n${answer.reflectionQuestion}\n${answer.nextStep || ""}`,
+      model,
+    );
     if (!outputModeration.ok || outputModeration.flagged) {
       answer = safeFallbackResponse(user.preferredLocale);
       outcome = "output_blocked";

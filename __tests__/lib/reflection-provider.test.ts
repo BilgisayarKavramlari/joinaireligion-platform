@@ -1,4 +1,4 @@
-import { moderateReflectionText } from "@/lib/reflection-provider";
+import { moderateReflectionText, moderateReflectionTextResilient } from "@/lib/reflection-provider";
 
 describe("Reflection provider moderation boundary", () => {
   afterEach(() => jest.restoreAllMocks());
@@ -27,6 +27,49 @@ describe("Reflection provider moderation boundary", () => {
       ok: false,
       failureCode,
       httpStatus: status,
+    });
+  });
+
+  it("uses a tool-free, non-stored structured classifier when the primary endpoint is unauthorized", async () => {
+    const fetchSpy = jest.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response("forbidden", { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        status: "completed",
+        output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({
+          allow: true,
+          crisis: false,
+          categories: [],
+        }) }] }],
+      }), { status: 200 }));
+
+    await expect(moderateReflectionTextResilient("test-key", "ordinary reflection", "gpt-5-mini")).resolves.toEqual({
+      ok: true,
+      flagged: false,
+      flags: [],
+      source: "structured_fallback",
+      primaryFailureCode: "authorization",
+    });
+    const fallbackBody = JSON.parse(String((fetchSpy.mock.calls[1][1] as RequestInit).body));
+    expect(fallbackBody).toMatchObject({
+      model: "gpt-5-mini",
+      store: false,
+      tools: [],
+      tool_choice: "none",
+      parallel_tool_calls: false,
+      truncation: "disabled",
+      text: { format: { type: "json_schema", strict: true } },
+    });
+  });
+
+  it("fails closed when both safety boundaries are unavailable", async () => {
+    jest.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response("forbidden", { status: 403 }))
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }));
+    await expect(moderateReflectionTextResilient("test-key", "ordinary reflection", "gpt-5-mini")).resolves.toEqual({
+      ok: false,
+      failureCode: "authorization",
+      httpStatus: 403,
+      fallbackUnavailable: true,
     });
   });
 });
