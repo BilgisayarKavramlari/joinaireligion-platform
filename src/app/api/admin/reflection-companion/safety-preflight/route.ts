@@ -27,7 +27,7 @@ export async function GET(): Promise<NextResponse> {
   const result = await moderateReflectionTextResilient(
     env.OPENAI_API_KEY,
     "Routine Reflection Companion safety availability check.",
-    env.AI_REFLECTION_MODEL || "gpt-5-mini",
+    "gpt-4o-mini",
   );
   return NextResponse.json({
     ok: result.ok,

@@ -34,12 +34,7 @@ describe("Reflection provider moderation boundary", () => {
     const fetchSpy = jest.spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response("forbidden", { status: 403 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        status: "completed",
-        output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({
-          allow: true,
-          crisis: false,
-          categories: [],
-        }) }] }],
+        choices: [{ message: { content: JSON.stringify({ allow: true, crisis: false, categories: [] }) } }],
       }), { status: 200 }));
 
     await expect(moderateReflectionTextResilient("test-key", "ordinary reflection", "gpt-5-mini")).resolves.toEqual({
@@ -53,11 +48,11 @@ describe("Reflection provider moderation boundary", () => {
     expect(fallbackBody).toMatchObject({
       model: "gpt-5-mini",
       store: false,
-      tools: [],
-      tool_choice: "none",
-      parallel_tool_calls: false,
-      truncation: "disabled",
-      text: { format: { type: "json_schema", strict: true } },
+      messages: [
+        { role: "system" },
+        { role: "user" },
+      ],
+      response_format: { type: "json_schema", json_schema: { strict: true } },
     });
   });
 
