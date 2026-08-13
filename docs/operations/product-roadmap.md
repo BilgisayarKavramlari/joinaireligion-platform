@@ -76,6 +76,12 @@ Native iOS/Android work is deferred until at least 90 days of product evidence e
 
 `Circle of Six` is also deferred until a named moderation owner and escalation process exist. `Private Pause` remains a separate 18+ privacy and legal review track, not a growth release item.
 
+## Paid acquisition decision gate
+
+Paid advertising remains disabled. Phase 0 is a no-spend planning and readiness track covering privacy-safe funnel measurement, a dedicated campaign landing page, mature-cohort economics, an append-only spend ledger, an enforceable lifetime funding ceiling, and a tested pause/reconciliation circuit. A first pilot requires a separate owner decision covering the platform, budget, payment mode, country/language cell, creative, landing page, CAC/payback definition, and contextual-only targeting boundary.
+
+The current research order is Google Search, then Meta Reels/Stories, then Pinterest contextual discovery. Sensitive-belief targeting, customer lists, remarketing, lookalikes/actalikes, private user data, and audience expansion remain outside the pilot. The working project is [Paid acquisition readiness and pilot decision project](./tasks/2026-08-13-paid-acquisition-readiness-project.md).
+
 ## Current release gates recorded on 2026-07-28
 
 - the payment/session work passes 483 of 483 tests, the production type-check, Prisma validation/generation, and the optimized build
