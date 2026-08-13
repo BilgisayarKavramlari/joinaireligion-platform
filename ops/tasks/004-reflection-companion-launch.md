@@ -1,10 +1,10 @@
 # Task 004 — Reflection Companion product and campaign launch
 
-> **Status:** `implemented — production verification pending`
+> **Status:** `completed — released to production`
 > **Assigned to:** Coding Agent
 > **Requested by:** Project owner
 > **Date opened:** 2026-08-13
-> **Date closed:** —
+> **Date closed:** 2026-08-13
 
 ## Objective
 
@@ -33,6 +33,7 @@ This is a scope-bound owner override authorizing the application, package, campa
 - `src/app/api/ai/feedback/route.ts`
 - `src/app/api/ai/history/route.ts`
 - `src/app/api/admin/reflection-companion/launch/route.ts`
+- `src/app/api/admin/reflection-companion/preflight/route.ts`
 - `src/app/companion/page.tsx`
 - `src/app/account/page.tsx`
 - `src/app/account/billing/page.tsx`
@@ -56,6 +57,7 @@ This is a scope-bound owner override authorizing the application, package, campa
 - `src/lib/reflection-companion.ts`
 - `src/lib/reflection-copy.ts`
 - `src/lib/reflection-launch.ts`
+- `src/lib/reflection-provider.ts`
 - `docs/architecture.md`
 - `docs/content-policy.md`
 - `docs/operations/social/account-inventory.md`
@@ -144,5 +146,5 @@ Implemented the member-only Reflection Companion, consistent plan entitlements, 
 
 - **Reviewer:** Coding Agent automated release gates
 - **Date:** 2026-08-13
-- **Decision:** `approved for PR and production workflow`
-- **Notes:** Focused suite 38/38 passed; full serial suite 679/679 passed; production build passed; high-severity production dependency audit found zero vulnerabilities; desktop and 390 px mobile layouts passed visual review. The parallel CI-style suite produced only a pre-existing Pinterest helper timeout; the same helper passed 2/2 in isolation and the entire suite passed in serial execution.
+- **Decision:** `approved, deployed, and live-verified`
+- **Notes:** Focused suite 38/38 and full serial suite 679/679 passed for the main release; subsequent provider and language fixes passed their focused suites and every main-branch CI gate. Production SHA `5a9434992153` is healthy with the database connected. Two real member canaries completed through the active safe provider fallback, including a Turkish-language response; aggregate admin evidence shows zero privacy violations. The eight-locale campaign and configured-provider social package were published without a migration or secret change.

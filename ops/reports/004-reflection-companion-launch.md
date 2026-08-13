@@ -1,8 +1,8 @@
 # Report 004 — Reflection Companion product and campaign launch
 
-## Result before production deployment
+## Production result
 
-Reflection Companion is implemented as a member-only product with lesson-grounded access for Free/Seeker and an additional life-reflection mode for Initiate. The release requires no database migration. Product, package, navigation, landing, account, pricing, privacy/EULA, agent registry, aggregate reporting, campaign, and social-card surfaces now use one consistent contract.
+Reflection Companion is live as a member-only product with lesson-grounded access for Free/Seeker and an additional life-reflection mode for Initiate. The release required no database migration or secret change. Product, package, navigation, landing, account, pricing, privacy/EULA, agent registry, aggregate reporting, campaign, and social-card surfaces use one consistent contract.
 
 ## Entitlement contract
 
@@ -49,4 +49,15 @@ Free and paid users receive the same safety, moderation, correctness, and non-au
 
 ## Production evidence
 
-Pending the normal GitHub pull request, merge, CI/deploy workflow, health/SHA check, authenticated admin launch, live member flow, and public provider verification. These steps do not require a migration or secret change.
+- Release and hardening changes were merged through PRs [#48](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/48), [#49](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/49), [#50](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/50), [#51](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/51), [#52](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/52), [#53](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/53), [#54](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/54), and [#55](https://github.com/BilgisayarKavramlari/joinaireligion-platform/pull/55).
+- Final application deployment: SHA `5a9434992153b091eaa3114a06c0c30f6f5b3441`; [CI/deploy run 31753174257](https://github.com/BilgisayarKavramlari/joinaireligion-platform/actions/runs/31753174257) passed security audit, tests, type-check, build, and production deployment.
+- `https://joinaireligion.com/api/health` returned `200` with `ok:true` at 2026-08-13 23:19 UTC. The signed admin operations view showed the same SHA, database connected, OpenAI generation mode, live email, and live configured social providers.
+- Authenticated Initiate canaries consumed the durable quota before generation and completed through the active structured fallback. The second successful canary answered a Turkish question in Turkish after language pinning. The aggregate-only admin view showed six canary turns, two completed outcomes, 2,815 tokens, and zero privacy violations; no question, answer, email, or conversation identifier appeared there.
+- The preferred Moderation and Responses endpoints returned authorization failures for the current restricted key. Production therefore uses the fail-closed, tool-free, non-stored Chat Completions safety classifier and answer fallback. The earlier malformed fallback request was isolated as the text-free code `responses_http_403+chat_http_400`, fixed, deployed, and then verified by two successful canaries. Granting narrowly scoped write access to `/v1/moderations` and `/v1/responses` remains a non-blocking provider-hardening improvement that requires an authenticated OpenAI Platform account.
+
+## Campaign delivery evidence
+
+- The signed admin launch action completed `reflection-companion-launch`, `social-listener-draft`, and `social-publisher` on 2026-08-13. A safe retry completed the single remaining provider; the final package recorded Mastodon, Facebook, Instagram, Threads, and Bluesky as complete with no skipped, ambiguous, or failed providers.
+- All eight localized Insights articles returned `200` at `/content/{locale}/reflection-companion-{locale}-launch` for `en`, `tr`, `es`, `de`, `fr`, `ar`, `ru`, and `zh`; the localized social card returned `200 image/jpeg`.
+- Public campaign posts were independently verified on [Mastodon](https://mastoturk.org/@joinaireligion/117090553096661723), [Bluesky](https://bsky.app/profile/joinaireligion.bsky.social/post/3msyowgpcoq2g), [Threads](https://www.threads.com/@joinaireligion/post/Db_z6-VCbDX), and [Instagram](https://www.instagram.com/joinaireligion/p/Db_0WT3jDEe/). Facebook is provider-confirmed as published, but a logged-out public permalink could not be captured independently.
+- A few immediate campaign-article sessions appeared from Facebook and Threads, but the sample is too small and may include link previews. No language, package, or content strategy change is justified from that signal.
