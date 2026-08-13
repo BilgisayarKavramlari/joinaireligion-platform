@@ -1,6 +1,6 @@
 # Social account inventory
 
-Last updated: 2026-08-11
+Last updated: 2026-08-13
 
 This file stores public, non-secret account identifiers and connection state only. Passwords, tokens, recovery data, personal identity fields, and OAuth codes must never be written here.
 
@@ -52,6 +52,10 @@ Medium public story verification (manual publication; not an API delivery): `htt
 | Threads | Text post and article link | Locale-specific post selected from the eight-draft package | None unless authorization fails |
 
 All providers use one verified brand account. Separate language accounts are not created automatically; they require a real owner-controlled account and 90 days of aggregate evidence showing enough language-specific volume to justify the operational cost.
+
+## Reflection Companion launch rule
+
+The Reflection Companion release uses one deterministic eight-locale Insights article and one idempotent social package. Configured providers receive the locale selected by language policy v4, with the public article as the attributed source and `reflection_companion_launch` as the campaign label. Copy may describe member access, plan limits, privacy at the Join AI Religion application layer, and non-authority safeguards. It must not imply zero provider retention, therapeutic monitoring, spiritual authority, guaranteed outcomes, or stronger answer safety for paid members. The campaign has no advertising-spend, direct-message, reply, follow, or like authority.
 
 ## Setup-required queue
 

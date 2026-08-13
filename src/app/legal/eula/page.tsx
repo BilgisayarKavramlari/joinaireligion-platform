@@ -257,6 +257,17 @@ export default function EulaPage() {
             choice does not permit background or future access to other entries.
           </p>
           <p style={{ marginTop: "0.8rem" }}>
+            <strong>Reflection Companion:</strong> Live questions require a verified member
+            account, an explicit per-session processing notice, and the plan limits shown at the
+            time of use. Join AI Religion does not retain Reflection Companion question or answer
+            text. Text-free quota, security, cost, latency, token, and usefulness metadata may be
+            retained for up to 90 days. Provider application-state storage is disabled, but OpenAI
+            may retain API abuse-monitoring logs containing customer content for up to 30 days
+            under its default data controls unless stronger approved provider controls apply. The
+            feature is not monitored live and is not a religious authority, therapist, crisis
+            line, or professional adviser.
+          </p>
+          <p style={{ marginTop: "0.8rem" }}>
             <strong>Private Data Boundaries:</strong> Private journals, private practice notes,
             schedules, and check-ins are not public posts and are not provided to content, SEO,
             growth, or social-media agents. Routine reminder and product-insight automation is

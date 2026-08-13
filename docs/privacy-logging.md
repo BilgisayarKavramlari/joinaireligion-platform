@@ -41,6 +41,10 @@ Religious or philosophical worldview data and writing that may reveal health, tr
 
 - AI access to private journals is off by default and opt-in per entry. Store the scope and time of the user's choice without copying the entry text into the consent log.
 - A guided reflection or AI conversation is processed when the user intentionally submits it for the requested response; the interface must make that processing clear before submission.
+- Reflection Companion question and answer text is ephemeral at the application layer: provider application-state storage is disabled with `store:false`, application persistence uses no text, and routine logs/admin/agents never receive the text. Do not describe this as zero provider retention: under default OpenAI API data controls, abuse-monitoring logs may contain customer content and be retained for up to 30 days unless the project is approved and configured for stronger controls.
+- Store only the constant placeholder `[not retained]`, prompt character count, model identifier, token counts, latency, coarse safety outcome, quota events, daily keyed network hash, and optional useful/not-useful vote. Do not store user-agent text for Reflection Companion.
+- Reflection Companion operational rows expire after 90 days. Daily keyed network hashes rotate at UTC midnight and are used only for abuse/cost protection.
+- Crisis redirects are counted only as unlinked, text-free aggregate events. Provider moderation category names are not persisted; linked operational rows store only a coarse outcome and flag count so safety telemetry cannot become a sensitive user profile.
 - Do not use private writing for advertising, SEO, social publishing, public content generation, or unrelated model/product improvement.
 - Do not assign a spiritual, psychological, diagnostic, or personal-worth score to private writing. Completion-only metrics must remain separate from content evaluation.
 - Derived summaries are still personal data when they can be linked back to a user. Apply the same retention, export, deletion, and access rules to them.

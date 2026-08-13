@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/content/topics`, changeFrequency: "weekly", priority: 0.8 },
     ...TOPIC_CLUSTERS.map((cluster) => ({ url: `${baseUrl}/content/topics/${cluster.slug}`, changeFrequency: "weekly" as const, priority: 0.75 })),
     { url: `${baseUrl}/pricing`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/companion`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${baseUrl}/podcast`, changeFrequency: "weekly", priority: 0.75 },
     { url: `${baseUrl}/videos`, changeFrequency: "weekly", priority: 0.75 },
     { url: `${baseUrl}/meaning-map`, changeFrequency: "monthly", priority: 0.85 },

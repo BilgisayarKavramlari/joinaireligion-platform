@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
 import { levelForXp, levelTitle, xpCeilingForLevel } from "@/lib/journey-types";
 import { getJourneyPlannerCopy } from "@/lib/journey-planner-copy";
+import { getReflectionCopy } from "@/lib/reflection-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ import { getJourneyPlannerCopy } from "@/lib/journey-planner-copy";
 export default function AccountPage() {
   const { t, lang } = useLanguage();
   const plannerCopy = getJourneyPlannerCopy(lang);
+  const reflectionCopy = getReflectionCopy(lang);
   const router = useRouter();
   const { user, status } = useSession();
 
@@ -44,6 +46,7 @@ export default function AccountPage() {
   const levelName    = levelTitle(currentLevel);
 
   const NAV_ITEMS = [
+    { href: "/companion",           icon: "✦",   label: reflectionCopy.nav,     desc: reflectionCopy.subtitle     },
     { href: "/account/profile",     icon: "⚗️",  label: t.account.profile,      desc: t.account.profileDesc      },
     { href: "/account/billing",     icon: "💎",  label: t.account.membership,   desc: t.account.membershipDesc   },
     { href: "/prompt-guide",        icon: "🧭",  label: t.account.yourJourney,  desc: t.account.yourJourneyDesc  },

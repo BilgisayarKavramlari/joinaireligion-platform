@@ -18,6 +18,9 @@ export type MembershipEntitlements = {
   dailyLessonAttempt: boolean;
   dailyPractice: boolean;
   aiDailyLimit: number;
+  reflectionDailySessions: number;
+  reflectionTurnsPerSession: number;
+  reflectionLifeMode: boolean;
 };
 
 export function parseCheckoutCurrency(value: unknown): CheckoutCurrency | null {
@@ -77,6 +80,9 @@ export function resolveEntitlements(subscription: MembershipLike): MembershipEnt
     supporterBadge: subscriptionActive && (plan === "seeker" || plan === "initiate"),
     dailyLessonAttempt: initiate,
     dailyPractice: initiate,
-    aiDailyLimit: initiate ? 50 : 3,
+    aiDailyLimit: initiate ? 24 : 3,
+    reflectionDailySessions: initiate ? 3 : 1,
+    reflectionTurnsPerSession: initiate ? 8 : 3,
+    reflectionLifeMode: initiate,
   };
 }

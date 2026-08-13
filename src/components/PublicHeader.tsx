@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
 import type { LangCode } from "@/lib/i18n/dict";
 import { VisualThemePicker } from "@/components/VisualThemePicker";
+import { getReflectionCopy } from "@/lib/reflection-copy";
 
 const LANG_LIST: { code: LangCode; flag: string; name: string }[] = [
   { code: "en", flag: "🇬🇧", name: "English" },
@@ -26,6 +27,7 @@ export function PublicHeader() {
   const langRef = useRef<HTMLDivElement>(null);
   const { lang, setLang, t } = useLanguage();
   const { user, status, refreshSession, clearSession } = useSession();
+  const reflectionCopy = getReflectionCopy(lang);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -105,6 +107,7 @@ export function PublicHeader() {
             ["Meaning Map", "/meaning-map"],
             ["Audio", "/podcast"],
             ["Video", "/videos"],
+            [reflectionCopy.nav, "/companion"],
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],
@@ -285,6 +288,7 @@ export function PublicHeader() {
             ["Meaning Map", "/meaning-map"],
             ["Audio", "/podcast"],
             ["Video", "/videos"],
+            [reflectionCopy.nav, "/companion"],
             [t.nav.pricing, "/pricing"],
             [t.nav.donate, "/donate"],
             [t.nav.promptGuide, "/prompt-guide"],
@@ -331,7 +335,10 @@ export function PublicHeader() {
       )}
 
       <style>{`
-        @media (max-width: 768px) {
+        @media (max-width: 1320px) {
+          .header-desktop-theme, .header-desktop-register { display: none !important; }
+        }
+        @media (max-width: 1100px) {
           .header-desktop-nav { display: none !important; }
           .header-desktop-theme, .header-desktop-account, .header-desktop-register { display: none !important; }
           .header-mobile-btn  { display: block !important; }

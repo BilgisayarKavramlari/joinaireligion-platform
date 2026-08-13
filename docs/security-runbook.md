@@ -25,6 +25,16 @@ The in-process limiter currently uses conservative one-hour windows for sensitiv
 - `INTERNAL_AGENT_API_KEY`.
 - Session cookies are server-side random tokens; rotate by deleting rows in `Session` if compromise is suspected.
 - `OPENAI_API_KEY`.
+
+## Reflection Companion cost and abuse controls
+
+- `AI_REFLECTION_ENABLED=false` is the immediate feature kill switch; absence means enabled after all other safe configuration checks pass.
+- `AI_REFLECTION_MODEL` may pin an approved model; the default is `gpt-5-mini`.
+- `AI_REFLECTION_GLOBAL_DAILY_LIMIT` defaults to 1,000 paid generation reservations across the service.
+- `AI_REFLECTION_FREE_IP_DAILY_LIMIT` defaults to 24 reservations per daily keyed network hash; `AI_REFLECTION_INITIATE_IP_DAILY_LIMIT` defaults to 72.
+- `ANALYTICS_HASH_SECRET` or `CRON_SECRET` is required to create non-reversible daily network and safety identifiers. Raw IP addresses, prompts, answers, cookies, and user-agent strings must not be logged.
+- A request reserves account, session, network, and global budget before provider generation. Provider errors still consume the reservation to prevent deliberate error-driven retry amplification.
+- Emergency shutdown order: set the feature kill switch, confirm `/api/ai/query` returns 503, inspect aggregate `reflection_response_completed` outcomes and provider status without reading content, then restore only after the failure category is understood.
 - Stripe secret key and Stripe webhook secret.
 - Resend API key.
 - Database password and any backup credentials.

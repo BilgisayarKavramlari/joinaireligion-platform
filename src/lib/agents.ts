@@ -196,6 +196,23 @@ export const AGENT_GOVERNANCE_ROLES: AgentGovernanceRole[] = [
 
 export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
+    agentName: "reflection-companion-launch",
+    title: "Reflection Companion Launch Orchestrator",
+    description: "Publishes the owner-approved multilingual product release once and hands only public, independently gated copy to the configured social pipeline.",
+    lifecycle: "IMPLEMENTED",
+    mode: "LIVE",
+    schedule: { kind: "manual", label: "Owner-scoped release trigger" },
+    backlogLabel: "product launch release artifacts",
+    policy: {
+      autonomyLevel: 3,
+      allowedActions: ["publish the deterministic eight-locale launch article", "create one idempotent launch artifact", "invoke the existing configured-provider social pipeline", "record provider-neutral delivery evidence"],
+      forbiddenActions: ["read or publish member questions or answers", "spend advertising money", "message or target individual users", "change provider credentials", "publish claims outside the owner-approved launch facts"],
+      escalationConditions: ["content gate rejection", "locale coverage below eight", "unexpected provider or publication volume", "private text appears in campaign inputs"],
+      defaultSafeBoundaries: ["explicit owner command required", "public product facts only", "one fingerprinted release", "configured providers only", "no engagement actions", "full AgentRun audit"],
+      decisionLog: DECISION_LOG_CONTRACT,
+    },
+  },
+  {
     agentName: "practice-generator",
     title: "Practice Generator",
     description: "Builds scheduled practice messages for eligible users.",
@@ -334,15 +351,15 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   {
     agentName: "content-performance",
     title: "Content & Acquisition Performance Analyst",
-    description: "Aggregates minimized first-party traffic, owned-social engagement and content feedback; publishes the daily admin report and feeds only thresholded signals back into future content and locale selection.",
+    description: "Aggregates minimized first-party traffic, owned-social engagement, content feedback, and text-free Reflection Companion performance; publishes the daily admin report and feeds only thresholded signals back into future content and locale selection.",
     lifecycle: "IMPLEMENTED",
     mode: "LIVE",
     schedule: { kind: "daily_utc", label: "Daily at 04:30 UTC", cron: "30 4 * * *", hour: 4, minute: 30 },
     backlogLabel: "published content awaiting aggregation",
     policy: {
       autonomyLevel: 2,
-      allowedActions: ["aggregate anonymous content and acquisition metrics", "read aggregate counters for owned social posts", "update performance scores", "reversibly unpublish content with strong negative signals", "create and email daily admin performance reports"],
-      forbiddenActions: ["store raw IP addresses", "store full referrer URLs or analytics query strings", "profile individual users", "link pseudonymous visitor sessions across days", "delete content", "change publication safety thresholds at runtime"],
+      allowedActions: ["aggregate anonymous content and acquisition metrics", "read aggregate counters for owned social posts", "aggregate text-free Reflection Companion outcomes above privacy thresholds", "expire 90-day Reflection Companion operational metadata", "update performance scores", "reversibly unpublish content with strong negative signals", "create and email daily admin performance reports"],
+      forbiddenActions: ["read or store Reflection Companion question or answer text", "store raw IP addresses", "store full referrer URLs or analytics query strings", "profile individual users", "link pseudonymous visitor sessions across days", "delete content", "change publication safety or budget thresholds at runtime"],
       escalationConditions: ["unexpected metric volume", "database growth anomaly", "provider analytics authorization repeatedly fails", "repeated automatic unpublishing"],
       defaultSafeBoundaries: ["aggregate-only learning", "minimum sample thresholds", "daily rotating session hash", "90-day raw analytics retention", "reversible unpublish", "no deletion of content"],
       decisionLog: DECISION_LOG_CONTRACT,

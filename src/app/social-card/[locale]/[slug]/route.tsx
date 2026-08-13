@@ -21,18 +21,26 @@ const THEMES: Record<string, { primary: string; secondary: string; symbol: strin
   values: { primary: "#14b8a6", secondary: "#3b82f6", symbol: "^" },
   responsible_ai: { primary: "#7c3aed", secondary: "#06b6d4", symbol: "AI" },
   comparative_culture: { primary: "#c9a227", secondary: "#8b5cf6", symbol: "O" },
+  "product-education": { primary: "#c9a227", secondary: "#7c3aed", symbol: "✦" },
 };
 
-const CARD_COPY: Record<string, { series: string; action: string }> = {
-  en: { series: "GUIDED REFLECTION SERIES", action: "READ THE FULL REFLECTION" },
-  tr: { series: "REHBERLİ DÜŞÜNME SERİSİ", action: "YAZININ TAMAMINI OKUYUN" },
-  es: { series: "SERIE DE REFLEXIÓN GUIADA", action: "LEER LA REFLEXIÓN COMPLETA" },
-  de: { series: "REIHE FÜR GEFÜHRTE REFLEXION", action: "VOLLSTÄNDIGEN TEXT LESEN" },
-  fr: { series: "SÉRIE DE RÉFLEXION GUIDÉE", action: "LIRE LA RÉFLEXION COMPLÈTE" },
-  ar: { series: "سلسلة التأمل الموجّه", action: "اقرأ التأمل كاملاً" },
-  ru: { series: "СЕРИЯ НАПРАВЛЕННЫХ РАЗМЫШЛЕНИЙ", action: "ПРОЧИТАТЬ ПОЛНЫЙ ТЕКСТ" },
-  zh: { series: "引导式思考系列", action: "阅读全文" },
+const CARD_COPY: Record<string, { series: string; action: string; productSeries: string; productAction: string }> = {
+  en: { series: "GUIDED REFLECTION SERIES", action: "READ THE FULL REFLECTION", productSeries: "REFLECTION COMPANION", productAction: "DISCOVER & ASK" },
+  tr: { series: "REHBERLİ DÜŞÜNME SERİSİ", action: "YAZININ TAMAMINI OKUYUN", productSeries: "REFLEKSİYON REHBERİ", productAction: "KEŞFET & SOR" },
+  es: { series: "SERIE DE REFLEXIÓN GUIADA", action: "LEER LA REFLEXIÓN COMPLETA", productSeries: "COMPAÑERO DE REFLEXIÓN", productAction: "DESCUBRIR Y PREGUNTAR" },
+  de: { series: "REIHE FÜR GEFÜHRTE REFLEXION", action: "VOLLSTÄNDIGEN TEXT LESEN", productSeries: "REFLEXIONSBEGLEITER", productAction: "ENTDECKEN & FRAGEN" },
+  fr: { series: "SÉRIE DE RÉFLEXION GUIDÉE", action: "LIRE LA RÉFLEXION COMPLÈTE", productSeries: "COMPAGNON DE RÉFLEXION", productAction: "DÉCOUVRIR ET QUESTIONNER" },
+  ar: { series: "سلسلة التأمل الموجّه", action: "اقرأ التأمل كاملاً", productSeries: "رفيق التأمل", productAction: "اكتشف واسأل" },
+  ru: { series: "СЕРИЯ НАПРАВЛЕННЫХ РАЗМЫШЛЕНИЙ", action: "ПРОЧИТАТЬ ПОЛНЫЙ ТЕКСТ", productSeries: "ПОМОЩНИК ДЛЯ РЕФЛЕКСИИ", productAction: "УЗНАТЬ И СПРОСИТЬ" },
+  zh: { series: "引导式思考系列", action: "阅读全文", productSeries: "反思伙伴", productAction: "了解并提问" },
 };
+
+export function socialCardCampaignCopy(locale: string, category: string) {
+  const copy = CARD_COPY[locale] || CARD_COPY.en;
+  return category === "product-education"
+    ? { series: copy.productSeries, action: copy.productAction }
+    : { series: copy.series, action: copy.action };
+}
 
 export function socialCardDimensions(preset: string | null) {
   return preset === "instagram"
@@ -104,7 +112,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const preset = new URL(request.url).searchParams.get("preset");
   const dimensions = socialCardDimensions(preset);
   const theme = THEMES[variant.contentItem.category] || THEMES.reflection;
-  const copy = CARD_COPY[variant.locale] || CARD_COPY.en;
+  const copy = socialCardCampaignCopy(variant.locale, variant.contentItem.category);
   const visual = discoverVisualCoordinates(variant.slug);
   const summary = Array.from(variant.summary).slice(0, preset === "pinterest" ? 240 : preset === "discover" ? 145 : 190).join("");
   const jpegCachePath = socialCardCachePath(locale, slug, preset);
