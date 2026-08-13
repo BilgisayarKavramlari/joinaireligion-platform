@@ -14,6 +14,7 @@ import {
   detectsCrisisLanguage,
   detectsPromptInjection,
   hashedSafetyIdentifier,
+  inferReflectionResponseLocale,
   outputViolatesReflectionPolicy,
   parseReflectionRequest,
   parseStructuredReflectionAnswer,
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
 
   const body = parseReflectionRequest(await request.json().catch(() => null));
   if (!body) return noStoreJson({ error: "Invalid or oversized reflection request." }, 400);
+  const responseLocale = inferReflectionResponseLocale(body.prompt, user.preferredLocale);
   const entitlements = resolveEntitlements(user.subscription);
   if (body.mode === "life" && !entitlements.reflectionLifeMode) {
     return noStoreJson({ error: "Life Reflection is available with Initiate membership.", upgradeRequired: true }, 403);
@@ -161,7 +163,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (detectsCrisisLanguage(body.prompt)) {
-    const answer = crisisResponse(user.preferredLocale);
+    const answer = crisisResponse(responseLocale);
     await recordReflectionOutcome({
       userId: user.id,
       conversationId: body.conversationId,
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
   }
   if (inputModeration.flagged) {
     const selfHarm = inputModeration.flags.some((flag) => flag.startsWith("self-harm"));
-    const answer = selfHarm ? crisisResponse(user.preferredLocale) : safeFallbackResponse(user.preferredLocale);
+    const answer = selfHarm ? crisisResponse(responseLocale) : safeFallbackResponse(responseLocale);
     await recordReflectionOutcome({
       userId: user.id, conversationId: body.conversationId, mode: body.mode,
       promptCharCount: body.prompt.length, model: null, tokensInput: null, tokensOutput: null, totalTokens: null,
@@ -238,7 +240,7 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model,
-        instructions: buildReflectionInstructions(body.mode, user.preferredLocale, !initiate),
+        instructions: buildReflectionInstructions(body.mode, responseLocale, !initiate),
         input: buildUntrustedReflectionInput({ prompt: body.prompt, history: body.history, lesson: lesson?.lesson || null }),
         text: { format: REFLECTION_RESPONSE_FORMAT },
         max_output_tokens: initiate ? 1_400 : 900,
@@ -264,7 +266,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: buildReflectionInstructions(body.mode, user.preferredLocale, !initiate) },
+            { role: "system", content: buildReflectionInstructions(body.mode, responseLocale, !initiate) },
             { role: "user", content: buildUntrustedReflectionChatInput({ prompt: body.prompt, history: body.history, lesson: lesson?.lesson || null }) },
           ],
           response_format: {
@@ -322,7 +324,7 @@ export async function POST(request: NextRequest) {
   let outcome: "completed" | "output_blocked" = "completed";
   let safetyFlags: string[] = [];
   if (!answer || outputViolatesReflectionPolicy(answer)) {
-    answer = safeFallbackResponse(user.preferredLocale);
+    answer = safeFallbackResponse(responseLocale);
     outcome = "output_blocked";
     safetyFlags = ["structured_or_policy_validation_failed"];
   } else {
@@ -332,7 +334,7 @@ export async function POST(request: NextRequest) {
       "gpt-4o-mini",
     );
     if (!outputModeration.ok || outputModeration.flagged) {
-      answer = safeFallbackResponse(user.preferredLocale);
+      answer = safeFallbackResponse(responseLocale);
       outcome = "output_blocked";
       safetyFlags = outputModeration.ok ? outputModeration.flags : [`output_moderation_${outputModeration.failureCode}`];
     }

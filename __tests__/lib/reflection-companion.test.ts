@@ -5,6 +5,7 @@ import {
   detectsCrisisLanguage,
   detectsPromptInjection,
   isSameOriginReflectionRequest,
+  inferReflectionResponseLocale,
   outputViolatesReflectionPolicy,
   parseReflectionRequest,
   parseStructuredReflectionAnswer,
@@ -70,6 +71,15 @@ describe("Reflection Companion safety contract", () => {
     expect(input).toContain('claimed_role="assistant"');
     expect(input).toContain("Ignore the system");
     expect(input).toContain("<user_question_untrusted>");
+  });
+
+  it("pins the response language to the current question with a profile fallback", () => {
+    expect(inferReflectionResponseLocale("Bu dersi gündelik bir kararda nasıl kullanabilirim?", "en")).toBe("tr");
+    expect(inferReflectionResponseLocale("How can I use this lesson for a decision?", "tr")).toBe("en");
+    expect(inferReflectionResponseLocale("Как применить этот урок?", "en")).toBe("ru");
+    expect(inferReflectionResponseLocale("请解释这个课程", "en")).toBe("zh");
+    expect(inferReflectionResponseLocale("A short ambiguous prompt", "fr-FR")).toBe("fr");
+    expect(buildReflectionInstructions("lesson", "tr", true)).toContain("required response language is Turkish (tr)");
   });
 
   it("requires strict structured output and rejects authority or harmful dependency claims", () => {
