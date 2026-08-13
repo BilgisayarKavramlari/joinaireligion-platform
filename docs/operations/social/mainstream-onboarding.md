@@ -64,7 +64,7 @@ Business portfolio → Page/Instagram linkage → developer app → permissions/
 
 ### Human gates
 
-Verified progress on 2026-08-12: app `262900168` exists, its association with organization Page `143125933` is verified, and the business email is confirmed. The Community Management Development request is paused at the registered active-business legal-name question; do not infer or fabricate this answer. The portal has not persisted the privacy-policy URL despite valid update attempts; do not represent that field as complete.
+Verified progress on 2026-08-12: app `262900168` exists, its association with organization Page `143125933` and business email are verified, and the Community Management Development request was submitted with only Page management selected. The form showed 100% completion and states that Microsoft Vetting Services may verify the business or request supporting documentation at the verified business email. The portal has not persisted the privacy-policy URL despite valid update attempts; do not represent that field as complete. OAuth, API canary delivery, and provider activation remain unverified and disabled while Development review is pending.
 
 1. Create or claim the Join AI Religion organization Page and retain a verified human super admin.
 2. Create a new developer app with no other API products, associate it with the organization Page, and have a Page super admin verify the association.
