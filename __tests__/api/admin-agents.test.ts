@@ -98,7 +98,11 @@ describe("GET /api/admin/agents", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.agents).toHaveLength(18);
+    expect(body.agents).toHaveLength(19);
+
+    const reflectionLaunch = body.agents.find((agent: { agentName: string }) => agent.agentName === "reflection-companion-launch");
+    expect(reflectionLaunch).toMatchObject({ lifecycle: "IMPLEMENTED", mode: "LIVE", autonomyLevel: 3 });
+    expect(reflectionLaunch.policy.forbiddenActions).toContain("read or publish member questions or answers");
 
     const practiceGenerator = body.agents.find((agent: { agentName: string }) => agent.agentName === "practice-generator");
     const supportTriage = body.agents.find((agent: { agentName: string }) => agent.agentName === "support-triage");

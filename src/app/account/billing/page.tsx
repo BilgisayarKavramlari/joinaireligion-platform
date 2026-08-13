@@ -25,7 +25,7 @@ const PLANS = [
     icon: "🌙",
     color: "rgba(168,85,247,0.08)",
     border: "rgba(168,85,247,0.35)",
-    features: ["Monthly support donation", "Supporter badge on profile", "1 prompt attempt per week", "Access to all 12 traditions"],
+    features: ["Monthly support donation", "Supporter badge on profile", "1 lesson session and 3 Reflection Companion turns per day", "Access to all 12 traditions"],
   },
   {
     id: "initiate" as Plan,
@@ -35,7 +35,7 @@ const PLANS = [
     icon: "☀️",
     color: "rgba(201,162,39,0.08)",
     border: "rgba(201,162,39,0.4)",
-    features: ["Full active membership", "1 prompt attempt per day", "Personalized AI-generated lessons", "All 12 wisdom traditions", "Priority support"],
+    features: ["Full active membership", "3 guided sessions and up to 24 Reflection Companion turns per day", "Lesson Companion and Life Reflection", "Longer guided context", "All 12 wisdom traditions", "Priority support"],
   },
 ];
 
@@ -155,7 +155,7 @@ export default function BillingPage() {
             )}
             {!isActive && (
               <p style={{ fontSize: "0.72rem", color: "rgba(237,232,220,0.4)" }}>
-                Level {user?.currentLevel || 1} · 1 prompt attempt per week
+                Level {user?.currentLevel || 1} · 1 guided lesson session and 3 turns per day
               </p>
             )}
           </div>

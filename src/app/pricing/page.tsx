@@ -39,7 +39,7 @@ const PLANS = [
       "Monthly donation to support the platform",
       "Supporter badge on your profile",
       "Access to all 12 wisdom traditions",
-      "1 prompt attempt per week",
+      "1 guided lesson session and 3 Reflection Companion turns per day",
       "Sincere gratitude from the path",
     ],
   },
@@ -57,7 +57,9 @@ const PLANS = [
     btnClass: "btn-sacred-gold",
     features: [
       "Full Initiate membership",
-      "1 prompt attempt every day",
+      "3 guided sessions and up to 24 Reflection Companion turns per day",
+      "Lesson Companion plus Life Reflection mode",
+      "Longer context and deeper follow-up conversations",
       "Faster level progression",
       "Personalized AI-generated lessons",
       "All 12 wisdom traditions",
@@ -70,7 +72,7 @@ const PLANS = [
 const FREE_FEATURES = [
   "Complete the personality assessment",
   "Access Step 1 lesson",
-  "1 AI prompt attempt per week",
+  "1 guided lesson session and 3 Reflection Companion turns per day",
   "Track your XP and level",
   "View all 12 wisdom traditions",
 ];
@@ -285,7 +287,7 @@ export default function PricingPage() {
             <p style={{ fontSize: "0.62rem", letterSpacing: "0.3em", color: "rgba(237,232,220,0.4)", textTransform: "uppercase", marginBottom: "0.3rem" }}>Always Free</p>
             <h3 className="font-sacred" style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.3rem" }}>🌿 {t.pricing.freeTier}</h3>
             <p style={{ fontSize: "0.78rem", color: "rgba(237,232,220,0.45)", lineHeight: 1.6 }}>
-              Begin your journey with no cost. Register, complete the personality assessment, and start walking the sacred path at your own pace.
+              Begin at no cost. Verified members can ask three lesson-grounded Reflection Companion questions each day; the same accuracy and safety standards apply to every plan.
             </p>
           </div>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
@@ -312,6 +314,7 @@ export default function PricingPage() {
           ["Is this a real religion?", "No. Join AI Religion is a fictional educational simulation for personal reflection and symbolic self-inquiry. It is not affiliated with any religious authority."],
           ["Can I cancel anytime?", "Yes. All memberships are month-to-month. Cancel at any time from your account dashboard."],
           ["What is the Seeker tier?", "The Seeker tier is a monthly donation to support the platform. It does not unlock additional features beyond the free tier — it is for those who wish to contribute."],
+          ["Are free AI answers less accurate?", "No. Free and paid members receive the same safety and accuracy standards. Initiate adds more guided sessions, longer context, and Life Reflection mode."],
           ["How do I level up?", "Complete 12 lessons per level, each evaluated by the AI guide. Pass the reflection prompt with sufficient depth to unlock the next lesson."],
         ].map(([q, a]) => (
           <div key={q as string} style={{ marginBottom: "1.2rem", textAlign: "left", padding: "1rem 1.2rem", borderRadius: "0.75rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(201,162,39,0.1)" }}>

@@ -13,7 +13,7 @@ export type LocalizedContentVariant = {
   seoTitle: string;
   seoDescription: string;
   faqBlocks: Array<{ question: string; answer: string }>;
-  source: "openai" | "fallback";
+  source: "openai" | "owner" | "fallback";
 };
 
 export type ContentGateResult = {

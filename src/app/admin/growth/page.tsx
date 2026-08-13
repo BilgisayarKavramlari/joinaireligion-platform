@@ -124,6 +124,7 @@ export default async function AdminGrowthPage() {
   const items = Array.isArray(social.items) ? social.items.map(record) : [];
   const providerSummaries = summarizeProviders(items);
   const emailDelivery = record(record(latestReport?.payload).emailDelivery);
+  const reflection = record(record(latestReport?.payload).reflection);
 
   return (
     <main style={{ minHeight: "100vh", background: "#04000c", color: "#ede8dc", padding: "2rem" }}>
@@ -144,6 +145,9 @@ export default async function AdminGrowthPage() {
           <StatCard label="Social likes" value={Number(totals.likes || 0)} note={`+${Number(delta.likes || 0)} since prior report`} />
           <StatCard label="Comments" value={Number(totals.comments || 0)} note={`+${Number(delta.comments || 0)} since prior report`} />
           <StatCard label="Shares" value={Number(totals.shares || 0)} note={`+${Number(delta.shares || 0)} since prior report`} />
+          <StatCard label="Reflection sessions" value={safeCount(reflection.sessions)} note={`${safeCount(reflection.turns)} reserved turns · ${reflection.sampleStatus === "directional" ? "directional sample" : "sample too small"}`} />
+          <StatCard label="Helpful responses" value={safeCount(reflection.helpful)} note={`${safeCount(reflection.notHelpful)} not helpful · text never shown`} />
+          <StatCard label="Safety redirects" value={safeCount(reflection.safetyRedirects)} note={`${safeCount(reflection.tokens)} tokens · aggregate only`} />
         </div>
 
         <p style={{ color: "rgba(237,232,220,.42)", fontSize: ".72rem", marginBottom: "1.2rem" }}>

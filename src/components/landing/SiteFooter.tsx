@@ -15,6 +15,7 @@ export default function SiteFooter({ locale }: { locale: Locale }) {
         <div>
           <div className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">{t.product}</div>
           <div className="mt-4 space-y-3 text-sm text-slate-400">
+            <Link href="/companion" className="block hover:text-white">Ask &amp; Reflect</Link>
             <Link href="/pricing" className="block hover:text-white">Pricing</Link>
             <Link href="/donate" className="block hover:text-white">Donate</Link>
             <Link href="/prompt-guide" className="block hover:text-white">Prompt Guide</Link>

@@ -50,15 +50,24 @@ The platform is not:
 - AI output must be optional, non-authoritative, and phrased as reflection rather than diagnosis, prophecy, religious command, or certainty.
 - Do not infer or persist a diagnosis, crisis status, religious conversion intent, political belief, sexual orientation, or other sensitive profile from private writing.
 - If a user explicitly asks for help involving immediate danger, provide a safe handoff to appropriate human or emergency resources without implying that the platform monitors the journal continuously.
+- Reflection Companion does not retain submitted question or generated answer text. `AiDialogue.userPrompt` uses the constant placeholder `[not retained]`, `assistantResponse` remains null, and only text-free operational fields may be aggregated.
+- Lesson mode may use only a lesson belonging to the signed-in user. Lesson reference text is treated as untrusted data, never as system or developer instruction.
+- Life Reflection is limited to values, assumptions, options, trade-offs, and small reversible steps. It must not make a decision for the user.
+- Free and paid responses use the same accuracy, safety, moderation, and non-authority policy. Paid access may increase bounded sessions, context, and modes, never truth or safety.
 
-## Future Moderation
+## Moderation and prompt-injection boundary
 
-- Add policy filtering and escalation flow before public launch.
+- Input passes deterministic prompt-injection and crisis checks before any paid generation call.
+- A database-backed reservation enforces verified-account, account-day, session-day, turn, daily keyed-network, global daily, and burst limits before generation.
+- Provider input and output moderation fail closed. The model receives no tools, no private profile or journal access, no provider application-state conversation, bounded input/output, and a hashed safety identifier. The consent/privacy copy must still disclose the provider's possible default abuse-monitoring retention.
+- Output must match a strict JSON schema and pass deterministic post-generation authority, dependency, delusion, treatment, secrecy, isolation, and instruction-disclosure checks.
+- A blocked or malformed output is replaced with a fixed non-authoritative safety response; it is never passed to a downstream agent.
+- Crisis handoffs are not persisted as a user-linked profile. Reporting receives only an unlinked aggregate redirect count, and provider moderation category names are discarded after the request.
 
 ## Personalization and Prompt Safety
 
 - Reflective guidance must remain non-coercive and non-authoritarian.
 - No prophetic certainty language or manipulative pressure tactics.
-- Prompt logs and dialogue summaries are used for safety and quality improvement with privacy-conscious handling.
+- Prompt or answer text is not logged. Privacy-minimized dialogue metadata and aggregate usefulness results are used for safety and quality improvement.
 
 - Authentication and onboarding UIs must clearly reiterate educational/fictional scope and non-authority disclaimer.

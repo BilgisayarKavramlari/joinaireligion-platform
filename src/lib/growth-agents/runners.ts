@@ -100,6 +100,11 @@ function safeError(error: unknown): string {
     .slice(0, 500);
 }
 
+function safeInteger(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : 0;
+}
+
 function asInputJson(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
@@ -320,9 +325,10 @@ async function generateTranslatedVariant(
 
 async function collectSafeContentSignals(now: Date) {
   const since = new Date(now.getTime() - 30 * 86_400_000);
-  const [feedbackCount, queryCount, responseCount, lessonAttemptCount, engagement, socialSnapshot, growthReport] = await Promise.all([
+  const [feedbackCount, legacyQueryCount, reflectionQueryCount, responseCount, lessonAttemptCount, engagement, socialSnapshot, growthReport] = await Promise.all([
     db.feedbackItem.count({ where: { createdAt: { gte: since } } }),
     db.aiQuery.count({ where: { createdAt: { gte: since } } }),
+    db.aiDialogue.count({ where: { createdAt: { gte: since } } }),
     db.practiceResponse.count({ where: { createdAt: { gte: since } } }),
     db.lessonAttempt.count({ where: { createdAt: { gte: since } } }),
     db.contentFeedbackMetric.aggregate({
@@ -340,6 +346,7 @@ async function collectSafeContentSignals(now: Date) {
       select: { id: true, createdAt: true, summary: true },
     }),
   ]);
+  const queryCount = legacyQueryCount + reflectionQueryCount;
 
   return [
     { sourceType: "AGGREGATE_FEEDBACK", summary: `${feedbackCount} feedback items in the last 30 days`, count: feedbackCount },
@@ -1057,6 +1064,7 @@ async function deliverDailyGrowthEmail(
   traffic30d: TrafficSummary,
   socialTotals: SocialEngagementMetrics,
   socialDelta: SocialEngagementMetrics,
+  reflection: { sessions: number; turns: number; helpful: number; notHelpful: number; safetyRedirects: number },
 ): Promise<{ status: "SENT" | "FAILED" | "LOG_ONLY"; sent: number; failed: number }> {
   const recipients = adminReportRecipients();
   if (!isSendingEnabled() || recipients.length === 0) return { status: "LOG_ONLY", sent: 0, failed: 0 };
@@ -1068,9 +1076,10 @@ async function deliverDailyGrowthEmail(
     `30-day sessions: ${traffic30d.sessions}.`,
     `Owned social totals: ${socialTotals.likes} likes, ${socialTotals.comments} comments, ${socialTotals.shares} shares.`,
     `Since prior snapshot: +${socialDelta.likes} likes, +${socialDelta.comments} comments, +${socialDelta.shares} shares.`,
+    `Reflection Companion: ${reflection.sessions} sessions, ${reflection.turns} reserved turns, ${reflection.helpful} helpful, ${reflection.notHelpful} not helpful, ${reflection.safetyRedirects} safety redirects.`,
     `Admin: ${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/admin/growth`,
   ].join("\n");
-  const html = `<h1>Daily growth — ${escapeHtml(dateKey)}</h1><p><strong>24h:</strong> ${traffic24h.sessions} sessions · ${traffic24h.pageViews} page views · ${traffic24h.registrationClicks} registration clicks</p><p><strong>Top sources:</strong> ${escapeHtml(topSources)}</p><p><strong>Owned social:</strong> ${socialTotals.likes} likes · ${socialTotals.comments} comments · ${socialTotals.shares} shares</p><p><strong>New since prior snapshot:</strong> +${socialDelta.likes} likes · +${socialDelta.comments} comments · +${socialDelta.shares} shares</p><p><a href="${escapeHtml(env.NEXT_PUBLIC_APP_URL.replace(/\/$/, ""))}/admin/growth">Open the admin growth dashboard</a></p>`;
+  const html = `<h1>Daily growth — ${escapeHtml(dateKey)}</h1><p><strong>24h:</strong> ${traffic24h.sessions} sessions · ${traffic24h.pageViews} page views · ${traffic24h.registrationClicks} registration clicks</p><p><strong>Top sources:</strong> ${escapeHtml(topSources)}</p><p><strong>Owned social:</strong> ${socialTotals.likes} likes · ${socialTotals.comments} comments · ${socialTotals.shares} shares</p><p><strong>New since prior snapshot:</strong> +${socialDelta.likes} likes · +${socialDelta.comments} comments · +${socialDelta.shares} shares</p><p><strong>Reflection Companion:</strong> ${reflection.sessions} sessions · ${reflection.turns} turns · ${reflection.helpful} helpful · ${reflection.notHelpful} not helpful · ${reflection.safetyRedirects} safety redirects</p><p><a href="${escapeHtml(env.NEXT_PUBLIC_APP_URL.replace(/\/$/, ""))}/admin/growth">Open the admin growth dashboard</a></p>`;
   const results = await Promise.all(recipients.map((to) => sendEmail({
     to,
     from: getFromAddress(),
@@ -1104,6 +1113,35 @@ async function buildDailyGrowthReport(agentRunId: string, now: Date) {
   const socialDelta = sumSocialMetrics(socialRows, "delta");
   const recommendations = reportRecommendations(traffic30d, socialRows);
   const analyticsEventsExpired = await deleteExpiredAnalyticsEvents(now, 90);
+  const reflectionSince = new Date(now.getTime() - 86_400_000);
+  const reflectionRows = await db.userActivityLog.findMany({
+    where: {
+      eventName: { in: ["reflection_session_started", "reflection_request_reserved", "reflection_response_completed", "reflection_feedback"] },
+      createdAt: { gte: reflectionSince, lte: now },
+    },
+    select: { eventName: true, metadata: true },
+    take: 20_000,
+  });
+  const reflection = reflectionRows.reduce((summary, row) => {
+    const metadata = asRecord(row.metadata);
+    if (row.eventName === "reflection_session_started") summary.sessions += 1;
+    if (row.eventName === "reflection_request_reserved") summary.turns += 1;
+    if (row.eventName === "reflection_response_completed") {
+      summary.completed += String(metadata.outcome || "") === "completed" ? 1 : 0;
+      summary.safetyRedirects += ["input_blocked", "output_blocked", "crisis_redirect"].includes(String(metadata.outcome || "")) ? 1 : 0;
+      summary.tokens += safeInteger(metadata.totalTokens);
+    }
+    if (row.eventName === "reflection_feedback") {
+      if (metadata.useful === true) summary.helpful += 1;
+      if (metadata.useful === false) summary.notHelpful += 1;
+    }
+    return summary;
+  }, { sessions: 0, turns: 0, completed: 0, helpful: 0, notHelpful: 0, safetyRedirects: 0, tokens: 0 });
+  const retentionCutoff = new Date(now.getTime() - 90 * 86_400_000);
+  const [reflectionEventsExpired, reflectionDialoguesExpired] = await Promise.all([
+    db.userActivityLog.deleteMany({ where: { eventName: { startsWith: "reflection_" }, createdAt: { lt: retentionCutoff } } }),
+    db.aiDialogue.deleteMany({ where: { userPrompt: "[not retained]", createdAt: { lt: retentionCutoff } } }),
+  ]);
   const payload = {
     period: { dateKey, generatedAt: now.toISOString() },
     traffic24h,
@@ -1117,8 +1155,15 @@ async function buildDailyGrowthReport(agentRunId: string, now: Date) {
       failed: socialRows.filter((row) => row.status === "FAILED").length,
     },
     recommendations,
+    reflection: {
+      ...reflection,
+      sampleStatus: reflection.turns >= 20 ? "directional" : "insufficient_sample",
+      strategyChangeAllowed: reflection.turns >= 20,
+      retentionExpired: reflectionEventsExpired.count + reflectionDialoguesExpired.count,
+      containsConversationText: false,
+    },
     feedbackPolicy: { minimumSessions: 20, leaderShare: 0.6, leaderMargin: 1.25, automaticSensitiveTargeting: false },
-    privacy: { rawIpStored: false, queryStringStored: false, userAgentStored: false, crossDayVisitorProfile: false, rawEventRetentionDays: 90 },
+    privacy: { rawIpStored: false, queryStringStored: false, userAgentStored: false, crossDayVisitorProfile: false, rawEventRetentionDays: 90, reflectionTextStored: false },
     containsUserLevelData: false,
   };
   const artifact = await createArtifact({
@@ -1137,7 +1182,7 @@ async function buildDailyGrowthReport(agentRunId: string, now: Date) {
   const priorEmail = asRecord(asRecord(stored?.payload).emailDelivery);
   let dailyEmailStatus = typeof priorEmail.status === "string" ? priorEmail.status : "PENDING";
   if (dailyEmailStatus !== "SENT") {
-    const emailDelivery = await deliverDailyGrowthEmail(dateKey, artifact.id, traffic24h, traffic30d, socialTotals, socialDelta);
+    const emailDelivery = await deliverDailyGrowthEmail(dateKey, artifact.id, traffic24h, traffic30d, socialTotals, socialDelta, reflection);
     dailyEmailStatus = emailDelivery.status;
     await db.agentArtifact.update({
       where: { id: artifact.id },
@@ -1279,10 +1324,13 @@ function buildRequiredUrlSocialCopy(text: string, contentUrl: string, maxCharact
   return `${Array.from(text).slice(0, available).join("")}${suffix}`;
 }
 
-export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAgentResult> {
+export async function runSocialListenerDraft(
+  now = new Date(),
+  options: { contentItemId?: string } = {},
+): Promise<GrowthAgentResult> {
   return executeAgent("social-listener-draft", "BUILD_SOCIAL_DRAFTS", now, async (agentRunId) => {
     const contentItem = await db.contentItem.findFirst({
-      where: { status: ContentWorkflowStatus.PUBLISHED },
+      where: { status: ContentWorkflowStatus.PUBLISHED, ...(options.contentItemId ? { id: options.contentItemId } : {}) },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
       include: { variants: { orderBy: { locale: "asc" } } },
     });
@@ -1315,7 +1363,9 @@ export async function runSocialListenerDraft(now = new Date()): Promise<GrowthAg
     const drafts = contentItem.variants.map((variant) => {
       const contentUrl = `https://joinaireligion.com/content/${variant.locale}/${variant.slug}`;
       const baseCopy = `${variant.title}: ${variant.summary}`;
-      const campaign = `organic_reflection_${dateKey}`;
+      const campaign = contentItem.category === "product-education"
+        ? "reflection_companion_launch"
+        : `organic_reflection_${dateKey}`;
       const urls = Object.fromEntries(
         (["linkedin", "x", "mastodon", "bluesky", "facebook", "instagram", "threads", "pinterest"] as const)
           .map((provider) => [provider, buildAttributedUrl(contentUrl, provider, campaign)]),
@@ -1467,7 +1517,7 @@ export function readSocialDeliveries(payload: unknown): SocialDelivery[] {
 
 export async function runSocialPublisher(
   now = new Date(),
-  options: { forceRetryFailedProviders?: boolean } = {},
+  options: { forceRetryFailedProviders?: boolean; artifactId?: string } = {},
 ): Promise<GrowthAgentResult> {
   return executeAgent("social-publisher", "PUBLISH_APPROVED_SOCIAL_PACKAGE", now, async () => {
     if (env.SOCIAL_PUBLISHING_ENABLED !== "true") {
@@ -1485,9 +1535,13 @@ export async function runSocialPublisher(
       orderBy: { createdAt: "desc" },
       take: 100,
     });
-    const artifact = readyArtifacts.find((candidate) => !isSocialPackageStale(candidate.createdAt, now));
-    const staleArtifacts = readyArtifacts.filter((candidate) => isSocialPackageStale(candidate.createdAt, now));
-    const supersededArtifacts = artifact
+    const artifact = options.artifactId
+      ? readyArtifacts.find((candidate) => candidate.id === options.artifactId && !isSocialPackageStale(candidate.createdAt, now))
+      : readyArtifacts.find((candidate) => !isSocialPackageStale(candidate.createdAt, now));
+    const staleArtifacts = options.artifactId
+      ? []
+      : readyArtifacts.filter((candidate) => isSocialPackageStale(candidate.createdAt, now));
+    const supersededArtifacts = !options.artifactId && artifact
       ? readyArtifacts.filter((candidate) => candidate.id !== artifact.id && !isSocialPackageStale(candidate.createdAt, now))
       : [];
     for (const archivedArtifact of [...staleArtifacts, ...supersededArtifacts]) {
@@ -1788,13 +1842,15 @@ export async function runLongFormDistributionPublisher(now = new Date()): Promis
 export async function runAdsReporting(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("ads-reporting", "BUILD_ADS_READINESS_REPORT", now, async (agentRunId) => {
     const since = new Date(now.getTime() - 30 * 86_400_000);
-    const [users, verifiedUsers, subscriptions, aiQueries, activityEvents] = await Promise.all([
+    const [users, verifiedUsers, subscriptions, legacyAiQueries, reflectionAiQueries, activityEvents] = await Promise.all([
       db.user.count({ where: { role: "USER" } }),
       db.user.count({ where: { role: "USER", emailVerifiedAt: { not: null } } }),
       db.subscription.groupBy({ by: ["status"], _count: { _all: true } }),
       db.aiQuery.count({ where: { createdAt: { gte: since } } }),
+      db.aiDialogue.count({ where: { createdAt: { gte: since } } }),
       db.userActivityLog.count({ where: { createdAt: { gte: since } } }),
     ]);
+    const aiQueries = legacyAiQueries + reflectionAiQueries;
     const dateKey = utcDateKey(now);
     const fingerprint = sha256Fingerprint(["ads-reporting", dateKey]);
     const readiness = verifiedUsers >= 25 ? "BASELINE_READY" : "INSUFFICIENT_BASELINE";
@@ -1823,14 +1879,21 @@ export async function runAdsReporting(now = new Date()): Promise<GrowthAgentResu
 export async function runCfoReporting(now = new Date()): Promise<GrowthAgentResult> {
   return executeAgent("cfo-reporting", "BUILD_CFO_OPERATING_REPORT", now, async (agentRunId) => {
     const since = new Date(now.getTime() - 30 * 86_400_000);
-    const [invoiceSummary, subscriptions, stripeEvents, aiTokenUsage, lessonTokenUsage, failedAgentRuns] = await Promise.all([
+    const [invoiceSummary, subscriptions, stripeEvents, legacyAiTokenUsage, reflectionAiTokenUsage, lessonTokenUsage, failedAgentRuns] = await Promise.all([
       db.invoiceRecord.groupBy({ by: ["currency", "status"], _count: { _all: true }, _sum: { amountCents: true } }),
       db.subscription.groupBy({ by: ["status"], _count: { _all: true } }),
       db.stripeWebhookEvent.groupBy({ by: ["status"], where: { createdAt: { gte: since } }, _count: { _all: true } }),
       db.aiQuery.aggregate({ where: { createdAt: { gte: since } }, _sum: { tokensUsed: true }, _count: { _all: true } }),
+      db.aiDialogue.aggregate({ where: { createdAt: { gte: since } }, _sum: { totalTokens: true }, _count: { _all: true } }),
       db.lessonAttempt.aggregate({ where: { createdAt: { gte: since } }, _sum: { tokensUsed: true }, _count: { _all: true } }),
       db.agentRun.count({ where: { status: AgentRunStatus.FAILED, createdAt: { gte: since } } }),
     ]);
+    const aiTokenUsage = {
+      totalQueries: legacyAiTokenUsage._count._all + reflectionAiTokenUsage._count._all,
+      totalTokens: (legacyAiTokenUsage._sum.tokensUsed || 0) + (reflectionAiTokenUsage._sum.totalTokens || 0),
+      legacy: legacyAiTokenUsage,
+      reflection: reflectionAiTokenUsage,
+    };
     const dateKey = utcDateKey(now);
     const fingerprint = sha256Fingerprint(["cfo-reporting", dateKey]);
     const recommendations = [

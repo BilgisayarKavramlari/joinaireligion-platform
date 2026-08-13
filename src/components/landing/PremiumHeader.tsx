@@ -76,6 +76,7 @@ export default function PremiumHeader({
         </Link>
 
         <nav className="hidden items-center gap-2 lg:flex">
+          <Link href="/companion" className="nav-link">Ask &amp; Reflect</Link>
           <Link href="/pricing" className="nav-link">{t.nav.pricing}</Link>
           <Link href="/donate" className="nav-link">{t.nav.donate}</Link>
           <Link href="/prompt-guide" className="nav-link">{t.nav.promptGuide}</Link>
@@ -139,6 +140,7 @@ export default function PremiumHeader({
       {mobileOpen ? (
         <div className="border-t border-white/10 px-5 py-3 lg:hidden">
           <div className="flex flex-col gap-2">
+            <Link href="/companion" className="nav-link">Ask &amp; Reflect</Link>
             <Link href="/pricing" className="nav-link">{t.nav.pricing}</Link>
             <Link href="/donate" className="nav-link">{t.nav.donate}</Link>
             <Link href="/prompt-guide" className="nav-link">{t.nav.promptGuide}</Link>

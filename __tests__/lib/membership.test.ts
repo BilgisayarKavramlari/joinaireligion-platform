@@ -58,7 +58,10 @@ describe("membership policy", () => {
       supporterBadge: true,
       dailyLessonAttempt: true,
       dailyPractice: true,
-      aiDailyLimit: 50,
+      aiDailyLimit: 24,
+      reflectionDailySessions: 3,
+      reflectionTurnsPerSession: 8,
+      reflectionLifeMode: true,
     });
     expect(resolveEntitlements({ status: "ACTIVE", planCode: "seeker" })).toMatchObject({
       plan: "seeker",
@@ -67,6 +70,9 @@ describe("membership policy", () => {
       dailyLessonAttempt: false,
       dailyPractice: false,
       aiDailyLimit: 3,
+      reflectionDailySessions: 1,
+      reflectionTurnsPerSession: 3,
+      reflectionLifeMode: false,
     });
   });
 

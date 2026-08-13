@@ -246,6 +246,7 @@ const LEVEL_DESCS = [
 ];
 
 const FEATURES_DATA = [
+  { icon: "✦", titleKey: "Reflection Companion", descKey: "Ask what a lesson left open. Get grounded questions and multiple perspectives without an AI telling you what to believe." },
   { icon: "◎", titleKey: "Personalized Reflection", descKey: "AI-assisted prompts calibrated to your worldview, practices, and the questions you actually carry." },
   { icon: "✉", titleKey: "Daily & Weekly Practice",  descKey: "Receive ritual practices matched to your journey level, language, and subscription rhythm." },
   { icon: "△", titleKey: "10-Level Journey System",  descKey: "Progress through symbolic initiations — each level unlocked by time, practice, and reflection." },
@@ -649,6 +650,9 @@ export default function LandingPage() {
               <Link href="/pricing" className="btn-sacred btn-sacred-ghost">
                 {L.ctaLevels}
               </Link>
+              <Link href="/companion?utm_source=homepage&utm_medium=product&utm_campaign=reflection_companion_launch" className="btn-sacred btn-sacred-violet">
+                Ask &amp; Reflect
+              </Link>
               <Link href="/donate" className="btn-sacred btn-sacred-violet">
                 {L.ctaDonate}
               </Link>
@@ -996,6 +1000,9 @@ export default function LandingPage() {
               </Link>
               <Link href="/prompt-guide" className="btn-sacred btn-sacred-ghost">
                 {L.ctaGuide}
+              </Link>
+              <Link href="/companion?utm_source=homepage&utm_medium=product&utm_campaign=reflection_companion_launch" className="btn-sacred btn-sacred-violet">
+                Ask &amp; Reflect
               </Link>
             </div>
           </motion.div>

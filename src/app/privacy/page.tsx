@@ -36,7 +36,7 @@ const privacyCopy = {
         ],
         bullets: [
           "Account and profile data, such as email address, display name, language, timezone, and optional onboarding answers, which may include a religious or philosophical worldview.",
-          "Service data, such as lesson progress, practice schedules, check-ins, durations, support requests, and the text you intentionally submit in a guided reflection or AI conversation.",
+          "Service data, such as lesson progress, practice schedules, check-ins, durations, support requests, and transient text you intentionally submit for a guided AI response. Reflection Companion question and answer text is processed for the requested response but is not retained by Join AI Religion; only text-free safety, quota, latency, token, and usefulness metadata is kept.",
           "Operational data, such as timestamps, security events, device or browser information, and hashed rather than raw IP addresses where IP-derived records are needed.",
           "Billing status and transaction references from Stripe. We do not store full payment-card details.",
         ],
@@ -52,12 +52,13 @@ const privacyCopy = {
         title: "3. AI choice and agent boundaries",
         body: [
           "AI access to a private journal is off by default. A journal entry may be sent for AI processing only when you take an explicit action for that specific entry. Consent for one entry does not grant background or future access to other entries.",
-          "A guided reflection or AI conversation is processed when you intentionally submit it to receive the requested evaluation or response. The interface should identify this processing before submission.",
+          "A guided reflection or AI conversation is processed only when you intentionally submit it and confirm the on-screen AI-processing notice. Reflection Companion sends the visible question and conversation context to OpenAI with provider application-state storage disabled; Join AI Religion does not retain that question or answer text. OpenAI may retain API abuse-monitoring logs containing customer content for up to 30 days under its default data controls unless stronger approved provider controls apply.",
         ],
         bullets: [
           "Reminder automation may use schedule, language, and delivery status, but not private note text.",
           "Product-insight automation may use aggregate counts and durations, but not identifiable journal text.",
           "Content, SEO, growth, and social-media agents have no access to private journals or private practice notes.",
+          "Content, SEO, growth, and social-media agents receive only thresholded aggregate Reflection Companion counts; they never receive question or answer text.",
           "Private writing is not automatically scored for spiritual, psychological, or personal worth and is not continuously monitored for emergencies.",
         ],
       },
@@ -81,6 +82,7 @@ const privacyCopy = {
         body: [
           "We retain account and service data only for as long as needed for the purpose described, your selected retention setting, security, dispute resolution, or legal obligations. Private-journal controls may offer 30-day, 90-day, 365-day, or keep-until-deleted choices.",
           "Minimized raw traffic events are retained for up to 90 days; aggregate daily growth reports may be retained longer for trend comparison. Browser Do Not Track and Global Privacy Control signals disable the client analytics beacon.",
+          "Text-free Reflection Companion operational metadata is retained for up to 90 days for quota enforcement, abuse prevention, cost control, safety evaluation, and aggregate reliability reporting. Daily keyed network hashes rotate and raw IP addresses are not stored for this feature.",
           "When you delete a journal entry or complete a verified deletion request, it is removed from active systems through the deletion process and then ages out of protected backups under the backup-retention schedule. Billing, fraud-prevention, and legal records may be retained separately when required, without retaining private journal text for those purposes.",
         ],
       },
@@ -118,7 +120,7 @@ const privacyCopy = {
         body: ["Sizin verdiğiniz bilgileri, hesabı işletmek için gereken verileri ve hizmetin güvenliği ile güvenilirliği için sınırlı teknik kayıtları toplarız."],
         bullets: [
           "E-posta, görünen ad, dil, saat dilimi ve dini veya felsefi dünya görüşü içerebilen isteğe bağlı onboarding yanıtları gibi hesap ve profil verileri.",
-          "Ders ilerlemesi, pratik programları, check-in kayıtları, süreler, destek talepleri ve yönlendirmeli refleksiyon ya da AI konuşmasına bilerek gönderdiğiniz metinler gibi hizmet verileri.",
+          "Ders ilerlemesi, pratik programları, check-in kayıtları, süreler ve destek talepleri gibi hizmet verileri. Reflection Companion'a bilerek gönderdiğiniz metin yalnızca istediğiniz yanıtı üretmek için geçici olarak işlenir; Join AI Religion soru veya yanıt metnini saklamaz. Yalnızca metin içermeyen güvenlik, kota, gecikme, token ve yararlılık ölçümleri tutulur.",
           "Zaman damgaları, güvenlik olayları, cihaz/tarayıcı bilgileri ve IP kaynaklı kayıt gerektiğinde ham IP yerine özetlenmiş IP gibi operasyonel veriler.",
           "Stripe'tan gelen faturalama durumu ve işlem referansları. Tam kart bilgilerini saklamayız.",
         ],
@@ -134,12 +136,13 @@ const privacyCopy = {
         title: "3. AI tercihi ve ajan sınırları",
         body: [
           "AI'ın özel günlüğe erişimi varsayılan olarak kapalıdır. Bir kayıt yalnızca o kayıt için açık bir işlem başlattığınızda AI'a gönderilebilir. Tek kayıt için verilen onay, diğer kayıtlara arka plan veya gelecekte erişim vermez.",
-          "Yönlendirmeli bir refleksiyon veya AI konuşması, istediğiniz değerlendirme ya da yanıtı almak için bilerek gönderdiğinizde işlenir. Arayüz bu işlemeyi gönderimden önce belirtmelidir.",
+          "Yönlendirmeli refleksiyon yalnızca soruyu bilerek gönderip ekrandaki AI işleme bildirimini onayladığınızda işlenir. Görünen soru ve konuşma bağlamı, uygulama durumu saklama kapalı olarak OpenAI'a gönderilir; Join AI Religion soru veya yanıt metnini saklamaz. Daha güçlü onaylı sağlayıcı kontrolleri uygulanmıyorsa OpenAI, müşteri içeriği barındırabilen API kötüye kullanım izleme kayıtlarını varsayılan veri kontrolleri kapsamında 30 güne kadar tutabilir.",
         ],
         bullets: [
           "Hatırlatma otomasyonu program, dil ve teslim durumunu kullanabilir; özel not metnini kullanamaz.",
           "Ürün içgörüsü otomasyonu toplu sayı ve süreleri kullanabilir; kimliği belirlenebilir günlük metnini kullanamaz.",
           "İçerik, SEO, büyüme ve sosyal medya ajanlarının özel günlük veya pratik notlarına erişimi yoktur.",
+          "İçerik, SEO, büyüme ve sosyal medya ajanları Reflection Companion için yalnızca eşik uygulanmış toplu sayıları alır; soru veya yanıt metnini alamaz.",
           "Özel yazılar manevi, psikolojik veya kişisel değer açısından otomatik puanlanmaz ve krizler için sürekli izlenmez.",
         ],
       },
@@ -163,6 +166,7 @@ const privacyCopy = {
         body: [
           "Hesap ve hizmet verilerini yalnızca belirtilen amaç, seçtiğiniz saklama ayarı, güvenlik, uyuşmazlık çözümü veya yasal zorunluluk için gerektiği sürece tutarız. Günlük ayarları 30, 90, 365 gün veya siz silene kadar seçenekleri sunabilir.",
           "Azaltılmış ham trafik olayları en fazla 90 gün saklanır; toplu günlük büyüme raporları eğilim karşılaştırması için daha uzun tutulabilir. Tarayıcıdaki Do Not Track ve Global Privacy Control sinyalleri istemci analitik işaretçisini kapatır.",
+          "Reflection Companion için metin içermeyen işletim ölçümleri kota, kötüye kullanım önleme, maliyet kontrolü, güvenlik değerlendirmesi ve toplu güvenilirlik raporlaması amacıyla en fazla 90 gün tutulur. Günlük anahtarlı ağ özetleri her gün değişir ve bu özellik için ham IP saklanmaz.",
           "Bir günlüğü sildiğinizde veya doğrulanmış silme talebi tamamlandığında veri aktif sistemlerden silme süreciyle kaldırılır ve korunan yedeklerden yedek saklama takvimine göre çıkar. Fatura ve yasal kayıtlar, özel günlük metni tutulmadan ayrı saklanabilir.",
         ],
       },

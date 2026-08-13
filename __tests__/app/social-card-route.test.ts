@@ -1,6 +1,6 @@
 jest.mock("@/lib/db", () => ({ db: { contentVariant: { findUnique: jest.fn() } } }));
 
-import { discoverVisualCoordinates, socialCardDimensions } from "@/app/social-card/[locale]/[slug]/route";
+import { discoverVisualCoordinates, socialCardCampaignCopy, socialCardDimensions } from "@/app/social-card/[locale]/[slug]/route";
 
 describe("social card visual presets", () => {
   it.each([
@@ -18,5 +18,11 @@ describe("social card visual presets", () => {
   it("creates deterministic per-article Discover compositions", () => {
     expect(discoverVisualCoordinates("attention-and-meaning")).toEqual(discoverVisualCoordinates("attention-and-meaning"));
     expect(discoverVisualCoordinates("attention-and-meaning")).not.toEqual(discoverVisualCoordinates("responsible-ai"));
+  });
+
+  it("uses a localized product-specific hierarchy for the Reflection Companion campaign", () => {
+    expect(socialCardCampaignCopy("en", "product-education")).toEqual({ series: "REFLECTION COMPANION", action: "DISCOVER & ASK" });
+    expect(socialCardCampaignCopy("tr", "product-education")).toEqual({ series: "REFLEKSİYON REHBERİ", action: "KEŞFET & SOR" });
+    expect(socialCardCampaignCopy("en", "reflection").series).toBe("GUIDED REFLECTION SERIES");
   });
 });
