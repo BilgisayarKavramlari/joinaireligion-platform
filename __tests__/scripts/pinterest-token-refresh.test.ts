@@ -22,6 +22,7 @@ async function runScript(options: {
   await mkdir(runtime);
 
   await executable(path.join(bin, "flock"), "#!/usr/bin/env bash\nexit 0\n");
+  await executable(path.join(bin, "sync"), "#!/usr/bin/env bash\nexit 0\n");
   await executable(path.join(bin, "curl"), `#!/usr/bin/env bash
 set -euo pipefail
 output=""
