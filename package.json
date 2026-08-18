@@ -31,6 +31,9 @@
     "seed": "node --import jiti/register prisma/seed.ts"
   },
   "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.1"
+    },
     "nanoid": "3.3.18",
     "next": {
       "postcss": "8.5.23",
